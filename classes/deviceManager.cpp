@@ -3,6 +3,7 @@
 #include <thread>
 #include <iostream>
 #include "deviceManager.h"
+#include <opencv2/core/core.hpp>
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
@@ -77,6 +78,14 @@ void deviceManager::startMotionDetection() {
   cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
   cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
   int count = 0;
+  VideoWriter myWriter;
+  int codec = VideoWriter::fourcc('M', 'J', 'P', 'G');
+  Size S = Size(width, height);
+  myWriter.open("/tmp/test.avi", codec, 5, S);
+  if (myWriter.isOpened() == false) {
+        cerr << "Could not open the output video file for write\n";
+        return;
+  }
   while (true) {
     if (this->stopSignal) {
       cout << "stopSignal received, exited" << endl;
@@ -105,12 +114,14 @@ void deviceManager::startMotionDetection() {
     this->overlayChangeRate(dispFrame, changeRate);
     this->overlayDatetime(dispFrame);
     imwrite("/tmp/md/prev" + to_string(count) + " .jpg", dispFrame);
+    myWriter.write(dispFrame);
     count ++;
     if (count > 50) {
       break;
     }
     
   }
+  myWriter.release();
   cap.release();
 
 }
