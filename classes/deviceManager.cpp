@@ -1,7 +1,11 @@
+#include <arpa/inet.h>
 #include <chrono>
 #include <ctime>
-#include <thread>
 #include <iostream>
+#include <sys/socket.h>
+#include <thread>
+
+
 #include "deviceManager.h"
 #include <opencv2/core/core.hpp>
 #include "opencv2/highgui/highgui.hpp"
@@ -63,6 +67,11 @@ bool deviceManager::captureImage(string imageSaveTo) {
 }
 
 void deviceManager::startMotionDetection() {
+  
+  
+
+
+
   this->stopSignal = false;
   Mat prevFrame, currFrame, diffFrame, grayDiffFrame, dispFrame;
   bool result = false;
