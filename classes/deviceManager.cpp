@@ -14,6 +14,29 @@
 using namespace std;
 using namespace cv;
 
+using sysclock_t = std::chrono::system_clock;
+
+string deviceManager::CurrentDate()
+{
+    std::time_t now = sysclock_t::to_time_t(sysclock_t::now());
+    //"19700101_000000"
+    char buf[16] = { 0 };
+    std::strftime(buf, sizeof(buf), "%Y%m%d_%H%M%S", std::localtime(&now));
+    
+    return std::string(buf);
+}
+
+
+string deviceManager::convertToString(char* a, int size)
+{
+    int i;
+    string s = "";
+    for (i = 0; i < size; i++) {
+        s = s + a[i];
+    }
+    return s;
+}
+
 deviceManager::deviceManager(string deviceUrl) {
   this->deviceUrl = deviceUrl;
 }
@@ -87,14 +110,9 @@ void deviceManager::startMotionDetection() {
   cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
   cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
   int count = 0;
-  VideoWriter myWriter;
-  int codec = VideoWriter::fourcc('M', 'J', 'P', 'G');
-  Size S = Size(width, height);
-  myWriter.open("/tmp/test.avi", codec, 5, S);
-  if (myWriter.isOpened() == false) {
-        cerr << "Could not open the output video file for write\n";
-        return;
-  }
+  FILE *output = nullptr;
+  int cooldown = 0;
+  
   while (true) {
     if (this->stopSignal) {
       cout << "stopSignal received, exited" << endl;
@@ -102,35 +120,55 @@ void deviceManager::startMotionDetection() {
     }
 
     result = cap.read(currFrame);
+    
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
       cout << "Unable to read() a new frame, "
            << "waiting for 10 sec and then trying to re-open() cv::VideoCapture\n";
     }
+    rotate(currFrame, currFrame, cv::ROTATE_90_CLOCKWISE);
     if (prevFrame.empty() == false) {
       absdiff(prevFrame, currFrame, diffFrame);
       cvtColor(diffFrame, grayDiffFrame, COLOR_BGR2GRAY);
       threshold(grayDiffFrame, grayDiffFrame, 32, 255, THRESH_BINARY);
       int nonZeroPixels = countNonZero(grayDiffFrame);
       changeRate = 100.0 * nonZeroPixels / totalPixels;
-      cout << "change ratio: " << changeRate << "%\n";
+     
       
       this->overlayDatetime(diffFrame);
       this->overlayChangeRate(diffFrame, changeRate);
       imwrite("/tmp/md/diff" + to_string(count) + " .jpg", diffFrame);
     }
+    
     prevFrame = currFrame.clone();
     dispFrame = currFrame.clone();
     this->overlayChangeRate(dispFrame, changeRate);
     this->overlayDatetime(dispFrame);
-    imwrite("/tmp/md/prev" + to_string(count) + " .jpg", dispFrame);
-    myWriter.write(dispFrame);
-    count ++;
-    if (count > 50) {
-      break;
+    
+    if (changeRate > 10 && changeRate < 50) {
+      
+      cooldown = 50;
+      if (output == nullptr) {
+        output = popen(
+          ("/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 -video_size 1080x1920 -framerate 10 -i pipe:0 -vcodec h264 /tmp/" + 
+          this->CurrentDate() + ".mp4").c_str(), "w");
+      }
     }
     
+    count ++;
+    if (cooldown >= 0) { cooldown --; }
+    if (cooldown == 0) { 
+      if (output != nullptr) { pclose(output); output = nullptr; } // No, you cannot pclose() a nullptr
+    }
+    if (cooldown > 0) {
+      for (size_t i = 0; i < dispFrame.dataend - dispFrame.datastart; i++)
+        fwrite(&dispFrame.data[i], sizeof(dispFrame.data[i]), 1, output);
+    }
+    if (count > 500) {
+      break;
+    }
+    cout << "count: " << count << ", cooldown: " << cooldown << ", changeRate: " << changeRate << "%\n";
   }
-  myWriter.release();
+
   cap.release();
 
 }

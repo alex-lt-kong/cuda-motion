@@ -16,7 +16,9 @@ public:
 private:
   string deviceUrl = "";
   bool stopSignal = false;
-
+  
+  string convertToString(char* a, int size);
+  string CurrentDate();
   void overlayDatetime(Mat frame);
   void overlayChangeRate(Mat frame, float changeRate); 
 };
