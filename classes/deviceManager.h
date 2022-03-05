@@ -8,17 +8,23 @@ using namespace cv;
 class deviceManager {
 
 public:
-  deviceManager(string deviceUrl);
+  deviceManager(string deviceUrl, string deviceName, string frameResolution, int frameRotation);
   bool captureImage(string imageSaveTo);
   void startMotionDetection();
   void stopMotionDetection();
 
 private:
-  string deviceUrl = "";
   bool stopSignal = false;
+  double fontSize = 1.2;
+  int frameRate = 5;
+  int frameRotation = -1;
+  string deviceUrl = "";
+  string deviceName = "";
+  string frameResolution = "";   
+
   
   string convertToString(char* a, int size);
   string CurrentDate();
   void overlayDatetime(Mat frame);
-  void overlayChangeRate(Mat frame, float changeRate); 
+  void overlayChangeRate(Mat frame, float changeRate, int cooldown);
 };
