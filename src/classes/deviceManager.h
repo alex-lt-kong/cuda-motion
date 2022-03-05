@@ -9,9 +9,11 @@ class deviceManager {
 
 public:
   deviceManager(string deviceUrl, string deviceName, string frameResolution, int frameRotation);
+  deviceManager();
   bool captureImage(string imageSaveTo);
   void startMotionDetection();
   void stopMotionDetection();
+  bool setParameters(string deviceUrl, string deviceName, string frameResolution, int frameRotation);
 
 private:
   bool stopSignal = false;

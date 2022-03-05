@@ -44,6 +44,17 @@ deviceManager::deviceManager(string deviceUrl, string deviceName, string frameRe
   this->frameRotation = frameRotation;
 }
 
+bool deviceManager::setParameters(string deviceUrl, string deviceName, string frameResolution, int frameRotation) {
+  this->deviceUrl = deviceUrl;
+  this->deviceName = deviceName;
+  this->frameResolution = frameResolution;
+  this->frameRotation = frameRotation;
+  return true;
+}
+
+deviceManager::deviceManager() {
+}
+
 void deviceManager::overlayDatetime(Mat frame) {
   time_t now;
   time(&now);
