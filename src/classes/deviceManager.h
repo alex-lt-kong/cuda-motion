@@ -12,7 +12,15 @@ public:
   bool captureImage(string imageSaveTo);
   void startMotionDetection();
   void stopMotionDetection();
-  bool setParameters(string deviceUrl, string deviceName, string frameResolution, int frameRotation, string snapshotPath, double fontScale);
+  bool setParameters(
+    string deviceUrl,
+    string deviceName,
+    string frameResolution,
+    int frameRotation,
+    string snapshotPath,
+    double fontScale,
+    string externalCommand,
+    string videoDirectory);
 
 private:
   bool stopSignal = false;
@@ -23,7 +31,8 @@ private:
   string deviceName = "";
   string frameResolution = "";   
   string snapshotPath = "";
-
+  string externalCommand = "";
+  string videoDirectory = "";
   
   string convertToString(char* a, int size);
   string CurrentDate();

@@ -45,13 +45,17 @@ bool deviceManager::setParameters(
   string frameResolution,
   int frameRotation,
   string snapshotPath,
-  double fontScale) {
+  double fontScale,
+  string externalCommand,
+  string videoDirectory) {
   this->deviceUrl = deviceUrl;
   this->deviceName = deviceName;
   this->frameResolution = frameResolution;
   this->frameRotation = frameRotation;
   this->snapshotPath = snapshotPath;
   this->fontScale = fontScale;
+  this->externalCommand = externalCommand;
+  this->videoDirectory = videoDirectory;
   return true;
 }
 
@@ -141,7 +145,7 @@ void deviceManager::startMotionDetection() {
   int totalPixels = width * height;
   cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
   cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
-  int frameCount = 0;
+  long long int frameCount = 0;
   FILE *output = nullptr;
   int cooldown = 0;
   
@@ -181,8 +185,9 @@ void deviceManager::startMotionDetection() {
         output = popen(
           ("/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 -video_size " + 
           this->frameResolution  + " -framerate " + 
-          to_string(this->frameRate) + " -i pipe:0 -vcodec h264 /tmp/" + 
-          this->deviceName + "_" + this->CurrentDate() + ".mp4").c_str(), "w");
+          to_string(this->frameRate) + " -i pipe:0 -vcodec h264 " + 
+          this->videoDirectory + "/" + this->deviceName + "_" + this->CurrentDate() + ".mp4").c_str(), "w");
+        system(("nohup " + this->externalCommand + " &").c_str());
       }
     }
     
@@ -195,7 +200,7 @@ void deviceManager::startMotionDetection() {
       for (size_t i = 0; i < dispFrame.dataend - dispFrame.datastart; i++)
         fwrite(&dispFrame.data[i], sizeof(dispFrame.data[i]), 1, output);
     }
-    if (frameCount > 500) {
+    if (frameCount > 2147483647) {
       break;
     }
     stringstream ssChangeRate;

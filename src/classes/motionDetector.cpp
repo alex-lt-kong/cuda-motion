@@ -48,7 +48,9 @@ void motionDetector::main() {
         jsonSettings["devices"][i]["resolution"],
         jsonSettings["devices"][i]["rotation"],
         jsonSettings["devices"][i]["snapshotPath"],
-        jsonSettings["devices"][i]["fontScale"]
+        jsonSettings["devices"][i]["fontScale"],
+        jsonSettings["devices"][i]["externalCommand"],
+        jsonSettings["devices"][i]["videoDirectory"]
       );
     deviceThreads[i] = thread(&deviceManager::startMotionDetection, myDevices[i]);
   }
