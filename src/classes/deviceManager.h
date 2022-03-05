@@ -8,21 +8,21 @@ using namespace cv;
 class deviceManager {
 
 public:
-  deviceManager(string deviceUrl, string deviceName, string frameResolution, int frameRotation);
   deviceManager();
   bool captureImage(string imageSaveTo);
   void startMotionDetection();
   void stopMotionDetection();
-  bool setParameters(string deviceUrl, string deviceName, string frameResolution, int frameRotation);
+  bool setParameters(string deviceUrl, string deviceName, string frameResolution, int frameRotation, string snapshotPath, double fontScale);
 
 private:
   bool stopSignal = false;
-  double fontSize = 1.2;
+  double fontScale = 1;
   int frameRate = 5;
   int frameRotation = -1;
   string deviceUrl = "";
   string deviceName = "";
   string frameResolution = "";   
+  string snapshotPath = "";
 
   
   string convertToString(char* a, int size);

@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <chrono>
 #include <ctime>
+#include "easylogging++.h"
 #include <iostream>
 #include <sys/socket.h>
 #include <thread>
@@ -37,18 +38,20 @@ string deviceManager::convertToString(char* a, int size)
     return s;
 }
 
-deviceManager::deviceManager(string deviceUrl, string deviceName, string frameResolution, int frameRotation) {
-  this->deviceUrl = deviceUrl;
-  this->deviceName = deviceName;
-  this->frameResolution = frameResolution;
-  this->frameRotation = frameRotation;
-}
 
-bool deviceManager::setParameters(string deviceUrl, string deviceName, string frameResolution, int frameRotation) {
+bool deviceManager::setParameters(
+  string deviceUrl,
+  string deviceName,
+  string frameResolution,
+  int frameRotation,
+  string snapshotPath,
+  double fontScale) {
   this->deviceUrl = deviceUrl;
   this->deviceName = deviceName;
   this->frameResolution = frameResolution;
   this->frameRotation = frameRotation;
+  this->snapshotPath = snapshotPath;
+  this->fontScale = fontScale;
   return true;
 }
 
@@ -60,8 +63,8 @@ void deviceManager::overlayDatetime(Mat frame) {
   time(&now);
   char buf[sizeof "1970-01-01 00:00:00"];
   strftime(buf, sizeof buf, "%F %T", localtime(&now));
-  putText(frame, buf, Point(5, 40), FONT_HERSHEY_DUPLEX, this->fontSize, Scalar(0,  0,  0  ), 6, LINE_AA , false);
-  putText(frame, buf, Point(5, 40), FONT_HERSHEY_DUPLEX, this->fontSize, Scalar(255,255,255), 2, LINE_AA , false);
+  putText(frame, buf, Point(5, 40), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,  0,  0  ), 10, LINE_AA, false);
+  putText(frame, buf, Point(5, 40), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255,255,255), 4, LINE_AA, false);
   /*
   void cv::putText 	(InputOutputArray  	img,
                     const String &  	text,
@@ -81,9 +84,9 @@ void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown)
   stringstream ssChangeRate;
   ssChangeRate << fixed << setprecision(2) << changeRate;
   putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ")", 
-          Point(5,frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontSize, Scalar(0,   0,   0  ), 6, LINE_AA , false);
+          Point(5,frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,   0,   0  ), 10, LINE_AA, false);
   putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ")",
-          Point(5,frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontSize, Scalar(255, 255, 255), 2, LINE_AA , false);
+          Point(5,frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255, 255, 255), 4, LINE_AA, false);
 }
 
 bool deviceManager::captureImage(string imageSaveTo) {
@@ -161,9 +164,7 @@ void deviceManager::startMotionDetection() {
       cvtColor(diffFrame, grayDiffFrame, COLOR_BGR2GRAY);
       threshold(grayDiffFrame, grayDiffFrame, 32, 255, THRESH_BINARY);
       int nonZeroPixels = countNonZero(grayDiffFrame);
-      changeRate = 100.0 * nonZeroPixels / totalPixels;
-     
-      
+      changeRate = 100.0 * nonZeroPixels / totalPixels;   
       this->overlayDatetime(diffFrame);
       this->overlayChangeRate(diffFrame, changeRate, -1);
       imwrite("/tmp/md/diff" + to_string(frameCount) + " .jpg", diffFrame);
@@ -173,9 +174,8 @@ void deviceManager::startMotionDetection() {
     dispFrame = currFrame.clone();
     this->overlayChangeRate(dispFrame, changeRate, cooldown);
     this->overlayDatetime(dispFrame);
-    
-    if (changeRate > 10 && changeRate < 50) {
-      
+    imwrite(this->snapshotPath, dispFrame);
+    if (changeRate > 10 && changeRate < 50) {      
       cooldown = 50;
       if (output == nullptr) {
         output = popen(
@@ -200,10 +200,10 @@ void deviceManager::startMotionDetection() {
     }
     stringstream ssChangeRate;
     ssChangeRate << fixed << setprecision(2) << changeRate;
-    cout << "deviceName: "   << setw (10)  << this->deviceName << 
+    LOG(INFO) << "deviceName: "   << setw (10)  << this->deviceName << 
             ", frameCount: " << setw (3)  << frameCount <<
             ", cooldown: "   << setw (3)  << cooldown   <<
-            ", changeRate: " << ssChangeRate.str() << "%\n";
+            ", changeRate: " << ssChangeRate.str();
   }
 
   cap.release();

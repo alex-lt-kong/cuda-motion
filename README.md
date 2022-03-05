@@ -1,6 +1,6 @@
 ## Compilation
 
-g++ motionDerector.cpp ./classes/deviceManager.cpp -o motionDerector -L/usr/local/lib -I/usr/local/include/opencv4 -lopencv_highgui -lopencv_imgcodecs -lopencv_video -lopencv_videoio -lopencv_imgproc -lopencv_core -pthread
+g++ ./src/motionDetector.cpp /usr/include/easylogging++.cc ./src/classes/deviceManager.cpp -o motionDetector -L/usr/local/lib -I/usr/local/include/opencv4 -lopencv_highgui -lopencv_imgcodecs -lopencv_video -lopencv_videoio -lopencv_imgproc -lopencv_core -pthread
 
 
 ## Environments
@@ -16,5 +16,5 @@ trying different version is usually unavoidable...
 * Install `OpenCV`.
 
 ```
-apt install nlohmann-json3-dev
+apt install nlohmann-json3-dev libeasyloggingpp-dev
 ```

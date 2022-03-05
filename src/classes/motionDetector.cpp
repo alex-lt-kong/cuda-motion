@@ -1,3 +1,4 @@
+#include "easylogging++.h"
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <iostream>
@@ -5,22 +6,27 @@
 #include <thread>
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
-#include "classes/deviceManager.h"
+#include "motionDetector.h"
 
+INITIALIZE_EASYLOGGINGPP
 
 using namespace std;
 using namespace cv;
 using json = nlohmann::json;
 
-void my_handler(int s){
-  printf("Caught signal %d\n",s);
-}
+  static void my_handler(int s){
+      cout << "Caught signal: " << s << endl;
+    /*   for (int i = 0; i < me->deviceCount; i++) {
+        me->myDevices[i].stopMotionDetection();
+      }*/
+  }
 
-int main() {
 
-  struct sigaction sigIntHandler;
-  sigIntHandler.sa_handler = my_handler;
-  sigaction(SIGINT, &sigIntHandler, NULL);
+void motionDetector::main() {
+  //counter = 2;
+/*   struct sigaction sigIntHandler;
+  sigIntHandler.sa_handler = motionDetector::my_handler;
+  sigaction(SIGINT, &sigIntHandler, NULL);*/
   
   cout << "cv::getBuildInformation():\n" <<  getBuildInformation() << "\n";
 
@@ -30,16 +36,19 @@ int main() {
   std::ifstream is(settingsPath);
   json jsonSettings;
   is >> jsonSettings;
-  deviceManager *myDevices = new deviceManager[jsonSettings["devices"].size()];
+  this->deviceCount = jsonSettings["devices"].size();
+  this->myDevices = new deviceManager[deviceCount];
   thread deviceThreads[4];
 
-  for (int i = 0; i < jsonSettings["devices"].size(); i++) {
+  for (int i = 0; i < deviceCount; i++) {
     cout << "Loading " << i << "-th device: " << jsonSettings["devices"][i] << "\n" << endl;
     myDevices[i].setParameters(
         jsonSettings["devices"][i]["url"],
         jsonSettings["devices"][i]["name"],
         jsonSettings["devices"][i]["resolution"],
-        jsonSettings["devices"][i]["rotation"]
+        jsonSettings["devices"][i]["rotation"],
+        jsonSettings["devices"][i]["snapshotPath"],
+        jsonSettings["devices"][i]["fontScale"]
       );
     deviceThreads[i] = thread(&deviceManager::startMotionDetection, myDevices[i]);
   }
@@ -49,5 +58,4 @@ int main() {
   }
 
   delete[] myDevices;
-  return 0;
 }
