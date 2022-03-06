@@ -154,6 +154,7 @@ void deviceManager::startMotionDetection() {
     result = cap.read(currFrame);
     
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
+      cout << "(result == false || currFrame.empty() || cap.isOpened() == false)" << endl;
       currFrame = Mat(this->originalFrameHeight, this->originalFrameWidth, CV_8UC3, Scalar(128, 128, 128));
     }
     if (this->frameRotation != -1) { rotate(currFrame, currFrame, ROTATE_90_CLOCKWISE); }
