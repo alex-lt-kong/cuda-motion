@@ -1,18 +1,20 @@
 #include <arpa/inet.h>
 #include <chrono>
 #include <ctime>
-#include "easylogging++.h"
 #include <iostream>
+#include <iomanip>
+#include <nlohmann/json.hpp>
+#include <opencv2/core/core.hpp>
 #include <regex>
 #include <sys/socket.h>
 #include <thread>
-#include <iomanip>
 
 #include "deviceManager.h"
-#include <opencv2/core/core.hpp>
+#include "easylogging++.h"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
+using json = nlohmann::json;
 using namespace std;
 using namespace cv;
 
@@ -39,24 +41,18 @@ string deviceManager::convertToString(char* a, int size)
     return s;
 }
 
-
-bool deviceManager::setParameters(
-  string deviceUrl,
-  string deviceName,
-  string frameResolution,
-  int frameRotation,
-  string snapshotPath,
-  double fontScale,
-  string externalCommand,
-  string videoDirectory) {
-  this->deviceUrl = deviceUrl;
-  this->deviceName = deviceName;
-  this->frameResolution = frameResolution;
-  this->frameRotation = frameRotation;
-  this->snapshotPath = snapshotPath;
-  this->fontScale = fontScale;
-  this->externalCommand = externalCommand;
-  this->videoDirectory = videoDirectory;
+bool deviceManager::setParameters(json settings) {
+  this->deviceUrl = settings["url"];
+  this->deviceName = settings["name"];
+  this->originalFrameHeight = settings["originalResolution"]["height"];
+  this->originalFrameWidth = settings["originalResolution"]["width"];
+  this->frameRotation = settings["rotation"];
+  this->snapshotPath = settings["snapshotPath"];
+  this->fontScale = settings["fontScale"];
+  this->externalCommand = settings["externalCommand"];
+  this->videoDirectory = settings["videoDirectory"];
+  this->ffmpegCommand = settings["ffmpegCommand"];
+  this->videoExtension = settings["videoExtension"];
   return true;
 }
 
@@ -141,11 +137,9 @@ void deviceManager::startMotionDetection() {
   // v4l2-ctl -d /dev/video0 --list-formats-ext
   
   result = cap.open(this->deviceUrl);
-  int width = 1920;
-  int height = 1080;
-  int totalPixels = width * height;
-  cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
-  cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
+  int totalPixels = this->originalFrameHeight * this->originalFrameWidth;
+  cap.set(CAP_PROP_FRAME_WIDTH, this->originalFrameWidth);
+  cap.set(CAP_PROP_FRAME_HEIGHT, this->originalFrameHeight);
   long long int frameCount = 0;
   FILE *output = nullptr;
   int cooldown = 0;
@@ -159,9 +153,7 @@ void deviceManager::startMotionDetection() {
     result = cap.read(currFrame);
     
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
-      cout << "Unable to read() a new frame, "
-           << "waiting for 10 sec and then trying to re-open() cv::VideoCapture\n";
-      continue;
+      currFrame = Mat(this->originalFrameHeight, this->originalFrameWidth, CV_8UC3, Scalar(128, 128, 128));
     }
     if (this->frameRotation != -1) { rotate(currFrame, currFrame, ROTATE_90_CLOCKWISE); }
     if (prevFrame.empty() == false) {
@@ -172,7 +164,6 @@ void deviceManager::startMotionDetection() {
       changeRate = 100.0 * nonZeroPixels / totalPixels;   
       this->overlayDatetime(diffFrame);
       this->overlayChangeRate(diffFrame, changeRate, -1);
-      imwrite("/tmp/md/diff" + to_string(frameCount) + " .jpg", diffFrame);
     }
     
     prevFrame = currFrame.clone();
@@ -184,15 +175,13 @@ void deviceManager::startMotionDetection() {
       cooldown = 50;
       if (output == nullptr) {
         string command = this->ffmpegCommand;
-        command = regex_replace(command, regex("width"), to_string(dispFrame.cols));
-        command = regex_replace(command, regex("height"), to_string(dispFrame.rows));
+        command = regex_replace(command, regex("__width__"), to_string(dispFrame.cols));
+        command = regex_replace(command, regex("__height__"), to_string(dispFrame.rows));
         command = regex_replace(command, regex("__framerate__"), to_string(this->frameRate));
-        command = regex_replace(command, regex("videoPath"), this->videoDirectory + "/" + this->deviceName + "_" + this->getCurrentTimestamp() + ".webm");
-        //"/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 " + 
-  //"-video_size {width}x{height} -framerate {framerate} -i pipe:0 -vcodec libvpx-vp9 {videoPath}";
-        cout << command << endl;
+        command = regex_replace(command, regex("__videoPath__"), this->videoDirectory + "/" + this->deviceName + "_" + this->getCurrentTimestamp());
+        command = regex_replace(command, regex("__videoExt__"), this->videoExtension);
         output = popen((command).c_str(), "w");
-        system(("nohup " + this->externalCommand + " &").c_str());
+        if (this->externalCommand.length() > 0) { system(("nohup " + this->externalCommand + " &").c_str()); }
       }
     }
     

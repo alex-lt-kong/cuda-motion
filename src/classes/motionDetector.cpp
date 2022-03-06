@@ -42,16 +42,7 @@ void motionDetector::main() {
 
   for (int i = 0; i < deviceCount; i++) {
     cout << "Loading " << i << "-th device: " << jsonSettings["devices"][i] << "\n" << endl;
-    myDevices[i].setParameters(
-        jsonSettings["devices"][i]["url"],
-        jsonSettings["devices"][i]["name"],
-        jsonSettings["devices"][i]["resolution"],
-        jsonSettings["devices"][i]["rotation"],
-        jsonSettings["devices"][i]["snapshotPath"],
-        jsonSettings["devices"][i]["fontScale"],
-        jsonSettings["devices"][i]["externalCommand"],
-        jsonSettings["devices"][i]["videoDirectory"]
-      );
+    myDevices[i].setParameters(jsonSettings["devices"][i]);
     deviceThreads[i] = thread(&deviceManager::startMotionDetection, myDevices[i]);
   }
 
