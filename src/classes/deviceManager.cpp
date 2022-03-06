@@ -3,6 +3,7 @@
 #include <ctime>
 #include "easylogging++.h"
 #include <iostream>
+#include <regex>
 #include <sys/socket.h>
 #include <thread>
 #include <iomanip>
@@ -17,7 +18,7 @@ using namespace cv;
 
 using sysclock_t = std::chrono::system_clock;
 
-string deviceManager::CurrentDate()
+string deviceManager::getCurrentTimestamp()
 {
     std::time_t now = sysclock_t::to_time_t(sysclock_t::now());
     //"19700101_000000"
@@ -179,14 +180,18 @@ void deviceManager::startMotionDetection() {
     this->overlayChangeRate(dispFrame, changeRate, cooldown);
     this->overlayDatetime(dispFrame);
     imwrite(this->snapshotPath, dispFrame);
-    if (changeRate > 10 && changeRate < 50) {      
+    if (changeRate > 10 && changeRate < 40) {      
       cooldown = 50;
       if (output == nullptr) {
-        output = popen(
-          ("/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 -video_size " + 
-          this->frameResolution  + " -framerate " + 
-          to_string(this->frameRate) + " -i pipe:0 -vcodec h264 " + 
-          this->videoDirectory + "/" + this->deviceName + "_" + this->CurrentDate() + ".mp4").c_str(), "w");
+        string command = this->ffmpegCommand;
+        command = regex_replace(command, regex("width"), to_string(dispFrame.cols));
+        command = regex_replace(command, regex("height"), to_string(dispFrame.rows));
+        command = regex_replace(command, regex("__framerate__"), to_string(this->frameRate));
+        command = regex_replace(command, regex("videoPath"), this->videoDirectory + "/" + this->deviceName + "_" + this->getCurrentTimestamp() + ".webm");
+        //"/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 " + 
+  //"-video_size {width}x{height} -framerate {framerate} -i pipe:0 -vcodec libvpx-vp9 {videoPath}";
+        cout << command << endl;
+        output = popen((command).c_str(), "w");
         system(("nohup " + this->externalCommand + " &").c_str());
       }
     }

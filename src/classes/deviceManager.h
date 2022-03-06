@@ -33,9 +33,10 @@ private:
   string snapshotPath = "";
   string externalCommand = "";
   string videoDirectory = "";
+  string ffmpegCommand = "/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 -video_size widthxheight -framerate __framerate__ -i pipe:0 -vcodec libvpx-vp9 videoPath";
   
   string convertToString(char* a, int size);
-  string CurrentDate();
+  string getCurrentTimestamp();
   void overlayDatetime(Mat frame);
   void overlayChangeRate(Mat frame, float changeRate, int cooldown);
 };
