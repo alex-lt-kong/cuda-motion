@@ -137,6 +137,7 @@ void deviceManager::startMotionDetection() {
   // v4l2-ctl -d /dev/video0 --list-formats-ext
   
   result = cap.open(this->deviceUrl);
+  cout << "cap.open(this->deviceUrl): " << result << endl;
   int totalPixels = this->originalFrameHeight * this->originalFrameWidth;
   cap.set(CAP_PROP_FRAME_WIDTH, this->originalFrameWidth);
   cap.set(CAP_PROP_FRAME_HEIGHT, this->originalFrameHeight);
