@@ -90,43 +90,6 @@ void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown)
           Point(5,frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255, 255, 255), 4, LINE_AA, false);
 }
 
-bool deviceManager::captureImage(string imageSaveTo) {
-  
-  Mat frame;
-  bool result = false;
-  VideoCapture cap;
-  // a fast way to check supported resolution of a camera:
-  // v4l2-ctl -d /dev/video0 --list-formats-ext
-  
-  result = cap.open(this->deviceUrl);
-  cap.set(cv::CAP_PROP_FRAME_WIDTH, 1920);
-  cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1080);
-  if (result) { cout << "Device [" << this->deviceUrl << "] opened" << endl; }
-  else { 
-    cout << "Device [" << this->deviceUrl << "] NOT opened, aborted" << endl;
-    return false;
-  }
-
-  result = cap.read(frame);
-  if (result == false || frame.empty()) { 
-    cout << "Failed to read() a frame from video source, aborted" << endl;
-    return 1;
-  }
-  if (this->frameRotation != -1) {
-    rotate(frame, frame, this->frameRotation);
-  }
-  this->overlayDatetime(frame);
-  
-
-  result = imwrite(imageSaveTo, frame);
-  cap.release();
-
-  cout << result << endl;
-  return 0;
-
-  return true;
-}
-
 void deviceManager::startMotionDetection() {
   this->stopSignal = false;
   Mat prevFrame, currFrame, diffFrame, grayDiffFrame, dispFrame;
@@ -150,11 +113,15 @@ void deviceManager::startMotionDetection() {
       cout << "stopSignal received, exited" << endl;
       break;
     }
-
+   // this_thread::sleep_for(200ms);
     result = cap.read(currFrame);
     
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
-      cout << "(result == false || currFrame.empty() || cap.isOpened() == false)" << endl;
+      cout << "(result == false || currFrame.empty() || cap.isOpened() == false)" << 
+              "result: " << result << 
+              ", currFrame.empty(): " << currFrame.empty() << 
+              ", cap.isOpened(): " << cap.isOpened() << endl;
+      cap.open(this->deviceUrl);
       currFrame = Mat(this->originalFrameHeight, this->originalFrameWidth, CV_8UC3, Scalar(128, 128, 128));
     }
     if (this->frameRotation != -1) { rotate(currFrame, currFrame, ROTATE_90_CLOCKWISE); }

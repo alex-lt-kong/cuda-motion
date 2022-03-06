@@ -19,7 +19,7 @@ public:
 private:
   bool stopSignal = false;
   double fontScale = 1;
-  int frameRate = 5;
+  int frameRate = 30;
   int frameRotation = -1;
   int originalFrameWidth = -1;   
   int originalFrameHeight = -1;  
