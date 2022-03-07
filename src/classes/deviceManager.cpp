@@ -10,7 +10,6 @@
 #include <thread>
 
 #include "deviceManager.h"
-#include "easylogging++.h"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 
@@ -25,7 +24,7 @@ string deviceManager::getCurrentTimestamp()
     std::time_t now = sysclock_t::to_time_t(sysclock_t::now());
     //"19700101_000000"
     char buf[16] = { 0 };
-    std::strftime(buf, sizeof(buf), "%Y%m%d_%H%M%S", std::localtime(&now));
+    std::strftime(buf, sizeof(buf), "%Y%m%d_%H%M%S", localtime(&now));
     // https://www.cplusplus.com/reference/ctime/strftime/
     return std::string(buf);
 }
@@ -100,7 +99,7 @@ void deviceManager::startMotionDetection() {
   // v4l2-ctl -d /dev/video0 --list-formats-ext
   
   result = cap.open(this->deviceUrl);
-  cout << "cap.open(this->deviceUrl): " << result << endl;
+  this->myLogger.info("cap.open(" + this->deviceUrl + "): " + to_string(result));
   int totalPixels = this->originalFrameHeight * this->originalFrameWidth;
   cap.set(CAP_PROP_FRAME_WIDTH, this->originalFrameWidth);
   cap.set(CAP_PROP_FRAME_HEIGHT, this->originalFrameHeight);
@@ -113,14 +112,13 @@ void deviceManager::startMotionDetection() {
       cout << "stopSignal received, exited" << endl;
       break;
     }
-   // this_thread::sleep_for(200ms);
     result = cap.read(currFrame);
     
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
-      cout << "(result == false || currFrame.empty() || cap.isOpened() == false)" << 
-              "result: " << result << 
-              ", currFrame.empty(): " << currFrame.empty() << 
-              ", cap.isOpened(): " << cap.isOpened() << endl;
+      this->myLogger.error(
+        "Unable to cap.read() a new frame. result: " + 
+        to_string(result) + ", currFrame.empty(): " + to_string(currFrame.empty()) +
+        ", cap.isOpened(): " + to_string(cap.isOpened()));
       cap.open(this->deviceUrl);
       currFrame = Mat(this->originalFrameHeight, this->originalFrameWidth, CV_8UC3, Scalar(128, 128, 128));
     }
@@ -151,13 +149,19 @@ void deviceManager::startMotionDetection() {
         command = regex_replace(command, regex("__videoExt__"), this->videoExtension);
         output = popen((command).c_str(), "w");
         if (this->externalCommand.length() > 0) { system(("nohup " + this->externalCommand + " &").c_str()); }
+        this->myLogger.info("Device [" + this->deviceName + "] motion detected, video recording begins");
       }
     }
     
     frameCount ++;
     if (cooldown >= 0) { cooldown --; }
     if (cooldown == 0) { 
-      if (output != nullptr) { pclose(output); output = nullptr; } // No, you cannot pclose() a nullptr
+      if (output != nullptr) { 
+        // No, you cannot pclose() a nullptr
+          pclose(output); 
+          output = nullptr; 
+          this->myLogger.info("Device [" + this->deviceName + "] video recording ends");
+        } 
     }
     if (cooldown > 0) {
       for (size_t i = 0; i < dispFrame.dataend - dispFrame.datastart; i++)
@@ -168,12 +172,10 @@ void deviceManager::startMotionDetection() {
     }
     stringstream ssChangeRate;
     ssChangeRate << fixed << setprecision(2) << changeRate;
-    LOG(INFO) << "deviceName: "   << setw (10)  << this->deviceName << 
-            ", frameCount: " << setw (3)  << frameCount <<
-            ", cooldown: "   << setw (3)  << cooldown   <<
-            ", changeRate: " << ssChangeRate.str();
+    this->myLogger.debug(
+      this->deviceName + ": frameCount: " + to_string(frameCount) + 
+      ", cooldown: " + to_string(cooldown) +  ", changeRate: " + ssChangeRate.str());
   }
-
   cap.release();
 
 }

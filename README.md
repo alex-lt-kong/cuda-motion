@@ -16,5 +16,5 @@ trying different version is usually unavoidable...
 * Install `OpenCV`.
 
 ```
-apt install nlohmann-json3-dev libeasyloggingpp-dev
+apt install nlohmann-json3-dev libspdlog-dev
 ```

@@ -2,6 +2,7 @@
 #include <nlohmann/json.hpp>
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
+#include "logger.h"
 
 using namespace std;
 using namespace cv;
@@ -22,7 +23,8 @@ private:
   int frameRate = 30;
   int frameRotation = -1;
   int originalFrameWidth = -1;   
-  int originalFrameHeight = -1;  
+  int originalFrameHeight = -1;
+  logger myLogger = logger("/var/log/ak-studio/motionDetector.log", false);;
   string deviceUrl = "";
   string deviceName = "";   
   string ffmpegCommand = "";
