@@ -25,6 +25,8 @@ private:
   double pixelLevelThreshold = 0;
   int snapshotFrameInterval = 1;
   int frameRotation = -1;
+  int framePreferredWidth = -1;
+  int framePreferredHeight = -1;
   int framesAfterTrigger = 0;
   int maxFramesPerVideo = 1;
   logger myLogger = logger("/var/log/ak-studio/motionDetector.log", false);;

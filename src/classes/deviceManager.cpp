@@ -43,7 +43,9 @@ string deviceManager::convertToString(char* a, int size)
 bool deviceManager::setParameters(json settings) {
   this->deviceUri = settings["uri"];
   this->deviceName = settings["name"];
-  this->frameRotation = settings["rotation"];
+  this->frameRotation = settings["frame"]["rotation"];
+  this->framePreferredWidth = settings["frame"]["preferredWidth"];
+  this->framePreferredHeight = settings["frame"]["preferredHeight"];
   this->snapshotPath = settings["snapshot"]["path"];
   this->snapshotFrameInterval = settings["snapshot"]["frameInterval"];
   this->fontScale = settings["fontScale"];
@@ -115,6 +117,8 @@ void deviceManager::startMotionDetection() {
   FILE *output = nullptr;
   int cooldown = 0;
   
+  if (this->framePreferredWidth > 0) { cap.set(CAP_PROP_FRAME_WIDTH, this->framePreferredWidth); }
+  if (this->framePreferredHeight > 0) { cap.set(CAP_PROP_FRAME_HEIGHT, this->framePreferredHeight); }
   while (true) {
    
     result = cap.read(currFrame);
@@ -130,8 +134,6 @@ void deviceManager::startMotionDetection() {
       // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
     }
     
-    if (this->frameRotation != -1) { rotate(dispFrame, dispFrame, ROTATE_90_CLOCKWISE); } 
-    
     if (prevFrame.empty() == false &&
         (prevFrame.cols == currFrame.cols && prevFrame.rows == currFrame.rows)) {
       absdiff(prevFrame, currFrame, diffFrame);
@@ -143,6 +145,7 @@ void deviceManager::startMotionDetection() {
 
     prevFrame = currFrame.clone();
     dispFrame = currFrame.clone();
+    if (this->frameRotation != -1) { rotate(dispFrame, dispFrame, this->frameRotation); } 
     this->overlayChangeRate(dispFrame, changeRate, cooldown);
     this->overlayDatetime(dispFrame);    
     this->overlayDeviceName(dispFrame);
