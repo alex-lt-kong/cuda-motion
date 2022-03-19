@@ -20,6 +20,8 @@ public:
 private:
   bool stopSignal = false;
   double fontScale = 1;
+  double rateOfChangeUpper = 0;
+  double rateOfChangeLower = 0;
   int frameRotation = -1;
   logger myLogger = logger("/var/log/ak-studio/motionDetector.log", false);;
   string deviceUri = "";
@@ -27,7 +29,6 @@ private:
   string ffmpegCommand = "";
   string snapshotPath = "";
   string externalCommand = "";
-  string videoExtension = "";
   
   string convertToString(char* a, int size);
   string getCurrentTimestamp();

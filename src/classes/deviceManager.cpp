@@ -48,6 +48,8 @@ bool deviceManager::setParameters(json settings) {
   this->fontScale = settings["fontScale"];
   this->externalCommand = settings["externalCommand"];
   this->ffmpegCommand = settings["ffmpegCommand"];
+  this->rateOfChangeLower = settings["rateOfChange"]["lowerLimit"];
+  this->rateOfChangeUpper = settings["rateOfChange"]["upperLimit"];
   return true;
 }
 
@@ -146,7 +148,7 @@ void deviceManager::startMotionDetection() {
 
     if (frameCount % 37 == 0) { imwrite(this->snapshotPath, dispFrame); }
     
-    if (changeRate > 0.3 && changeRate < 20 || cooldown == 0) {      
+    if (changeRate > this->rateOfChangeLower && changeRate < this->rateOfChangeUpper) {      
       cooldown = 500;
       if (output == nullptr) {
         string command = this->ffmpegCommand;
