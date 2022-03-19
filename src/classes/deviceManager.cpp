@@ -111,19 +111,24 @@ void deviceManager::startMotionDetection() {
     if (this->stopSignal) {
       cout << "stopSignal received, exited" << endl;
       break;
-    }
-    result = cap.read(currFrame);
+    }   
     
+    result = cap.read(currFrame);
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
       this->myLogger.error(
         "Unable to cap.read() a new frame. result: " + 
         to_string(result) + ", currFrame.empty(): " + to_string(currFrame.empty()) +
-        ", cap.isOpened(): " + to_string(cap.isOpened()));
+        ", cap.isOpened(): " + to_string(cap.isOpened()) + ". Reopening...");
       cap.open(this->deviceUrl);
       currFrame = Mat(this->originalFrameHeight, this->originalFrameWidth, CV_8UC3, Scalar(128, 128, 128));
+      continue;
     }
-    if (this->frameRotation != -1) { rotate(currFrame, currFrame, ROTATE_90_CLOCKWISE); }
-    if (prevFrame.empty() == false) {
+    
+
+    /*
+    if (this->frameRotation != -1) { rotate(dispFrame, dispFrame, ROTATE_90_CLOCKWISE); }
+    cv::resize(currFrame, currFrame, cv::Size(currFrame.cols * 0.5,currFrame.rows * 0.5), 0, 0, cv::INTER_LINEAR);    
+    if (prevFrame.empty() == false && cooldown <= 0) {
       absdiff(prevFrame, currFrame, diffFrame);
       cvtColor(diffFrame, grayDiffFrame, COLOR_BGR2GRAY);
       threshold(grayDiffFrame, grayDiffFrame, 32, 255, THRESH_BINARY);
@@ -131,15 +136,17 @@ void deviceManager::startMotionDetection() {
       changeRate = 100.0 * nonZeroPixels / totalPixels;   
       this->overlayDatetime(diffFrame);
       this->overlayChangeRate(diffFrame, changeRate, -1);
-    }
-    
+    }    */
+
     prevFrame = currFrame.clone();
-    dispFrame = currFrame.clone();
     this->overlayChangeRate(dispFrame, changeRate, cooldown);
     this->overlayDatetime(dispFrame);
-    imwrite(this->snapshotPath, dispFrame);
-    if (changeRate > 10 && changeRate < 40) {      
-      cooldown = 50;
+    
+    dispFrame = currFrame.clone();
+    if (frameCount % 37 == 0) { imwrite(this->snapshotPath, dispFrame); }
+    
+    if (changeRate > 0.3 && changeRate < 20 || cooldown == 0) {      
+      cooldown = 500;
       if (output == nullptr) {
         string command = this->ffmpegCommand;
         command = regex_replace(command, regex("__width__"), to_string(dispFrame.cols));
@@ -164,8 +171,14 @@ void deviceManager::startMotionDetection() {
         } 
     }
     if (cooldown > 0) {
-      for (size_t i = 0; i < dispFrame.dataend - dispFrame.datastart; i++)
-        fwrite(&dispFrame.data[i], sizeof(dispFrame.data[i]), 1, output);
+      auto start = std::chrono::high_resolution_clock::now();
+      for (size_t i = 0; i < dispFrame.dataend - dispFrame.datastart; i++) {        
+        fwrite(&dispFrame.data[i], sizeof(dispFrame.data[i]), 1, output); 
+      }
+      auto finish = std::chrono::high_resolution_clock::now();
+      auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(finish-start);
+      std::cout << microseconds.count() << "µs" << dispFrame.dataend - dispFrame.datastart << "\n";
+      
     }
     if (frameCount > 2147483647) {
       break;

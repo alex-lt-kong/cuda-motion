@@ -1,7 +1,8 @@
 ## Compilation
 
-g++ ./src/motionDetector.cpp /usr/include/easylogging++.cc ./src/classes/deviceManager.cpp -o motionDetector -L/usr/local/lib -I/usr/local/include/opencv4 -lopencv_highgui -lopencv_imgcodecs -lopencv_video -lopencv_videoio -lopencv_imgproc -lopencv_core -pthread
-
+```
+g++ ./src/main.cpp ./src/classes/deviceManager.cpp ./src/classes/motionDetector.cpp ./src/classes/logger.cpp -o motionDetector  -L/usr/local/lib -I/usr/local/include/opencv4 -lopencv_highgui -lopencv_imgcodecs -lopencv_video -lopencv_videoio -lopencv_imgproc -lopencv_core -pthread
+```
 
 ## Environments
 
