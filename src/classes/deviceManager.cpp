@@ -50,6 +50,7 @@ bool deviceManager::setParameters(json settings) {
   this->ffmpegCommand = settings["ffmpegCommand"];
   this->rateOfChangeLower = settings["rateOfChange"]["lowerLimit"];
   this->rateOfChangeUpper = settings["rateOfChange"]["upperLimit"];
+  this->pixelLevelThreshold = settings["pixelLevelThreshold"];
   return true;
 }
 
@@ -135,7 +136,7 @@ void deviceManager::startMotionDetection() {
         (prevFrame.cols == currFrame.cols && prevFrame.rows == currFrame.rows)) {
       absdiff(prevFrame, currFrame, diffFrame);
       cvtColor(diffFrame, grayDiffFrame, COLOR_BGR2GRAY);
-      threshold(grayDiffFrame, grayDiffFrame, 32, 255, THRESH_BINARY);
+      threshold(grayDiffFrame, grayDiffFrame, this->pixelLevelThreshold, 255, THRESH_BINARY);
       int nonZeroPixels = countNonZero(grayDiffFrame);
       changeRate = 100.0 * nonZeroPixels / (grayDiffFrame.rows * grayDiffFrame.cols);
     }

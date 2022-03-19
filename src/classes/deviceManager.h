@@ -22,6 +22,7 @@ private:
   double fontScale = 1;
   double rateOfChangeUpper = 0;
   double rateOfChangeLower = 0;
+  double pixelLevelThreshold = 0;
   int frameRotation = -1;
   logger myLogger = logger("/var/log/ak-studio/motionDetector.log", false);;
   string deviceUri = "";

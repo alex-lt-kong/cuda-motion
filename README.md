@@ -41,4 +41,5 @@ apt install nlohmann-json3-dev libspdlog-dev
 # ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate [videoUri]
 25/1
 ```
-Note that this data may or may not be accurate.
+* Note that this value may or may not be accurate.
+* A more accurate but less formal way is to simply observe the output from `ffmpeg` itself.
