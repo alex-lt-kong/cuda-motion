@@ -24,7 +24,7 @@ string deviceManager::getCurrentTimestamp()
     std::time_t now = sysclock_t::to_time_t(sysclock_t::now());
     //"19700101_000000"
     char buf[16] = { 0 };
-    std::strftime(buf, sizeof(buf), "%Y%m%d_%H%M%S", localtime(&now));
+    std::strftime(buf, sizeof(buf), "%Y%m%d-%H%M%S", localtime(&now));
     // https://www.cplusplus.com/reference/ctime/strftime/
     return std::string(buf);
 }
@@ -41,17 +41,13 @@ string deviceManager::convertToString(char* a, int size)
 }
 
 bool deviceManager::setParameters(json settings) {
-  this->deviceUrl = settings["url"];
+  this->deviceUri = settings["uri"];
   this->deviceName = settings["name"];
-  this->originalFrameHeight = settings["originalResolution"]["height"];
-  this->originalFrameWidth = settings["originalResolution"]["width"];
   this->frameRotation = settings["rotation"];
   this->snapshotPath = settings["snapshotPath"];
   this->fontScale = settings["fontScale"];
   this->externalCommand = settings["externalCommand"];
-  this->videoDirectory = settings["videoDirectory"];
   this->ffmpegCommand = settings["ffmpegCommand"];
-  this->videoExtension = settings["videoExtension"];
   return true;
 }
 
@@ -63,8 +59,9 @@ void deviceManager::overlayDatetime(Mat frame) {
   time(&now);
   char buf[sizeof "1970-01-01 00:00:00"];
   strftime(buf, sizeof buf, "%F %T", localtime(&now));
-  putText(frame, buf, Point(5, 40), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,  0,  0  ), 10, LINE_AA, false);
-  putText(frame, buf, Point(5, 40), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255,255,255), 4, LINE_AA, false);
+  cv::Size textSize = getTextSize(buf, FONT_HERSHEY_DUPLEX, this->fontScale, 8 * this->fontScale, nullptr);
+  putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,  0,  0  ), 8 * this->fontScale, LINE_AA, false);
+  putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255,255,255), 4 * this->fontScale, LINE_AA, false);
   /*
   void cv::putText 	(InputOutputArray  	img,
                     const String &  	text,
@@ -79,14 +76,24 @@ void deviceManager::overlayDatetime(Mat frame) {
   */
 }
 
+
+void deviceManager::overlayDeviceName(Mat frame) {
+
+  cv::Size textSize = getTextSize(this->deviceName, FONT_HERSHEY_DUPLEX, this->fontScale, 8 * this->fontScale, nullptr);
+  putText(frame, this->deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5), 
+          FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,  0,  0  ), 8 * this->fontScale, LINE_AA, false);
+  putText(frame, this->deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
+          FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255,255,255), 4 * this->fontScale, LINE_AA, false);
+}
+
 void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown) {
   int value = changeRate * 100;
   stringstream ssChangeRate;
   ssChangeRate << fixed << setprecision(2) << changeRate;
   putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ")", 
-          Point(5,frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,   0,   0  ), 10, LINE_AA, false);
+          Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,   0,   0  ), 10, LINE_AA, false);
   putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ")",
-          Point(5,frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255, 255, 255), 4, LINE_AA, false);
+          Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255, 255, 255), 4, LINE_AA, false);
 }
 
 void deviceManager::startMotionDetection() {
@@ -95,14 +102,9 @@ void deviceManager::startMotionDetection() {
   bool result = false;
   VideoCapture cap;
   float changeRate = 0.0;
-  // a fast way to check supported resolution of a camera:
-  // v4l2-ctl -d /dev/video0 --list-formats-ext
   
-  result = cap.open(this->deviceUrl);
-  this->myLogger.info("cap.open(" + this->deviceUrl + "): " + to_string(result));
-  int totalPixels = this->originalFrameHeight * this->originalFrameWidth;
-  cap.set(CAP_PROP_FRAME_WIDTH, this->originalFrameWidth);
-  cap.set(CAP_PROP_FRAME_HEIGHT, this->originalFrameHeight);
+  result = cap.open(this->deviceUri);
+  this->myLogger.info("cap.open(" + this->deviceUri + "): " + to_string(result));
   long long int frameCount = 0;
   FILE *output = nullptr;
   int cooldown = 0;
@@ -111,51 +113,46 @@ void deviceManager::startMotionDetection() {
     if (this->stopSignal) {
       cout << "stopSignal received, exited" << endl;
       break;
-    }   
-    
+    }    
     result = cap.read(currFrame);
+
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
       this->myLogger.error(
-        "Unable to cap.read() a new frame. result: " + 
+        "Unable to cap.read() a new frame from device [" + this->deviceName + "]. result: " + 
         to_string(result) + ", currFrame.empty(): " + to_string(currFrame.empty()) +
-        ", cap.isOpened(): " + to_string(cap.isOpened()) + ". Reopening...");
-      cap.open(this->deviceUrl);
-      currFrame = Mat(this->originalFrameHeight, this->originalFrameWidth, CV_8UC3, Scalar(128, 128, 128));
-      continue;
+        ", cap.isOpened(): " + to_string(cap.isOpened()) + ". Sleep for 2 sec than then re-open()...");
+      this_thread::sleep_for(2000ms); // Don't wait for too long, most of the time the device can be re-open()ed immediately
+      cap.open(this->deviceUri);
+      currFrame = Mat(960, 540, CV_8UC3, Scalar(128, 128, 128));
+      // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
     }
     
-
-    /*
-    if (this->frameRotation != -1) { rotate(dispFrame, dispFrame, ROTATE_90_CLOCKWISE); }
-    cv::resize(currFrame, currFrame, cv::Size(currFrame.cols * 0.5,currFrame.rows * 0.5), 0, 0, cv::INTER_LINEAR);    
-    if (prevFrame.empty() == false && cooldown <= 0) {
+    if (this->frameRotation != -1) { rotate(dispFrame, dispFrame, ROTATE_90_CLOCKWISE); } 
+    
+    if (prevFrame.empty() == false &&
+        (prevFrame.cols == currFrame.cols && prevFrame.rows == currFrame.rows)) {
       absdiff(prevFrame, currFrame, diffFrame);
       cvtColor(diffFrame, grayDiffFrame, COLOR_BGR2GRAY);
       threshold(grayDiffFrame, grayDiffFrame, 32, 255, THRESH_BINARY);
       int nonZeroPixels = countNonZero(grayDiffFrame);
-      changeRate = 100.0 * nonZeroPixels / totalPixels;   
-      this->overlayDatetime(diffFrame);
-      this->overlayChangeRate(diffFrame, changeRate, -1);
-    }    */
+      changeRate = 100.0 * nonZeroPixels / (grayDiffFrame.rows * grayDiffFrame.cols);
+    }
 
     prevFrame = currFrame.clone();
-    this->overlayChangeRate(dispFrame, changeRate, cooldown);
-    this->overlayDatetime(dispFrame);
-    
     dispFrame = currFrame.clone();
+    this->overlayChangeRate(dispFrame, changeRate, cooldown);
+    this->overlayDatetime(dispFrame);    
+    this->overlayDeviceName(dispFrame);
+
     if (frameCount % 37 == 0) { imwrite(this->snapshotPath, dispFrame); }
     
     if (changeRate > 0.3 && changeRate < 20 || cooldown == 0) {      
       cooldown = 500;
       if (output == nullptr) {
         string command = this->ffmpegCommand;
-        command = regex_replace(command, regex("__width__"), to_string(dispFrame.cols));
-        command = regex_replace(command, regex("__height__"), to_string(dispFrame.rows));
-        command = regex_replace(command, regex("__framerate__"), to_string(this->frameRate));
-        command = regex_replace(command, regex("__videoPath__"), this->videoDirectory + "/" + this->deviceName + "_" + this->getCurrentTimestamp());
-        command = regex_replace(command, regex("__videoExt__"), this->videoExtension);
+        command = regex_replace(command, regex("__timestamp__"), this->getCurrentTimestamp());
         output = popen((command).c_str(), "w");
-        if (this->externalCommand.length() > 0) { system(("nohup " + this->externalCommand + " &").c_str()); }
+        if (this->externalCommand.length() > 0) { system((this->externalCommand + " &").c_str()); }
         this->myLogger.info("Device [" + this->deviceName + "] motion detected, video recording begins");
       }
     }
@@ -170,19 +167,9 @@ void deviceManager::startMotionDetection() {
           this->myLogger.info("Device [" + this->deviceName + "] video recording ends");
         } 
     }
-    if (cooldown > 0) {
-      auto start = std::chrono::high_resolution_clock::now();
-      for (size_t i = 0; i < dispFrame.dataend - dispFrame.datastart; i++) {        
-        fwrite(&dispFrame.data[i], sizeof(dispFrame.data[i]), 1, output); 
-      }
-      auto finish = std::chrono::high_resolution_clock::now();
-      auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(finish-start);
-      std::cout << microseconds.count() << "µs" << dispFrame.dataend - dispFrame.datastart << "\n";
       
-    }
-    if (frameCount > 2147483647) {
-      break;
-    }
+    if (output != nullptr) { fwrite(dispFrame.data, 1, dispFrame.dataend - dispFrame.datastart, output); }
+
     stringstream ssChangeRate;
     ssChangeRate << fixed << setprecision(2) << changeRate;
     this->myLogger.debug(
@@ -196,3 +183,11 @@ void deviceManager::startMotionDetection() {
 void deviceManager::stopMotionDetection() {
   this->stopSignal = true;
 }
+
+/*
+auto start = std::chrono::high_resolution_clock::now();  
+
+auto finish = std::chrono::high_resolution_clock::now();
+auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(finish-start);
+std::cout << microseconds.count() / 1000 << "ms\n";
+*/

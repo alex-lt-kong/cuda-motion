@@ -20,21 +20,18 @@ public:
 private:
   bool stopSignal = false;
   double fontScale = 1;
-  int frameRate = 30;
   int frameRotation = -1;
-  int originalFrameWidth = -1;   
-  int originalFrameHeight = -1;
   logger myLogger = logger("/var/log/ak-studio/motionDetector.log", false);;
-  string deviceUrl = "";
+  string deviceUri = "";
   string deviceName = "";   
   string ffmpegCommand = "";
   string snapshotPath = "";
   string externalCommand = "";
-  string videoDirectory = "";
   string videoExtension = "";
   
   string convertToString(char* a, int size);
   string getCurrentTimestamp();
   void overlayDatetime(Mat frame);
+  void overlayDeviceName(Mat frame);
   void overlayChangeRate(Mat frame, float changeRate, int cooldown);
 };
