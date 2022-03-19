@@ -44,13 +44,16 @@ bool deviceManager::setParameters(json settings) {
   this->deviceUri = settings["uri"];
   this->deviceName = settings["name"];
   this->frameRotation = settings["rotation"];
-  this->snapshotPath = settings["snapshotPath"];
+  this->snapshotPath = settings["snapshot"]["path"];
+  this->snapshotFrameInterval = settings["snapshot"]["frameInterval"];
   this->fontScale = settings["fontScale"];
-  this->externalCommand = settings["externalCommand"];
+  this->eventOnVideoStarts = settings["events"]["onVideoStarts"];
   this->ffmpegCommand = settings["ffmpegCommand"];
   this->rateOfChangeLower = settings["rateOfChange"]["lowerLimit"];
   this->rateOfChangeUpper = settings["rateOfChange"]["upperLimit"];
   this->pixelLevelThreshold = settings["pixelLevelThreshold"];
+  this->framesAfterTrigger = settings["video"]["framesAfterTrigger"];
+  this->maxFramesPerVideo = settings["video"]["maxFramesPerVideo"];
   return true;
 }
 
@@ -100,7 +103,7 @@ void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown)
 }
 
 void deviceManager::startMotionDetection() {
-  this->stopSignal = false;
+
   Mat prevFrame, currFrame, diffFrame, grayDiffFrame, dispFrame;
   bool result = false;
   VideoCapture cap;
@@ -113,10 +116,7 @@ void deviceManager::startMotionDetection() {
   int cooldown = 0;
   
   while (true) {
-    if (this->stopSignal) {
-      cout << "stopSignal received, exited" << endl;
-      break;
-    }    
+   
     result = cap.read(currFrame);
 
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
@@ -147,15 +147,15 @@ void deviceManager::startMotionDetection() {
     this->overlayDatetime(dispFrame);    
     this->overlayDeviceName(dispFrame);
 
-    if (frameCount % 37 == 0) { imwrite(this->snapshotPath, dispFrame); }
+    if (frameCount % this->snapshotFrameInterval == 0) { imwrite(this->snapshotPath, dispFrame); }
     
     if (changeRate > this->rateOfChangeLower && changeRate < this->rateOfChangeUpper) {      
-      cooldown = 500;
+      cooldown = this->framesAfterTrigger;
       if (output == nullptr) {
         string command = this->ffmpegCommand;
         command = regex_replace(command, regex("__timestamp__"), this->getCurrentTimestamp());
         output = popen((command).c_str(), "w");
-        if (this->externalCommand.length() > 0) { system((this->externalCommand + " &").c_str()); }
+        if (this->eventOnVideoStarts.length() > 0) { system((this->eventOnVideoStarts + " &").c_str()); }
         this->myLogger.info("Device [" + this->deviceName + "] motion detected, video recording begins");
       }
     }
