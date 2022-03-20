@@ -59,7 +59,12 @@
     "list": "cpp",
     "map": "cpp",
     "set": "cpp",
-    "bitset": "cpp"
+    "bitset": "cpp",
+    "regex": "cpp",
+    "valarray": "cpp",
+    "forward_list": "cpp",
+    "fstream": "cpp",
+    "cinttypes": "cpp"
   },
   "C_Cpp.errorSquiggles": "Disabled"
 }

@@ -27,8 +27,12 @@ private:
   int frameRotation = -1;
   int framePreferredWidth = -1;
   int framePreferredHeight = -1;
+  int framePreferredFps = -1;
+  int frameFpsUpperCap = 1;
   int framesAfterTrigger = 0;
   int maxFramesPerVideo = 1;
+  int diffFrameInterval = 1;
+  int frameIntervalInMs = 24;
   logger myLogger = logger("/var/log/ak-studio/motionDetector.log", false);;
   string deviceUri = "";
   string deviceName = "";   
@@ -41,4 +45,5 @@ private:
   void overlayDatetime(Mat frame);
   void overlayDeviceName(Mat frame);
   void overlayChangeRate(Mat frame, float changeRate, int cooldown);
+  float getRateOfChange(Mat prevFrame, Mat currFrame);
 };

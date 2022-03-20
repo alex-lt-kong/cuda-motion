@@ -1,3 +1,7 @@
+# Motion Detector
+
+A C++ project inspired by, similar to but simpler than [Motion](https://github.com/Motion-Project/motion) in C.
+
 ## Compilation
 
 ```
@@ -19,27 +23,37 @@ trying different version is usually unavoidable...
 * Install NVIDIA GPU driver and make sure everything works with `nvidia-smi`.
 * Install `FFmpeg` 4.4 with NVIDIA Cuda support following NVIDIA's official guide: https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/. Note that as of February 2022, `FFmpeg` 4.5 does not seem to work since it appears to be incompatible with `OpenCV`.
 * Install `OpenCV`.
+* Install `nlohmann-json3` for JSON support: `apt install nlohmann-json3-dev`
 
-```
-apt install nlohmann-json3-dev libspdlog-dev
-```
+## Explanation to Some Confusing Parameters
 
-# Useful Commands
+* `preferredWidth`,`preferredHeight`, `preferredFps`: If positive, they will be directly passed to `OpenCV`'s `CAP_PROP_FRAME_WIDTH`, `CAP_PROP_FRAME_HEIGHT` and `CAP_PROP_FPS`. It is subject to `OpenCV`'s discretion on how they are interpreted. Usually
+they are only effective when the source is a local Linux video device.
+* `FpsUpperCap`: If the motionDetector gets frames faster than this value, it simply discard the frame and read the next 
+one, skipping all further processing. It is useful to limit the CPU usage of the program when FPS from a video device
+cannot be controlled by `preferredFps`.
 
-## List supported resolutions of video source:
+## Useful Commands
 
-* `v4l2-ctl -d [videoUri] --list-formats-ext`
+### 1. `v4l2-ctl`
 
-## Ascertain the `-pix_fmt` option is `ffmpeg` command
+* List supported video devices: `v4l2-ctl --list-devices`
+* List supported resolutions of a video device: `v4l2-ctl --list-formats-ext --device [videoUri]`
+* Get pixel format from a video device: `v4l2-ctl --get-fmt-video --device [videoUri]`
+* Set pixel format to `MJPG` to a video device: `v4l2-ctl --set-fmt-video=pixelformat=MJPG --device [videoUri]`
+
+### 2. `ffmpeg` and `ffprobe`
+
+#### Ascertain the `-pix_fmt` option is `ffmpeg` command
 
 * Seems that there isn't a credible way lol.
 * Issue `ffmpeg -pix_fmts` and try the results one by one.
 * Some options are more likely to be the right value than others, such as `yuv420p`, `yuyv422`, `bgr24`, `rgb24`.
 
-## Ascertain the FPS of a video source
+#### Ascertain the FPS of a video source
 ```
 # ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate [videoUri]
 25/1
 ```
-* Note that this value may or may not be accurate.
+* Note that this value may not be accurate for remote video sources.
 * A more accurate but less formal way is to simply observe the output from `ffmpeg` itself.
