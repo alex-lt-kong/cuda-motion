@@ -16,6 +16,7 @@ public:
   void startMotionDetection();
   void stopMotionDetection();
   bool setParameters(json settings);
+  static void signalCallbackHandler(int signum) { printf("Caught signal SIGPIPE %d\n",signum); };
 
 private:
   bool stopSignal = false;

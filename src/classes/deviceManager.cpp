@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <thread>
 
+
 #include "deviceManager.h"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -18,6 +19,7 @@ using namespace std;
 using namespace cv;
 
 using sysclock_t = std::chrono::system_clock;
+
 
 string deviceManager::getCurrentTimestamp()
 {
@@ -60,6 +62,7 @@ bool deviceManager::setParameters(json settings) {
 }
 
 deviceManager::deviceManager() {
+  
 }
 
 void deviceManager::overlayDatetime(Mat frame) {
@@ -114,7 +117,7 @@ void deviceManager::startMotionDetection() {
   result = cap.open(this->deviceUri);
   this->myLogger.info("cap.open(" + this->deviceUri + "): " + to_string(result));
   long long int frameCount = 0;
-  FILE *output = nullptr;
+  FILE *ffmpegPipe = nullptr;
   int cooldown = 0;
   
   if (this->framePreferredWidth > 0) { cap.set(CAP_PROP_FRAME_WIDTH, this->framePreferredWidth); }
@@ -154,10 +157,10 @@ void deviceManager::startMotionDetection() {
     
     if (changeRate > this->rateOfChangeLower && changeRate < this->rateOfChangeUpper) {      
       cooldown = this->framesAfterTrigger;
-      if (output == nullptr) {
+      if (ffmpegPipe == nullptr) {
         string command = this->ffmpegCommand;
         command = regex_replace(command, regex("__timestamp__"), this->getCurrentTimestamp());
-        output = popen((command).c_str(), "w");
+        ffmpegPipe = popen((command).c_str(), "w");
         if (this->eventOnVideoStarts.length() > 0) { system((this->eventOnVideoStarts + " &").c_str()); }
         this->myLogger.info("Device [" + this->deviceName + "] motion detected, video recording begins");
       }
@@ -166,15 +169,23 @@ void deviceManager::startMotionDetection() {
     frameCount ++;
     if (cooldown >= 0) { cooldown --; }
     if (cooldown == 0) { 
-      if (output != nullptr) { 
+      if (ffmpegPipe != nullptr) { 
         // No, you cannot pclose() a nullptr
-          pclose(output); 
-          output = nullptr; 
+          pclose(ffmpegPipe); 
+          ffmpegPipe = nullptr; 
           this->myLogger.info("Device [" + this->deviceName + "] video recording ends");
         } 
     }
       
-    if (output != nullptr) { fwrite(dispFrame.data, 1, dispFrame.dataend - dispFrame.datastart, output); }
+    if (ffmpegPipe != nullptr) { 
+      fwrite(dispFrame.data, 1, dispFrame.dataend - dispFrame.datastart, ffmpegPipe);
+      if (ferror(ffmpegPipe)) {
+        this->myLogger.info(
+          "ferror(ffmpegPipe) is true, unable to fwrite() more frames to the pipe (cooldown: "
+          + to_string(cooldown) + ")"
+        );
+      }
+    }
 
     stringstream ssChangeRate;
     ssChangeRate << fixed << setprecision(2) << changeRate;
