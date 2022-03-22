@@ -115,13 +115,13 @@ void deviceManager::overlayDeviceName(Mat frame) {
           FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255,255,255), 2 * this->fontScale, LINE_AA, false);
 }
 
-void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown) {
+void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown, long long int videoFrameCount) {
   int value = changeRate * 100;
   stringstream ssChangeRate;
   ssChangeRate << fixed << setprecision(2) << changeRate;
-  putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ")", 
+  putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ", " + to_string(this->maxFramesPerVideo - videoFrameCount) + ")", 
           Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,   0,   0  ), 8 * this->fontScale, LINE_AA, false);
-  putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ")",
+  putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ", " + to_string(this->maxFramesPerVideo - videoFrameCount) + ")",
           Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255, 255, 255), 2 * this->fontScale, LINE_AA, false);
 }
 
@@ -136,7 +136,8 @@ void deviceManager::startMotionDetection() {
 
   result = cap.open(this->deviceUri);
   this->myLogger.info("cap.open(" + this->deviceUri + "): " + to_string(result));
-  long long int frameCount = 0;
+  long long int totalFrameCount = 0;
+  long long int videoFrameCount = 0;
   FILE *ffmpegPipe = nullptr;
   int cooldown = 0;
   
@@ -165,16 +166,16 @@ void deviceManager::startMotionDetection() {
       // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
     }
 
-    if (frameCount % this->diffFrameInterval == 0) { rateOfChange = this->getRateOfChange(prevFrame, currFrame); }
+    if (totalFrameCount % this->diffFrameInterval == 0) { rateOfChange = this->getRateOfChange(prevFrame, currFrame); }
 
     prevFrame = currFrame.clone();
     dispFrame = currFrame.clone();
     if (this->frameRotation != -1) { rotate(dispFrame, dispFrame, this->frameRotation); } 
-    this->overlayChangeRate(dispFrame, rateOfChange, cooldown);
+    this->overlayChangeRate(dispFrame, rateOfChange, cooldown, videoFrameCount);
     this->overlayDatetime(dispFrame);    
     this->overlayDeviceName(dispFrame);
     
-    if (frameCount % this->snapshotFrameInterval == 0) { imwrite(this->snapshotPath, dispFrame); }
+    if (totalFrameCount % this->snapshotFrameInterval == 0) { imwrite(this->snapshotPath, dispFrame); }
     
     if (rateOfChange > this->rateOfChangeLower && rateOfChange < this->rateOfChangeUpper) {      
       cooldown = this->framesAfterTrigger;
@@ -184,18 +185,25 @@ void deviceManager::startMotionDetection() {
         ffmpegPipe = popen((command).c_str(), "w");
         if (this->eventOnVideoStarts.length() > 0) { system((this->eventOnVideoStarts + " &").c_str()); }
         this->myLogger.info("Device [" + this->deviceName + "] motion detected, video recording begins");
-      }
+      }      
+    }    
+    totalFrameCount ++;
+
+    if (cooldown >= 0) {
+      cooldown --;
+      videoFrameCount ++;
     }
-    
-    frameCount ++;
-    if (cooldown >= 0) { cooldown --; }
+    if (videoFrameCount >= this->maxFramesPerVideo) {
+      cooldown = 0; 
+      videoFrameCount = 0;
+    }
     if (cooldown == 0) { 
       if (ffmpegPipe != nullptr) { 
         // No, you cannot pclose() a nullptr
           pclose(ffmpegPipe); 
           ffmpegPipe = nullptr; 
           this->myLogger.info("Device [" + this->deviceName + "] video recording ends");
-        } 
+        }
     }
     
     if (ffmpegPipe != nullptr) {       
