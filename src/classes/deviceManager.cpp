@@ -187,23 +187,14 @@ void deviceManager::startMotionDetection() {
         this->myLogger.info("Device [" + this->deviceName + "] motion detected, video recording begins");
       }      
     }    
-    totalFrameCount ++;
-
-    if (cooldown >= 0) {
-      cooldown --;
-      videoFrameCount ++;
-    }
-    if (videoFrameCount >= this->maxFramesPerVideo) {
-      cooldown = 0; 
-      videoFrameCount = 0;
-    }
+    
     if (cooldown == 0) { 
-      if (ffmpegPipe != nullptr) { 
-        // No, you cannot pclose() a nullptr
+      if (ffmpegPipe != nullptr) { // No, you cannot pclose() a nullptr
           pclose(ffmpegPipe); 
           ffmpegPipe = nullptr; 
           this->myLogger.info("Device [" + this->deviceName + "] video recording ends");
         }
+        videoFrameCount = -1;
     }
     
     if (ffmpegPipe != nullptr) {       
@@ -215,6 +206,13 @@ void deviceManager::startMotionDetection() {
         );
       }
     }
+    
+    totalFrameCount ++;
+    if (cooldown >= 0) {
+      cooldown --;
+      videoFrameCount ++;
+    }
+    if (videoFrameCount >= this->maxFramesPerVideo) { cooldown = 0; }
   }
   cap.release();
 
