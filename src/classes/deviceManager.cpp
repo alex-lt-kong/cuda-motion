@@ -129,6 +129,7 @@ void deviceManager::startMotionDetection() {
 
   Mat prevFrame, currFrame, dispFrame;
   bool result = false;
+  bool isShowingBlankFrame = false;
   VideoCapture cap;
   float rateOfChange = 0.0;
   long long int prevMsSinceEpoch = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
@@ -160,17 +161,18 @@ void deviceManager::startMotionDetection() {
         "Unable to cap.read() a new frame from device [" + this->deviceName + "]. result: " + 
         to_string(result) + ", currFrame.empty(): " + to_string(currFrame.empty()) +
         ", cap.isOpened(): " + to_string(cap.isOpened()) + ". Sleep for 2 sec than then re-open()...");
+      isShowingBlankFrame = true;
       this_thread::sleep_for(2000ms); // Don't wait for too long, most of the time the device can be re-open()ed immediately
       cap.open(this->deviceUri);
       currFrame = Mat(960, 540, CV_8UC3, Scalar(128, 128, 128));
       // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
-    }
+    } else { isShowingBlankFrame = false; }
 
     if (totalFrameCount % this->diffFrameInterval == 0) { rateOfChange = this->getRateOfChange(prevFrame, currFrame); }
 
     prevFrame = currFrame.clone();
     dispFrame = currFrame.clone();
-    if (this->frameRotation != -1) { rotate(dispFrame, dispFrame, this->frameRotation); } 
+    if (this->frameRotation != -1 && isShowingBlankFrame == false) { rotate(dispFrame, dispFrame, this->frameRotation); } 
     this->overlayChangeRate(dispFrame, rateOfChange, cooldown, videoFrameCount);
     this->overlayDatetime(dispFrame);    
     this->overlayDeviceName(dispFrame);
@@ -187,7 +189,13 @@ void deviceManager::startMotionDetection() {
         this->myLogger.info("Device [" + this->deviceName + "] motion detected, video recording begins");
       }      
     }    
-    
+      
+    totalFrameCount ++;
+    if (cooldown >= 0) {
+      cooldown --;
+      if (cooldown > 0) { videoFrameCount ++; }
+    }
+    if (videoFrameCount >= this->maxFramesPerVideo) { cooldown = 0; }
     if (cooldown == 0) { 
       if (ffmpegPipe != nullptr) { // No, you cannot pclose() a nullptr
           pclose(ffmpegPipe); 
@@ -195,8 +203,8 @@ void deviceManager::startMotionDetection() {
           this->myLogger.info("Device [" + this->deviceName + "] video recording ends");
         }
         videoFrameCount = 0;
-    }
-    
+    }  
+
     if (ffmpegPipe != nullptr) {       
       fwrite(dispFrame.data, 1, dispFrame.dataend - dispFrame.datastart, ffmpegPipe);      
       if (ferror(ffmpegPipe)) {
@@ -206,13 +214,7 @@ void deviceManager::startMotionDetection() {
         );
       }
     }
-    
-    totalFrameCount ++;
-    if (cooldown >= 0) {
-      cooldown --;
-      if (cooldown > 0) { videoFrameCount ++; }
-    }
-    if (videoFrameCount >= this->maxFramesPerVideo) { cooldown = 0; }
+
   }
   cap.release();
 
