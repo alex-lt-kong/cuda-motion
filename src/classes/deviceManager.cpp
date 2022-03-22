@@ -194,7 +194,7 @@ void deviceManager::startMotionDetection() {
           ffmpegPipe = nullptr; 
           this->myLogger.info("Device [" + this->deviceName + "] video recording ends");
         }
-        videoFrameCount = -1;
+        videoFrameCount = 0;
     }
     
     if (ffmpegPipe != nullptr) {       
@@ -210,7 +210,7 @@ void deviceManager::startMotionDetection() {
     totalFrameCount ++;
     if (cooldown >= 0) {
       cooldown --;
-      videoFrameCount ++;
+      if (cooldown > 0) { videoFrameCount ++; }
     }
     if (videoFrameCount >= this->maxFramesPerVideo) { cooldown = 0; }
   }
