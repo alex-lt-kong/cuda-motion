@@ -125,6 +125,24 @@ void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown,
           Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255, 255, 255), 2 * this->fontScale, LINE_AA, false);
 }
 
+bool deviceManager::skipThisFrame() {
+  int sampleMsLowerLimit = 1000;
+  int sampleMsUpperLimit = 60 * 1000;
+  int currMsSinceEpoch = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+  if (this->frameTimestamps.size() <= 1) { 
+    this->frameTimestamps.push(currMsSinceEpoch); 
+    return false;
+  }
+  
+  float fps = 1000.0 * this->frameTimestamps.size() / (1 + currMsSinceEpoch - this->frameTimestamps.front());
+  if (currMsSinceEpoch - this->frameTimestamps.front() > sampleMsUpperLimit) {
+    this->frameTimestamps.pop();
+  }
+  if (fps > this->frameFpsUpperCap) { return true; }
+  this->frameTimestamps.push(currMsSinceEpoch);  
+  return false;
+}
+
 void deviceManager::startMotionDetection() {
 
   Mat prevFrame, currFrame, dispFrame;
@@ -132,8 +150,6 @@ void deviceManager::startMotionDetection() {
   bool isShowingBlankFrame = false;
   VideoCapture cap;
   float rateOfChange = 0.0;
-  long long int prevMsSinceEpoch = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-  long long int currMsSinceEpoch = 0;
 
   result = cap.open(this->deviceUri);
   this->myLogger.info("cap.open(" + this->deviceUri + "): " + to_string(result));
@@ -151,9 +167,7 @@ void deviceManager::startMotionDetection() {
   while (true) {
 
     result = cap.grab();
-    currMsSinceEpoch = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-    if ((currMsSinceEpoch - prevMsSinceEpoch) <= this->frameIntervalInMs) { continue; }
-    prevMsSinceEpoch = currMsSinceEpoch;
+    if (this->skipThisFrame() == true) { continue; }
     if (result) { result = result && cap.retrieve(currFrame); }
 
     if (result == false || currFrame.empty() || cap.isOpened() == false) {

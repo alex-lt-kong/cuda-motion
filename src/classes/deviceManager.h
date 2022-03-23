@@ -3,6 +3,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "logger.h"
+#include <queue>
 
 using namespace std;
 using namespace cv;
@@ -39,7 +40,9 @@ private:
   string ffmpegCommand = "";
   string snapshotPath = "";
   string eventOnVideoStarts = "";
+  queue<long long int> frameTimestamps;
   
+  bool skipThisFrame();
   string convertToString(char* a, int size);
   string getCurrentTimestamp();
   void overlayDatetime(Mat frame);
