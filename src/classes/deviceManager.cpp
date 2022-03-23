@@ -180,7 +180,12 @@ void deviceManager::startMotionDetection() {
       cap.open(this->deviceUri);
       currFrame = Mat(540, 960, CV_8UC3, Scalar(128, 128, 128));
       // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
-    } else { isShowingBlankFrame = false; }
+    } else {
+      if (isShowingBlankFrame == true) {
+        this->myLogger.info("Device [" + this->deviceName + "] is back!");
+      }
+      isShowingBlankFrame = false;
+    }
 
     if (totalFrameCount % this->diffFrameInterval == 0) { rateOfChange = this->getRateOfChange(prevFrame, currFrame); }
 
