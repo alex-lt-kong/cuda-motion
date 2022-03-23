@@ -178,7 +178,7 @@ void deviceManager::startMotionDetection() {
       isShowingBlankFrame = true;
       this_thread::sleep_for(2000ms); // Don't wait for too long, most of the time the device can be re-open()ed immediately
       cap.open(this->deviceUri);
-      currFrame = Mat(960, 540, CV_8UC3, Scalar(128, 128, 128));
+      currFrame = Mat(540, 960, CV_8UC3, Scalar(128, 128, 128));
       // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
     } else { isShowingBlankFrame = false; }
 
