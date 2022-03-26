@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <chrono>
 #include <ctime>
+#include <filesystem>
 #include <iostream>
 #include <iomanip>
 #include <nlohmann/json.hpp>
@@ -196,7 +197,13 @@ void deviceManager::startMotionDetection() {
     this->overlayDatetime(dispFrame);    
     this->overlayDeviceName(dispFrame);
     
-    if (totalFrameCount % this->snapshotFrameInterval == 0) { imwrite(this->snapshotPath, dispFrame); }
+    if (totalFrameCount % this->snapshotFrameInterval == 0) {
+      // https://stackoverflow.com/questions/7054844/is-rename-atomic
+      // https://stackoverflow.com/questions/29261648/atomic-writing-to-file-on-linux
+      string ext = this->snapshotPath.substr(this->snapshotPath.find_last_of(".") + 1);
+      imwrite(this->snapshotPath + "." + ext, dispFrame); 
+      rename((this->snapshotPath + "." + ext).c_str(), this->snapshotPath.c_str());
+    }
     
     if (rateOfChange > this->rateOfChangeLower && rateOfChange < this->rateOfChangeUpper) {      
       cooldown = this->framesAfterTrigger;
