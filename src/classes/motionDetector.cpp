@@ -26,7 +26,7 @@ void motionDetector::main() {
   is >> jsonSettings;
   this->deviceCount = jsonSettings["devices"].size();
   this->myDevices = new deviceManager[deviceCount];
-  thread deviceThreads[4];
+  thread deviceThreads[this->deviceCount];
 
   for (int i = 0; i < deviceCount; i++) {
     myLogger.info("Loading " + to_string(i) + "-th device: " + jsonSettings["devices"][i].dump(2));
