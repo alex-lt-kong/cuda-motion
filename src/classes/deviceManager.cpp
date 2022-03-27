@@ -55,6 +55,7 @@ bool deviceManager::setParameters(json settings) {
   this->snapshotPath = settings["snapshot"]["path"];
   this->snapshotFrameInterval = settings["snapshot"]["frameInterval"];  
   this->eventOnVideoStarts = settings["events"]["onVideoStarts"];
+  this->eventOnVideoEnds = settings["events"]["onVideoEnds"];
   this->ffmpegCommand = settings["ffmpegCommand"];
   this->rateOfChangeLower = settings["motionDetection"]["frameLevelRateOfChangeLowerLimit"];
   this->rateOfChangeUpper = settings["motionDetection"]["frameLevelRateOfChangeUpperLimit"];
@@ -183,7 +184,7 @@ void deviceManager::startMotionDetection() {
       // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
     } else {
       if (isShowingBlankFrame == true) {
-        this->myLogger.info("Device [" + this->deviceName + "] is back!");
+        this->myLogger.info(" [" + this->deviceName + "] is back!");
       }
       isShowingBlankFrame = false;
     }
@@ -209,10 +210,14 @@ void deviceManager::startMotionDetection() {
       cooldown = this->framesAfterTrigger;
       if (ffmpegPipe == nullptr) {
         string command = this->ffmpegCommand;
-        command = regex_replace(command, regex("__timestamp__"), this->getCurrentTimestamp());
+        command = regex_replace(command, regex("\\{\\{timestamp\\}\\}"), this->getCurrentTimestamp());
         ffmpegPipe = popen((command).c_str(), "w");
-        if (this->eventOnVideoStarts.length() > 0) { system((this->eventOnVideoStarts + " &").c_str()); }
-        this->myLogger.info("Device [" + this->deviceName + "] motion detected, video recording begins");
+        this->myLogger.info("[" + this->deviceName + "] motion detected, video recording begins");
+        if (this->eventOnVideoStarts.length() > 0) {
+          system((this->eventOnVideoStarts + " &").c_str());
+          this->myLogger.info("[" + this->deviceName + "] onVideoStarts triggered, command [" + this->eventOnVideoStarts + "] executed");
+        }
+        
       }      
     }    
       
@@ -226,7 +231,11 @@ void deviceManager::startMotionDetection() {
       if (ffmpegPipe != nullptr) { // No, you cannot pclose() a nullptr
           pclose(ffmpegPipe); 
           ffmpegPipe = nullptr; 
-          this->myLogger.info("Device [" + this->deviceName + "] video recording ends");
+          this->myLogger.info("[" + this->deviceName + "] video recording ends");
+          if (this->eventOnVideoEnds.length() > 0) {            
+            system((this->eventOnVideoEnds + " &").c_str());
+            this->myLogger.info("[" + this->deviceName + "] onVideoEnds triggered, command [" + this->eventOnVideoEnds + "] executed");
+          }
         }
         videoFrameCount = 0;
     }  

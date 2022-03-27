@@ -40,6 +40,7 @@ private:
   string ffmpegCommand = "";
   string snapshotPath = "";
   string eventOnVideoStarts = "";
+  string eventOnVideoEnds = "";
   queue<long long int> frameTimestamps;
   
   bool skipThisFrame();
