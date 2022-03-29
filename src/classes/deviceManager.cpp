@@ -160,7 +160,8 @@ void deviceManager::startMotionDetection() {
   FILE *ffmpegPipe = nullptr;
   int cooldown = 0;
   
-  cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G'));
+  cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 
+  // Thought about moving CAP_PROP_FOURCC to config file. But seems they are good just to be hard-coded?
   if (this->framePreferredWidth > 0) { cap.set(CAP_PROP_FRAME_WIDTH, this->framePreferredWidth); }
   if (this->framePreferredHeight > 0) { cap.set(CAP_PROP_FRAME_HEIGHT, this->framePreferredHeight); }
   if (this->framePreferredFps > 0) { cap.set(CAP_PROP_FPS, this->framePreferredFps); }
