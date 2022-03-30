@@ -46,6 +46,8 @@ private:
   bool skipThisFrame();
   string convertToString(char* a, int size);
   string getCurrentTimestamp();
+  void rateOfChangeInRange(FILE** ffmpegPipe, int* cooldown, string* timestampOnVideoStarts);
+  void coolDownReachedZero(FILE** ffmpegPipe, long long int* videoFrameCount, string* timestampOnVideoStarts);
   void overlayDatetime(Mat frame);
   void overlayDeviceName(Mat frame);
   void overlayChangeRate(Mat frame, float changeRate, int cooldown, long long int videoFrameCount);

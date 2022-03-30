@@ -145,6 +145,47 @@ bool deviceManager::skipThisFrame() {
   return false;
 }
 
+void deviceManager::coolDownReachedZero(
+  FILE** ffmpegPipe, long long int* videoFrameCount, string* timestampOnVideoStarts
+) {
+  if (*ffmpegPipe != nullptr) { // No, you cannot pclose() a nullptr
+    pclose(*ffmpegPipe); 
+    *ffmpegPipe = nullptr; 
+    this->myLogger.info("[" + this->deviceName + "] video recording ends");
+    if (this->eventOnVideoEnds.length() > 0) {            
+      string commandOnVideoEnds = regex_replace(
+        this->eventOnVideoEnds, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
+      );
+      system((commandOnVideoEnds + " &").c_str());
+      this->myLogger.info("[" + this->deviceName + "] onVideoEnds triggered, command [" + commandOnVideoEnds + "] executed");
+    }
+  }
+  *videoFrameCount = 0;
+}
+
+
+void deviceManager::rateOfChangeInRange(
+  FILE** ffmpegPipe, int* cooldown, string* timestampOnVideoStarts
+) {
+  *cooldown = this->framesAfterTrigger;
+  if (*ffmpegPipe == nullptr) {
+    string command = this->ffmpegCommand;
+    *timestampOnVideoStarts = this->getCurrentTimestamp();
+    command = regex_replace(
+      command, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
+    );
+    *ffmpegPipe = popen((command).c_str(), "w");
+    this->myLogger.info("[" + this->deviceName + "] motion detected, video recording begins");
+    if (this->eventOnVideoStarts.length() > 0) {
+      string commandOnVideoStarts = regex_replace(
+        this->eventOnVideoStarts, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
+      );
+      system((commandOnVideoStarts + " &").c_str());
+      this->myLogger.info("[" + this->deviceName + "] onVideoStarts triggered, command [" + commandOnVideoStarts + "] executed");
+    }    
+  }
+}
+
 void deviceManager::startMotionDetection() {
 
   Mat prevFrame, currFrame, dispFrame;
@@ -152,6 +193,7 @@ void deviceManager::startMotionDetection() {
   bool isShowingBlankFrame = false;
   VideoCapture cap;
   float rateOfChange = 0.0;
+  string timestampOnVideoStarts = "";
 
   result = cap.open(this->deviceUri);
   this->myLogger.info("cap.open(" + this->deviceUri + "): " + to_string(result));
@@ -207,20 +249,9 @@ void deviceManager::startMotionDetection() {
       rename((this->snapshotPath + "." + ext).c_str(), this->snapshotPath.c_str());
     }
     
-    if (rateOfChange > this->rateOfChangeLower && rateOfChange < this->rateOfChangeUpper) {      
-      cooldown = this->framesAfterTrigger;
-      if (ffmpegPipe == nullptr) {
-        string command = this->ffmpegCommand;
-        command = regex_replace(command, regex("\\{\\{timestamp\\}\\}"), this->getCurrentTimestamp());
-        ffmpegPipe = popen((command).c_str(), "w");
-        this->myLogger.info("[" + this->deviceName + "] motion detected, video recording begins");
-        if (this->eventOnVideoStarts.length() > 0) {
-          system((this->eventOnVideoStarts + " &").c_str());
-          this->myLogger.info("[" + this->deviceName + "] onVideoStarts triggered, command [" + this->eventOnVideoStarts + "] executed");
-        }
-        
-      }      
-    }    
+    if (rateOfChange > this->rateOfChangeLower && rateOfChange < this->rateOfChangeUpper) {
+      this->rateOfChangeInRange(&ffmpegPipe, &cooldown, &timestampOnVideoStarts);
+    }
       
     totalFrameCount ++;
     if (cooldown >= 0) {
@@ -229,16 +260,7 @@ void deviceManager::startMotionDetection() {
     }
     if (videoFrameCount >= this->maxFramesPerVideo) { cooldown = 0; }
     if (cooldown == 0) { 
-      if (ffmpegPipe != nullptr) { // No, you cannot pclose() a nullptr
-          pclose(ffmpegPipe); 
-          ffmpegPipe = nullptr; 
-          this->myLogger.info("[" + this->deviceName + "] video recording ends");
-          if (this->eventOnVideoEnds.length() > 0) {            
-            system((this->eventOnVideoEnds + " &").c_str());
-            this->myLogger.info("[" + this->deviceName + "] onVideoEnds triggered, command [" + this->eventOnVideoEnds + "] executed");
-          }
-        }
-        videoFrameCount = 0;
+      this->coolDownReachedZero(&ffmpegPipe, &videoFrameCount, &timestampOnVideoStarts);
     }  
 
     if (ffmpegPipe != nullptr) {       
