@@ -25,16 +25,16 @@ string logger::prependTimestamp(){
 
 void logger::debug(string content) {
   if (this->enableDebug == false) { return; }
-  this->writeToFile("[" + this->prependTimestamp() + "] DEBUG | " + content + "\n");
+  this->writeToFile(this->prependTimestamp() + " | DEBUG | " + content + "\n");
 }
 
 void logger::error(string content) {
-  this->writeToFile("[" + this->prependTimestamp() + "] ERROR | " + content + "\n");
+  this->writeToFile(this->prependTimestamp() + " | ERROR | " + content + "\n");
 }
 
 
 void logger::info(string content) {
-  this->writeToFile("[" + this->prependTimestamp() + "]  INFO | " + content + "\n");
+  this->writeToFile(this->prependTimestamp() + " | INFO  | " + content + "\n");
 }
 
 void logger::writeToFile(string content) {

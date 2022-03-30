@@ -151,13 +151,16 @@ void deviceManager::coolDownReachedZero(
   if (*ffmpegPipe != nullptr) { // No, you cannot pclose() a nullptr
     pclose(*ffmpegPipe); 
     *ffmpegPipe = nullptr; 
-    this->myLogger.info("[" + this->deviceName + "] video recording ends");
-    if (this->eventOnVideoEnds.length() > 0) {            
+    
+    if (this->eventOnVideoEnds.length() > 0) {
+      this->myLogger.info("[" + this->deviceName + "] video recording ends");
       string commandOnVideoEnds = regex_replace(
         this->eventOnVideoEnds, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
       );
       system((commandOnVideoEnds + " &").c_str());
       this->myLogger.info("[" + this->deviceName + "] onVideoEnds triggered, command [" + commandOnVideoEnds + "] executed");
+    } else {
+      this->myLogger.info("[" + this->deviceName + "] video recording ends, no command to execute");
     }
   }
   *videoFrameCount = 0;
@@ -175,14 +178,17 @@ void deviceManager::rateOfChangeInRange(
       command, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
     );
     *ffmpegPipe = popen((command).c_str(), "w");
-    this->myLogger.info("[" + this->deviceName + "] motion detected, video recording begins");
+    
     if (this->eventOnVideoStarts.length() > 0) {
+      this->myLogger.info("[" + this->deviceName + "] motion detected, video recording begins");
       string commandOnVideoStarts = regex_replace(
         this->eventOnVideoStarts, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
       );
       system((commandOnVideoStarts + " &").c_str());
       this->myLogger.info("[" + this->deviceName + "] onVideoStarts triggered, command [" + commandOnVideoStarts + "] executed");
-    }    
+    } else {
+      this->myLogger.info("[" + this->deviceName + "] motion detected, video recording begins, no command to execute");
+    }
   }
 }
 
