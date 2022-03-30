@@ -5,11 +5,11 @@
 
 logger myLogger = logger("/var/log/ak-studio/motionDetector.log", false);
 void signalCallbackHandler(int signum) {
-  myLogger.info("Signal SIGPIPE caught, ffmpeg may have crashed");
+  myLogger.info("main", "Signal SIGPIPE caught, ffmpeg may have crashed");
 };
 
 int main() {  
-  myLogger.info("motionDetector started");
+  myLogger.info("main", "motionDetector started");
   signal(SIGPIPE, signalCallbackHandler);
   motionDetector* myDetector = new motionDetector();
   myDetector->main();

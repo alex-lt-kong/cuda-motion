@@ -153,14 +153,14 @@ void deviceManager::coolDownReachedZero(
     *ffmpegPipe = nullptr; 
     
     if (this->eventOnVideoEnds.length() > 0) {
-      this->myLogger.info("[" + this->deviceName + "] video recording ends");
+      this->myLogger.info(this->deviceName, "video recording ends");
       string commandOnVideoEnds = regex_replace(
         this->eventOnVideoEnds, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
       );
       system((commandOnVideoEnds + " &").c_str());
-      this->myLogger.info("[" + this->deviceName + "] onVideoEnds triggered, command [" + commandOnVideoEnds + "] executed");
+      this->myLogger.info(this->deviceName, "onVideoEnds triggered, command [" + commandOnVideoEnds + "] executed");
     } else {
-      this->myLogger.info("[" + this->deviceName + "] video recording ends, no command to execute");
+      this->myLogger.info(this->deviceName, "video recording ends, no command to execute");
     }
   }
   *videoFrameCount = 0;
@@ -180,14 +180,14 @@ void deviceManager::rateOfChangeInRange(
     *ffmpegPipe = popen((command).c_str(), "w");
     
     if (this->eventOnVideoStarts.length() > 0) {
-      this->myLogger.info("[" + this->deviceName + "] motion detected, video recording begins");
+      this->myLogger.info(this->deviceName, "motion detected, video recording begins");
       string commandOnVideoStarts = regex_replace(
         this->eventOnVideoStarts, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
       );
       system((commandOnVideoStarts + " &").c_str());
-      this->myLogger.info("[" + this->deviceName + "] onVideoStarts triggered, command [" + commandOnVideoStarts + "] executed");
+      this->myLogger.info(this->deviceName, "onVideoStarts triggered, command [" + commandOnVideoStarts + "] executed");
     } else {
-      this->myLogger.info("[" + this->deviceName + "] motion detected, video recording begins, no command to execute");
+      this->myLogger.info(this->deviceName, "motion detected, video recording begins, no command to execute");
     }
   }
 }
@@ -202,7 +202,7 @@ void deviceManager::startMotionDetection() {
   string timestampOnVideoStarts = "";
 
   result = cap.open(this->deviceUri);
-  this->myLogger.info("cap.open(" + this->deviceUri + "): " + to_string(result));
+  this->myLogger.info(this->deviceName, "cap.open(" + this->deviceUri + "): " + to_string(result));
   long long int totalFrameCount = 0;
   long long int videoFrameCount = 0;
   FILE *ffmpegPipe = nullptr;
@@ -222,8 +222,8 @@ void deviceManager::startMotionDetection() {
     if (result) { result = result && cap.retrieve(currFrame); }
 
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
-      this->myLogger.error(
-        "Unable to cap.read() a new frame from device [" + this->deviceName + "]. result: " + 
+      this->myLogger.error(this->deviceName, 
+        "Unable to cap.read() a new frame. result: " + 
         to_string(result) + ", currFrame.empty(): " + to_string(currFrame.empty()) +
         ", cap.isOpened(): " + to_string(cap.isOpened()) + ". Sleep for 2 sec than then re-open()...");
       isShowingBlankFrame = true;
@@ -233,7 +233,7 @@ void deviceManager::startMotionDetection() {
       // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
     } else {
       if (isShowingBlankFrame == true) {
-        this->myLogger.info(" [" + this->deviceName + "] is back!");
+        this->myLogger.info(this->deviceName, "I am back!");
       }
       isShowingBlankFrame = false;
     }
@@ -272,7 +272,7 @@ void deviceManager::startMotionDetection() {
     if (ffmpegPipe != nullptr) {       
       fwrite(dispFrame.data, 1, dispFrame.dataend - dispFrame.datastart, ffmpegPipe);      
       if (ferror(ffmpegPipe)) {
-        this->myLogger.info(
+        this->myLogger.error(this->deviceName, 
           "ferror(ffmpegPipe) is true, unable to fwrite() more frames to the pipe (cooldown: "
           + to_string(cooldown) + ")"
         );

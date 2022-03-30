@@ -16,7 +16,7 @@ void motionDetector::main() {
 
   logger myLogger = logger("/var/log/ak-studio/motionDetector.log", false);
 
-  myLogger.info("cv::getBuildInformation():\n" + getBuildInformation());
+  myLogger.info("main", "cv::getBuildInformation():\n" + getBuildInformation());
 
   string homeDir(getenv("HOME"));
   string settingsPath = homeDir + "/.config/ak-studio/motion-detector.json";
@@ -29,7 +29,7 @@ void motionDetector::main() {
   thread deviceThreads[this->deviceCount];
 
   for (int i = 0; i < deviceCount; i++) {
-    myLogger.info("Loading " + to_string(i) + "-th device: " + jsonSettings["devices"][i].dump(2));
+    myLogger.info("main", "Loading " + to_string(i) + "-th device: " + jsonSettings["devices"][i].dump(2));
     myDevices[i].setParameters(jsonSettings["devices"][i]);
     deviceThreads[i] = thread(&deviceManager::startMotionDetection, myDevices[i]);
   }

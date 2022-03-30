@@ -23,18 +23,27 @@ string logger::prependTimestamp(){
     return std::string(buf);
 }
 
-void logger::debug(string content) {
+void logger::debug(string moduleName, string content) {
   if (this->enableDebug == false) { return; }
-  this->writeToFile(this->prependTimestamp() + " | DEBUG | " + content + "\n");
+  if (moduleName.length() < this->moduleNameLength) {
+    moduleName.insert(0, this->moduleNameLength - moduleName.length(), ' ');
+  }
+  this->writeToFile(this->prependTimestamp() + " | DEBUG | " + moduleName + " | " + content + "\n");
 }
 
-void logger::error(string content) {
-  this->writeToFile(this->prependTimestamp() + " | ERROR | " + content + "\n");
+void logger::error(string moduleName, string content) {
+  if (moduleName.length() < this->moduleNameLength) {
+    moduleName.insert(0, this->moduleNameLength - moduleName.length(), ' ');
+  }
+  this->writeToFile(this->prependTimestamp() + " | ERROR | " + moduleName + " | " + content + "\n");
 }
 
 
-void logger::info(string content) {
-  this->writeToFile(this->prependTimestamp() + " | INFO  | " + content + "\n");
+void logger::info(string moduleName, string content) {
+  if (moduleName.length() < this->moduleNameLength) {
+    moduleName.insert(0, this->moduleNameLength - moduleName.length(), ' ');
+  }
+  this->writeToFile(this->prependTimestamp() + " | INFO  | " + moduleName + " | " + content + "\n");
 }
 
 void logger::writeToFile(string content) {
