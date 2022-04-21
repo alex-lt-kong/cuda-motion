@@ -41,6 +41,8 @@ cannot be controlled by `preferredFps`.
 * List supported resolutions of a video device: `v4l2-ctl --list-formats-ext --device [videoUri]`
 * Get pixel format from a video device: `v4l2-ctl --get-fmt-video --device [videoUri]`
 * Set pixel format to `MJPG` to a video device: `v4l2-ctl --set-fmt-video=pixelformat=MJPG --device [videoUri]`
+* Get framerate: `v4l2-ctl --get-parm --device [videoUri]`
+* Set framerate: `v4l2-ctl --set-parm=30 --device [videoUri]`
 
 ### 2. `ffmpeg` and `ffprobe`
 
