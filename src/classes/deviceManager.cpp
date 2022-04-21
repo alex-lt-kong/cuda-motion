@@ -229,7 +229,17 @@ void deviceManager::startMotionDetection() {
       isShowingBlankFrame = true;
       this_thread::sleep_for(2000ms); // Don't wait for too long, most of the time the device can be re-open()ed immediately
       cap.open(this->deviceUri);
-      currFrame = Mat(540, 960, CV_8UC3, Scalar(128, 128, 128));
+      if (this->framePreferredWidth >0 && this->framePreferredHeight > 0) {
+        currFrame = Mat(this->framePreferredHeight, this->framePreferredWidth, CV_8UC3, Scalar(128, 128, 128));
+      }
+      else {
+        // We cant just do this and skip framePreferredWidth and framePreferredHeight
+        // problem will occur when piping frames to ffmpeg: In ffmpeg, we pre-define the frame size, which is mostly
+        // framePreferredWidth x framePreferredHeight. If the video device is down and we supply a smaller frame, 
+        // ffmpeg will wait until there are enough pixels filling the original resolution to write one frame, 
+        // causing screen tearing
+        currFrame = Mat(540, 960, CV_8UC3, Scalar(128, 128, 128));
+      }
       // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
     } else {
       if (isShowingBlankFrame == true) {
