@@ -7,6 +7,7 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/core/core.hpp>
 #include <regex>
+#include <sstream>
 #include <sys/socket.h>
 #include <thread>
 
@@ -95,17 +96,16 @@ void deviceManager::overlayDatetime(Mat frame) {
 }
 
 
-float deviceManager::getRateOfChange(Mat prevFrame, Mat currFrame) {
-  if (prevFrame.empty()) { return -1; }
+float deviceManager::getFrameChanges(Mat prevFrame, Mat currFrame, Mat* diffFrame) {
+  if (prevFrame.empty() || currFrame.empty()) { return -1; }
   if (prevFrame.cols != currFrame.cols || prevFrame.rows != currFrame.rows) { return -1; }
   if (prevFrame.cols == 0 || prevFrame.rows == 0) { return -1; }
-
-  Mat diffFrame, grayDiffFrame;
-  absdiff(prevFrame, currFrame, diffFrame);
-  cvtColor(diffFrame, grayDiffFrame, COLOR_BGR2GRAY);
-  threshold(grayDiffFrame, grayDiffFrame, this->pixelLevelThreshold, 255, THRESH_BINARY);
-  int nonZeroPixels = countNonZero(grayDiffFrame);
-  return 100.0 * nonZeroPixels / (grayDiffFrame.rows * grayDiffFrame.cols);
+  
+  absdiff(prevFrame, currFrame, *diffFrame);
+  cvtColor(*diffFrame, *diffFrame, COLOR_BGR2GRAY);
+  threshold(*diffFrame, *diffFrame, this->pixelLevelThreshold, 255, THRESH_BINARY);
+  int nonZeroPixels = countNonZero(*diffFrame);
+  return 100.0 * nonZeroPixels / (diffFrame->rows * diffFrame->cols);
 }
 
 void deviceManager::overlayDeviceName(Mat frame) {
@@ -125,6 +125,18 @@ void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown,
           Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,   0,   0  ), 8 * this->fontScale, LINE_AA, false);
   putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ", " + to_string(this->maxFramesPerVideo - videoFrameCount) + ")",
           Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255, 255, 255), 2 * this->fontScale, LINE_AA, false);
+}
+
+void deviceManager::overlayContours(Mat dispFrame, Mat diffFrame) {
+  if (diffFrame.empty()) return;
+  vector<vector<Point>> contours;
+  vector<Vec4i> hierarchy;
+
+  findContours(diffFrame, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE );
+  int idx = 0;
+  for( ; idx >= 0; idx = hierarchy[idx][0] ) {
+    drawContours(dispFrame, contours, idx, Scalar(255, 255, 255), 0.25, 8, hierarchy );
+  }
 }
 
 bool deviceManager::skipThisFrame() {
@@ -194,7 +206,7 @@ void deviceManager::rateOfChangeInRange(
 
 void deviceManager::startMotionDetection() {
 
-  Mat prevFrame, currFrame, dispFrame;
+  Mat prevFrame, currFrame, dispFrame, diffFrame;
   bool result = false;
   bool isShowingBlankFrame = false;
   VideoCapture cap;
@@ -222,10 +234,11 @@ void deviceManager::startMotionDetection() {
     if (result) { result = result && cap.retrieve(currFrame); }
 
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
-      this->myLogger.error(this->deviceName, 
-        "Unable to cap.read() a new frame. result: " + 
-        to_string(result) + ", currFrame.empty(): " + to_string(currFrame.empty()) +
-        ", cap.isOpened(): " + to_string(cap.isOpened()) + ". Sleep for 2 sec than then re-open()...");
+      string ss =  "Unable to cap.read() a new frame. result: ";
+      /* << 
+        result << ", currFrame.empty(): " << currFrame.empty() <<
+        ", cap.isOpened(): " << cap.isOpened() << ". Sleep for 2 sec than then re-open()...";*/
+      this->myLogger.error(this->deviceName, ss);
       isShowingBlankFrame = true;
       this_thread::sleep_for(2000ms); // Don't wait for too long, most of the time the device can be re-open()ed immediately
       cap.open(this->deviceUri);
@@ -248,14 +261,17 @@ void deviceManager::startMotionDetection() {
       isShowingBlankFrame = false;
     }
 
-    if (totalFrameCount % this->diffFrameInterval == 0) { rateOfChange = this->getRateOfChange(prevFrame, currFrame); }
+    
+    if (totalFrameCount % this->diffFrameInterval == 0) { rateOfChange = this->getFrameChanges(prevFrame, currFrame, &diffFrame); }
 
     prevFrame = currFrame.clone();
     dispFrame = currFrame.clone();
     if (this->frameRotation != -1 && isShowingBlankFrame == false) { rotate(dispFrame, dispFrame, this->frameRotation); } 
+    this->overlayContours(dispFrame, diffFrame);
     this->overlayChangeRate(dispFrame, rateOfChange, cooldown, videoFrameCount);
     this->overlayDatetime(dispFrame);    
     this->overlayDeviceName(dispFrame);
+    
     
     if (totalFrameCount % this->snapshotFrameInterval == 0) {
       // https://stackoverflow.com/questions/7054844/is-rename-atomic

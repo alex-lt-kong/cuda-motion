@@ -50,6 +50,7 @@ private:
   void coolDownReachedZero(FILE** ffmpegPipe, long long int* videoFrameCount, string* timestampOnVideoStarts);
   void overlayDatetime(Mat frame);
   void overlayDeviceName(Mat frame);
+  void overlayContours(Mat dispFrame, Mat diffFrame);
   void overlayChangeRate(Mat frame, float changeRate, int cooldown, long long int videoFrameCount);
-  float getRateOfChange(Mat prevFrame, Mat currFrame);
+  float getFrameChanges(Mat prevFrame, Mat currFrame, Mat* diffFrame);
 };

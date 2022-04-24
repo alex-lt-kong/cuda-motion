@@ -3,7 +3,7 @@
 #include "classes/motionDetector.h"
 #include "classes/logger.h"
 
-logger myLogger = logger("/var/log/ak-studio/motionDetector.log", false);
+logger myLogger = logger("/var/log/ak-studio/motion-detector/motionDetector.log", false);
 void signalCallbackHandler(int signum) {
   myLogger.info("main", "Signal SIGPIPE caught, ffmpeg may have crashed");
 };
