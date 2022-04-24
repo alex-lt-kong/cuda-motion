@@ -256,17 +256,16 @@ void deviceManager::startMotionDetection() {
       // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
     } else {
       if (isShowingBlankFrame == true) {
-        this->myLogger.info(this->deviceName, "I am back!");
+        this->myLogger.info(this->deviceName, "Device is back online");
       }
       isShowingBlankFrame = false;
     }
-
+    if (this->frameRotation != -1 && isShowingBlankFrame == false) { rotate(currFrame, currFrame, this->frameRotation); }
     
     if (totalFrameCount % this->diffFrameInterval == 0) { rateOfChange = this->getFrameChanges(prevFrame, currFrame, &diffFrame); }
-
     prevFrame = currFrame.clone();
     dispFrame = currFrame.clone();
-    if (this->frameRotation != -1 && isShowingBlankFrame == false) { rotate(dispFrame, dispFrame, this->frameRotation); } 
+    
     if (this->enableContoursDrawing) {
       this->overlayContours(dispFrame, diffFrame); // CPU-intensive! Use with care!
     }
