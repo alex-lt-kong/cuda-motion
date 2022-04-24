@@ -53,6 +53,7 @@ bool deviceManager::setParameters(json settings) {
   this->framePreferredFps = settings["frame"]["preferredFps"];
   this->frameFpsUpperCap = settings["frame"]["FpsUpperCap"];
   this->fontScale = settings["frame"]["overlayTextFontScale"];
+  this->enableContoursDrawing = settings["frame"]["enableContoursDrawing"];
   this->snapshotPath = settings["snapshot"]["path"];
   this->snapshotFrameInterval = settings["snapshot"]["frameInterval"];  
   this->eventOnVideoStarts = settings["events"]["onVideoStarts"];
@@ -64,7 +65,7 @@ bool deviceManager::setParameters(json settings) {
   this->diffFrameInterval = settings["motionDetection"]["diffFrameInterval"];
   this->framesAfterTrigger = settings["video"]["framesAfterTrigger"];
   this->maxFramesPerVideo = settings["video"]["maxFramesPerVideo"];
-
+  
   this->frameIntervalInMs = 1000 * (1.0 / this->frameFpsUpperCap);
   return true;
 }
@@ -135,7 +136,7 @@ void deviceManager::overlayContours(Mat dispFrame, Mat diffFrame) {
   findContours(diffFrame, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE );
   int idx = 0;
   for( ; idx >= 0; idx = hierarchy[idx][0] ) {
-    drawContours(dispFrame, contours, idx, Scalar(255, 255, 255), 0.25, 8, hierarchy );
+    drawContours(dispFrame, contours, idx, Scalar(255, 255, 255), 0.25, 8, hierarchy);
   }
 }
 
@@ -267,7 +268,9 @@ void deviceManager::startMotionDetection() {
     prevFrame = currFrame.clone();
     dispFrame = currFrame.clone();
     if (this->frameRotation != -1 && isShowingBlankFrame == false) { rotate(dispFrame, dispFrame, this->frameRotation); } 
-    this->overlayContours(dispFrame, diffFrame);
+    if (this->enableContoursDrawing) {
+      this->overlayContours(dispFrame, diffFrame); // CPU-intensive! Use with care!
+    }
     this->overlayChangeRate(dispFrame, rateOfChange, cooldown, videoFrameCount);
     this->overlayDatetime(dispFrame);    
     this->overlayDeviceName(dispFrame);

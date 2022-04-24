@@ -20,6 +20,7 @@ public:
 
 private:
   bool stopSignal = false;
+  bool enableContoursDrawing = false;
   double fontScale = 1;
   double rateOfChangeUpper = 0;
   double rateOfChangeLower = 0;
