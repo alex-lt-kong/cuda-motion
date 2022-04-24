@@ -235,11 +235,10 @@ void deviceManager::startMotionDetection() {
     if (result) { result = result && cap.retrieve(currFrame); }
 
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
-      string ss =  "Unable to cap.read() a new frame. result: ";
-      /* << 
-        result << ", currFrame.empty(): " << currFrame.empty() <<
-        ", cap.isOpened(): " << cap.isOpened() << ". Sleep for 2 sec than then re-open()...";*/
-      this->myLogger.error(this->deviceName, ss);
+      stringstream ss;
+      ss << "Unable to cap.read() a new frame. currFrame.empty(): " << currFrame.empty() <<
+        ", cap.isOpened(): " << cap.isOpened() << ". Sleep for 2 sec than then re-open()...";
+      this->myLogger.error(this->deviceName, ss.str());
       isShowingBlankFrame = true;
       this_thread::sleep_for(2000ms); // Don't wait for too long, most of the time the device can be re-open()ed immediately
       cap.open(this->deviceUri);
