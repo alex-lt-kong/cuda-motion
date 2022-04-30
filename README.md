@@ -14,15 +14,26 @@ A few heavy components are needed for this program to be fully functional:
 
 * `OpenCV`: Used to manipulate frames.
 * `ffmpeg`: To leverage NVidia's hardware, `ffmpeg` is always used to encode video.
-
-For all the following compilation/installation, it is almost always better to
+* For all the following compilation/installation, it is almost always better to
 clone the entire git repository since there could be errors in multiple cases,
 trying different version is usually unavoidable...
 
-* If there is an `FFmpeg` installed by `apt`, remove it first.
-* Install NVIDIA GPU driver and make sure everything works with `nvidia-smi`.
-* Install `FFmpeg` 4.4 with NVIDIA Cuda support following NVIDIA's official guide: https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/. Note that as of February 2022, `FFmpeg` 4.5 does not seem to work since it appears to be incompatible with `OpenCV`.
+### OpenCV
+
+* Follow [this link](https://github.com/alex-lt-kong/q-rtsp-viewer)
+
+### FFmpeg
+
+* If you don't have a GPU, simply issue `apt install ffmpeg` should be enough.
+
+Otherwise...it is going to be much more complicated:
+  * If there is an `FFmpeg` installed by `apt`, remove it first.
+  * Install NVIDIA GPU driver and make sure everything works with `nvidia-smi`.
+  * Install `FFmpeg` 4.4 with NVIDIA Cuda support following NVIDIA's official guide: https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/. Note that as of February 2022, `FFmpeg` 4.5 does not seem to work since it appears to be incompatible with `OpenCV`.
 * Install `OpenCV`.
+
+### Misc
+
 * Install `nlohmann-json3` for JSON support: `apt install nlohmann-json3-dev`
 
 ## Explanation to Some Confusing Parameters
