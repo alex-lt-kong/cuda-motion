@@ -30,11 +30,17 @@ Otherwise...it is going to be much more complicated:
   * If there is an `FFmpeg` installed by `apt`, remove it first.
   * Install NVIDIA GPU driver and make sure everything works with `nvidia-smi`.
   * Install `FFmpeg` 4.4 with NVIDIA Cuda support following NVIDIA's official guide: https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/. Note that as of February 2022, `FFmpeg` 4.5 does not seem to work since it appears to be incompatible with `OpenCV`.
-* Install `OpenCV`.
+
 
 ### Misc
 
 * Install `nlohmann-json3` for JSON support: `apt install nlohmann-json3-dev`
+
+### Environment Variables
+
+* Sometimes you may be able to compile the project but running `motionDetector` gives `./motionDetector: error while loading shared libraries: libopencv_imgcodecs.so.405: cannot open shared object file: No such file or directory`
+* One solution is to add `/usr/local/lib/` to `LD_LIBRARY_PATH`: `export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH`
+
 
 ## Explanation to Some Confusing Parameters
 
