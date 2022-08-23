@@ -317,14 +317,17 @@ void deviceManager::startMotionDetection() {
 
     if (ffmpegPipe != nullptr) {
       fwrite(dispFrame.data, 1, dispFrame.dataend - dispFrame.datastart, ffmpegPipe);
-        // fwrite() takes around 10ms for piping raw video to 1080p@30fps.
-        // fwirte() takes around 20ms for piping raw video to 1080p@30fps +360p@30fps concurrently
-        if (ferror(ffmpegPipe)) {
-          this->myLogger.error(this->deviceName, 
-            "ferror(ffmpegPipe) is true, unable to fwrite() more frames to the pipe (cooldown: "
-            + to_string(cooldown) + ")"
-          );
-        }
+      // formula of dispFrame.dataend - dispFrame.datastart height x width x channel bytes.
+      // For example, for conventional 1920x1080x3 videos, one frame occupies 1920*1080*3 = 6,220,800 bytes or 6,075 KB
+      // profiling shows that:
+      // fwrite() takes around 10ms for piping raw video to 1080p@30fps.
+      // fwirte() takes around 20ms for piping raw video to 1080p@30fps + 360p@30fps concurrently
+      if (ferror(ffmpegPipe)) {
+        this->myLogger.error(this->deviceName, 
+          "ferror(ffmpegPipe) is true, unable to fwrite() more frames to the pipe (cooldown: "
+          + to_string(cooldown) + ")"
+        );
+      }
     }
   }
   cap.release();
