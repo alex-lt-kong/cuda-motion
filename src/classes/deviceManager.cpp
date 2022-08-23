@@ -44,7 +44,7 @@ string deviceManager::convertToString(char* a, int size)
     return s;
 }
 
-bool deviceManager::setParameters(json settings) {
+bool deviceManager::setParameters(json settings, volatile sig_atomic_t* done) {
   this->deviceUri = settings["uri"];
   this->deviceName = settings["name"];
   this->frameRotation = settings["frame"]["rotation"];
@@ -67,6 +67,8 @@ bool deviceManager::setParameters(json settings) {
   this->maxFramesPerVideo = settings["video"]["maxFramesPerVideo"];
   
   this->frameIntervalInMs = 1000 * (1.0 / this->frameFpsUpperCap);
+
+  this->done = done;
   return true;
 }
 
@@ -191,6 +193,7 @@ void deviceManager::rateOfChangeInRange(
       command, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
     );
     *ffmpegPipe = popen((command).c_str(), "w");
+    //setvbuf(*ffmpegPipe, &(this->buff), _IOFBF, this->buff_size);
     
     if (this->eventOnVideoStarts.length() > 0) {
       this->myLogger.info(this->deviceName, "motion detected, video recording begins");
@@ -208,11 +211,15 @@ void deviceManager::rateOfChangeInRange(
 void deviceManager::startMotionDetection() {
 
   Mat prevFrame, currFrame, dispFrame, diffFrame;
+  Mat prevFrameSmall, currFrameSmall;
   bool result = false;
   bool isShowingBlankFrame = false;
   VideoCapture cap;
   float rateOfChange = 0.0;
   string timestampOnVideoStarts = "";
+
+  struct timeval tv;
+  uint64_t unix_ts_micros;
 
   result = cap.open(this->deviceUri);
   this->myLogger.info(this->deviceName, "cap.open(" + this->deviceUri + "): " + to_string(result));
@@ -227,9 +234,7 @@ void deviceManager::startMotionDetection() {
   if (this->framePreferredHeight > 0) { cap.set(CAP_PROP_FRAME_HEIGHT, this->framePreferredHeight); }
   if (this->framePreferredFps > 0) { cap.set(CAP_PROP_FPS, this->framePreferredFps); }
   
-
-  while (true) {
-
+  while (*(this->done) == 0) {
     result = cap.grab();
     if (this->skipThisFrame() == true) { continue; }
     if (result) { result = result && cap.retrieve(currFrame); }
@@ -261,9 +266,21 @@ void deviceManager::startMotionDetection() {
       isShowingBlankFrame = false;
     }
     if (this->frameRotation != -1 && isShowingBlankFrame == false) { rotate(currFrame, currFrame, this->frameRotation); }
-    
-    if (totalFrameCount % this->diffFrameInterval == 0) { rateOfChange = this->getFrameChanges(prevFrame, currFrame, &diffFrame); }
-    prevFrame = currFrame.clone();
+
+    if (totalFrameCount % this->diffFrameInterval == 0) {
+      // profiling shows this if block takes around 1-2 ms
+      if (this->enableContoursDrawing) {
+        rateOfChange = this->getFrameChanges(prevFrame, currFrame, &diffFrame);
+      } else {
+        resize(currFrame, currFrameSmall, Size(300, 300), 0, 0, INTER_CUBIC);
+        // If no need to draw contour, we compare smaller samples instead.
+        rateOfChange = this->getFrameChanges(prevFrameSmall, currFrameSmall, &diffFrame);
+      }
+      prevFrame = currFrame.clone();
+      if (this->enableContoursDrawing == false) {
+        prevFrameSmall = currFrameSmall.clone();
+      }
+    }    
     dispFrame = currFrame.clone();
     
     if (this->enableContoursDrawing) {
@@ -280,6 +297,8 @@ void deviceManager::startMotionDetection() {
       string ext = this->snapshotPath.substr(this->snapshotPath.find_last_of(".") + 1);
       imwrite(this->snapshotPath + "." + ext, dispFrame); 
       rename((this->snapshotPath + "." + ext).c_str(), this->snapshotPath.c_str());
+      // imwrite() turns out to be a very expensive operation, takes up to 30 ms to finish even with ramdisk used!!!
+      // profiling shows that using ramdisk isn't really helpful--perhaps imwrite()/Linux is already using RAM caching.
     }
     
     if (rateOfChange > this->rateOfChangeLower && rateOfChange < this->rateOfChangeUpper) {
@@ -296,29 +315,18 @@ void deviceManager::startMotionDetection() {
       this->coolDownReachedZero(&ffmpegPipe, &videoFrameCount, &timestampOnVideoStarts);
     }  
 
-    if (ffmpegPipe != nullptr) {       
-      fwrite(dispFrame.data, 1, dispFrame.dataend - dispFrame.datastart, ffmpegPipe);      
-      if (ferror(ffmpegPipe)) {
-        this->myLogger.error(this->deviceName, 
-          "ferror(ffmpegPipe) is true, unable to fwrite() more frames to the pipe (cooldown: "
-          + to_string(cooldown) + ")"
-        );
-      }
+    if (ffmpegPipe != nullptr) {
+      fwrite(dispFrame.data, 1, dispFrame.dataend - dispFrame.datastart, ffmpegPipe);
+        // fwrite() takes around 10ms for piping raw video to 1080p@30fps.
+        // fwirte() takes around 20ms for piping raw video to 1080p@30fps +360p@30fps concurrently
+        if (ferror(ffmpegPipe)) {
+          this->myLogger.error(this->deviceName, 
+            "ferror(ffmpegPipe) is true, unable to fwrite() more frames to the pipe (cooldown: "
+            + to_string(cooldown) + ")"
+          );
+        }
     }
-
   }
   cap.release();
-
+  this->myLogger.info(this->deviceName, "stop_signal received, thread startMotionDetection() quits gracefully");
 }
-
-void deviceManager::stopMotionDetection() {
-  this->stopSignal = true;
-}
-
-/*
-auto start = std::chrono::high_resolution_clock::now();  
-
-auto finish = std::chrono::high_resolution_clock::now();
-auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(finish-start);
-std::cout << microseconds.count() / 1000 << "ms\n";
-*/

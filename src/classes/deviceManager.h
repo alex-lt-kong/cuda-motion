@@ -4,6 +4,8 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "logger.h"
 #include <queue>
+#include <sys/time.h>
+#include <signal.h>
 
 using namespace std;
 using namespace cv;
@@ -16,10 +18,9 @@ public:
   bool captureImage(string imageSaveTo);
   void startMotionDetection();
   void stopMotionDetection();
-  bool setParameters(json settings);
+  bool setParameters(json settings, volatile sig_atomic_t* done);
 
 private:
-  bool stopSignal = false;
   bool enableContoursDrawing = false;
   double fontScale = 1;
   double rateOfChangeUpper = 0;
@@ -43,6 +44,8 @@ private:
   string eventOnVideoStarts = "";
   string eventOnVideoEnds = "";
   queue<long long int> frameTimestamps;
+
+  volatile sig_atomic_t* done;
   
   bool skipThisFrame();
   string convertToString(char* a, int size);

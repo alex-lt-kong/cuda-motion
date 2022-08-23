@@ -64,7 +64,9 @@
     "valarray": "cpp",
     "forward_list": "cpp",
     "fstream": "cpp",
-    "cinttypes": "cpp"
+    "cinttypes": "cpp",
+    "codecvt": "cpp",
+    "shared_mutex": "cpp"
   },
   "C_Cpp.errorSquiggles": "Disabled"
 }

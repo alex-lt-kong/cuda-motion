@@ -26,6 +26,11 @@ Otherwise...it is going to be much more complicated:
   * Install Nvidia GPU driver and make sure everything works with `nvidia-smi`.
   * Install `FFmpeg` 4.4 with Nvidia Cuda support following Nvidia's official guide: https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/. Note that as of February 2022, `FFmpeg` 4.5 does not seem to work since it appears to be incompatible with `OpenCV`.
 
+* There are tons of parameters to tweak while using FFmpeg with Nvidia GPUs, [this doc](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/) is a good starting point.
+
+* Directly encoding incoming frames from cameras to two destination video files causes performace to drop significantly,
+if two resolutions are needed, one should consider transcoding with scaling after the first and larger video is
+successfully encoded.
 
 ### Misc
 
