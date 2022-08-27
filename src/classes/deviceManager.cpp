@@ -211,7 +211,6 @@ void deviceManager::rateOfChangeInRange(
 void deviceManager::startMotionDetection() {
 
   Mat prevFrame, currFrame, dispFrame, diffFrame;
-  Mat prevFrameSmall, currFrameSmall;
   bool result = false;
   bool isShowingBlankFrame = false;
   VideoCapture cap;
@@ -269,17 +268,8 @@ void deviceManager::startMotionDetection() {
 
     if (totalFrameCount % this->diffFrameInterval == 0) {
       // profiling shows this if block takes around 1-2 ms
-      if (this->enableContoursDrawing) {
-        rateOfChange = this->getFrameChanges(prevFrame, currFrame, &diffFrame);
-      } else {
-        resize(currFrame, currFrameSmall, Size(300, 300), 0, 0, INTER_CUBIC);
-        // If no need to draw contour, we compare smaller samples instead.
-        rateOfChange = this->getFrameChanges(prevFrameSmall, currFrameSmall, &diffFrame);
-      }
+      rateOfChange = this->getFrameChanges(prevFrame, currFrame, &diffFrame);
       prevFrame = currFrame.clone();
-      if (this->enableContoursDrawing == false) {
-        prevFrameSmall = currFrameSmall.clone();
-      }
     }    
     dispFrame = currFrame.clone();
     
