@@ -59,6 +59,7 @@ cannot be controlled by `preferredFps`.
 * Get pixel format from a video device: `v4l2-ctl --get-fmt-video --device <videoUri>`
 * Set pixel format to `MJPG` to a video device: `v4l2-ctl --set-fmt-video=pixelformat=MJPG --device <videoUri>`
 * Get all parameters `v4l2-ctl --get-parm --all --device <videoUri>`
+* Set a parameter: `v4l2-ctl --set-ctrl=<parameterName>=<parameterValue>`
 * Get framerate: `v4l2-ctl --get-parm --device <videoUri>`
 * Set framerate: `v4l2-ctl --set-parm=30 --device <videoUri>`
 
