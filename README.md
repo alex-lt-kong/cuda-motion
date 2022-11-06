@@ -5,48 +5,45 @@ A C++ project inspired by, similar to but simpler than [Motion](https://github.c
 
 ## Environments
 
-A few heavy components are needed for this program to be fully functional:
-
-* `OpenCV`: Used to manipulate frames.
-* `ffmpeg`: To leverage Nvidia's hardware, `ffmpeg` is always used to encode video.
-* For all the following compilation/installation, it is almost always better to
-clone the entire git repository since there could be errors in multiple cases,
-trying different version is usually unavoidable...
-
 ### OpenCV
 
+* Used to manipulate frames.
 * Follow [this link](https://github.com/alex-lt-kong/q-rtsp-viewer)
 
 ### FFmpeg
 
-* If you don't have a GPU, simply issue `apt install ffmpeg` should be enough.
+* Used to encode videos.
+* If you don't have an Nvidia GPU, simply issue `apt install ffmpeg` should be enough--we will use FFmpeg's default
+configuration and use the CPU to do all the heavy-lifting things.
 
-Otherwise...it is going to be much more complicated:
+* Otherwise, it is going to be much more complicated as we need to make FFmpeg work with the GPU:
   * If there is an `FFmpeg` installed by `apt`, remove it first.
-  * Install Nvidia GPU driver and make sure everything works with `nvidia-smi`.
-  * Install `FFmpeg` 4.4 with Nvidia Cuda support following Nvidia's official guide: https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/. Note that as of February 2022, `FFmpeg` 4.5 does not seem to work since it appears to be incompatible with `OpenCV`.
-
-* There are tons of parameters to tweak while using FFmpeg with Nvidia GPUs, [this doc](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/) is a good starting point.
-
-* Directly encoding incoming frames from cameras to two destination video files causes performace to drop significantly,
-if two resolutions are needed, one should consider transcoding with scaling after the first and larger video is
-successfully encoded.
+  * Install an Nvidia GPU driver and make sure everything works with `nvidia-smi`.
+  * Install `FFmpeg` 4.4 with Nvidia Cuda support following Nvidia's official guide:
+  https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/. Note that as of February 2022,
+  `FFmpeg` 4.5 does not seem to work since it appears to be incompatible with `OpenCV`.
+  * There are tons of parameters to tweak while using FFmpeg with Nvidia GPUs, [this doc](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/) is a good starting point.
+  * Important observation: Even with a GPU enabled, directly encoding incoming frames from cameras to
+  two destination video files causes performance to drop significantly, if two resolutions are needed,
+  one should consider transcoding with scaling after the first and larger video is successfully encoded.
 
 ### Misc
 
-* Install `nlohmann-json3` for JSON support: `apt install nlohmann-json3-dev`
+* `nlohmann-json3` for JSON support: `apt install nlohmann-json3-dev`
+* `v4l-utils`: for manually examining and manipulating local video devices.
 
 ### Environment Variables
 
-* Sometimes you may be able to compile the project but running `motionDetector` gives `./motionDetector: error while loading shared libraries: libopencv_imgcodecs.so.405: cannot open shared object file: No such file or directory`
+* Sometimes you may be able to compile the project but running `motionDetector.out` gives
+`./motionDetector.out: error while loading shared libraries: libopencv_imgcodecs.so.405: cannot open shared object file: No such file or directory`
 * One solution is to add `/usr/local/lib/` to `LD_LIBRARY_PATH`: `export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH`
 
 
-## Explanation to Some Confusing Parameters
+## Explanation of Some Confusing Parameters
 
 * `preferredWidth`,`preferredHeight`, `preferredFps`: If positive, they will be directly passed to `OpenCV`'s `CAP_PROP_FRAME_WIDTH`, `CAP_PROP_FRAME_HEIGHT` and `CAP_PROP_FPS`. It is subject to `OpenCV`'s discretion on how they are interpreted. Usually
 they are only effective when the source is a local Linux video device.
-* `FpsUpperCap`: If the motionDetector gets frames faster than this value, it simply discard the frame and read the next 
+* `FpsUpperCap`: If motionDetector gets frames faster than this value, it simply discard the frame and read the next 
 one, skipping all further processing. It is useful to limit the CPU usage of the program when FPS from a video device
 cannot be controlled by `preferredFps`.
 

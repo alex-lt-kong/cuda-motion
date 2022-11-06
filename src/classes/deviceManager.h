@@ -51,7 +51,7 @@ private:
   string convertToString(char* a, int size);
   string getCurrentTimestamp();
   void rateOfChangeInRange(FILE** ffmpegPipe, int* cooldown, string* timestampOnVideoStarts);
-  void coolDownReachedZero(FILE** ffmpegPipe, long long int* videoFrameCount, string* timestampOnVideoStarts);
+  void coolDownReachedZero(FILE** ffmpegPipe, uint32_t* videoFrameCount, string* timestampOnVideoStarts);
   void overlayDatetime(Mat frame);
   void overlayDeviceName(Mat frame);
   void overlayContours(Mat dispFrame, Mat diffFrame);

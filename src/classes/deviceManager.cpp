@@ -161,7 +161,7 @@ bool deviceManager::skipThisFrame() {
 }
 
 void deviceManager::coolDownReachedZero(
-  FILE** ffmpegPipe, long long int* videoFrameCount, string* timestampOnVideoStarts
+  FILE** ffmpegPipe, uint32_t* videoFrameCount, string* timestampOnVideoStarts
 ) {
   if (*ffmpegPipe != nullptr) { // No, you cannot pclose() a nullptr
     pclose(*ffmpegPipe); 
@@ -217,13 +217,10 @@ void deviceManager::startMotionDetection() {
   float rateOfChange = 0.0;
   string timestampOnVideoStarts = "";
 
-  struct timeval tv;
-  uint64_t unix_ts_micros;
-
   result = cap.open(this->deviceUri);
   this->myLogger.info(this->deviceName, "cap.open(" + this->deviceUri + "): " + to_string(result));
-  long long int totalFrameCount = 0;
-  long long int videoFrameCount = 0;
+  uint64_t totalFrameCount = 0;
+  uint32_t videoFrameCount = 0;
   FILE *ffmpegPipe = nullptr;
   int cooldown = 0;
   
@@ -287,6 +284,7 @@ void deviceManager::startMotionDetection() {
       string ext = this->snapshotPath.substr(this->snapshotPath.find_last_of(".") + 1);
       imwrite(this->snapshotPath + "." + ext, dispFrame); 
       rename((this->snapshotPath + "." + ext).c_str(), this->snapshotPath.c_str());
+      printf("[%s] totalFrameCount == %lu, imwrite()'ed\n", this->deviceName.c_str(), totalFrameCount);
       // imwrite() turns out to be a very expensive operation, takes up to 30 ms to finish even with ramdisk used!!!
       // profiling shows that using ramdisk isn't really helpful--perhaps imwrite()/Linux is already using RAM caching.
     }
@@ -295,10 +293,10 @@ void deviceManager::startMotionDetection() {
       this->rateOfChangeInRange(&ffmpegPipe, &cooldown, &timestampOnVideoStarts);
     }
       
-    totalFrameCount ++;
+    ++totalFrameCount;
     if (cooldown >= 0) {
       cooldown --;
-      if (cooldown > 0) { videoFrameCount ++; }
+      if (cooldown > 0) { ++videoFrameCount; }
     }
     if (videoFrameCount >= this->maxFramesPerVideo) { cooldown = 0; }
     if (cooldown == 0) { 
