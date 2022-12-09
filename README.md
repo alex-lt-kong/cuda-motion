@@ -14,7 +14,15 @@ A C++ project inspired by, similar to but simpler than [Motion](https://github.c
 
 * Used to encode videos.
 * If you don't have an Nvidia GPU, simply issue `apt install ffmpeg` should be enough--we will use FFmpeg's default
-configuration and use the CPU to do all the heavy-lifting things.
+configuration and use the CPU to do all the heavy-lifting things. Apart from `FFmpeg` itself,
+a few libraries used by it should also be installed: 
+  * `libavcodec` provides implementation of a wider range of codecs.
+  * `libavformat` implements streaming protocols, container formats and basic I/O access.
+  * `libavutil` includes hashers, decompressors and miscellaneous utility functions.
+  * `libavfilter` provides a mean to alter decoded Audio and Video through chain of filters.
+  * `libavdevice` provides an abstraction to access capture and playback devices.
+  * `libswresample` implements audio mixing and resampling routines.
+  
 
 * Otherwise, it is going to be much more complicated as we need to make FFmpeg work with the GPU:
   * If there is an `FFmpeg` installed by `apt`, remove it first.
