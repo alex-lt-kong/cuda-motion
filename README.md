@@ -1,6 +1,6 @@
 # Camera server
 
-A C++ project inspired by, similar to but simpler than [Motion](https://github.com/Motion-Project/motion) in C.
+A C++11 project inspired by, similar to but simpler than [Motion](https://github.com/Motion-Project/motion) in C.
 
 ## Environments
 

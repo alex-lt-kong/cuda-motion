@@ -8,11 +8,9 @@ endif()
 
 add_executable(cs main.cpp)
 add_library(deviceManager deviceManager.cpp)
-add_library(motionDetector motionDetector.cpp)
 add_library(logger logger.cpp)
 
-target_link_libraries(motionDetector logger deviceManager opencv_highgui opencv_imgcodecs opencv_video opencv_videoio opencv_imgproc opencv_core pthread)
-target_link_libraries(cs deviceManager  motionDetector spdlog::spdlog)
+target_link_libraries(cs deviceManager logger deviceManager opencv_highgui opencv_imgcodecs opencv_video opencv_videoio opencv_imgproc opencv_core pthread spdlog::spdlog)
 
 add_custom_command(
   TARGET cs POST_BUILD
