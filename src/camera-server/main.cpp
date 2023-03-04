@@ -1,7 +1,7 @@
 #include <iostream>
 #include <signal.h>
-#include "classes/motionDetector.h"
-#include "classes/logger.h"
+#include "motionDetector.h"
+#include "logger.h"
 
 logger myLogger = logger("/var/log/ak-studio/motion-detector/motionDetector.log", false);
 volatile sig_atomic_t done = 0;

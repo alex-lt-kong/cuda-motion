@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/root/bin/motion-detector/src/camera-server/logger.cpp
+logger.h
+/root/bin/motion-detector/src/camera-server/logger.h
+chrono
+-
+fstream
+-
+
+/root/bin/motion-detector/src/camera-server/logger.h
+string
+-
+
