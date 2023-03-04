@@ -1,2 +1,0 @@
-/usr/bin/ar qc libdeviceManager.a CMakeFiles/deviceManager.dir/deviceManager.cpp.o
-/usr/bin/ranlib libdeviceManager.a

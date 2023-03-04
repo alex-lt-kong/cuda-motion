@@ -1,8 +1,0 @@
-/root/bin/motion-detector/build/CMakeFiles/rebuild_cache.dir
-/root/bin/motion-detector/build/CMakeFiles/edit_cache.dir
-/root/bin/motion-detector/build/src/camera-server/CMakeFiles/rebuild_cache.dir
-/root/bin/motion-detector/build/src/camera-server/CMakeFiles/edit_cache.dir
-/root/bin/motion-detector/build/src/camera-server/CMakeFiles/motionDetector.dir
-/root/bin/motion-detector/build/src/camera-server/CMakeFiles/logger.dir
-/root/bin/motion-detector/build/src/camera-server/CMakeFiles/deviceManager.dir
-/root/bin/motion-detector/build/src/camera-server/CMakeFiles/main.dir

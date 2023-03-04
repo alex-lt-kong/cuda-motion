@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmotionDetector.a CMakeFiles/motionDetector.dir/motionDetector.cpp.o
-/usr/bin/ranlib libmotionDetector.a
