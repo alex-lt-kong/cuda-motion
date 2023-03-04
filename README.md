@@ -2,7 +2,11 @@
 
 A C++11 project inspired by, similar to but simpler than [Motion](https://github.com/Motion-Project/motion) in C.
 
-## Environments
+## Dependencies
+
+* [Crow HTTP library](https://github.com/CrowCpp/Crow) for RESTful API support
+* `nlohmann-json3` for JSON support: `apt install nlohmann-json3-dev`
+* `v4l-utils`: for manually examining and manipulating local video devices.
 
 ### OpenCV
 
@@ -33,11 +37,6 @@ a few libraries used by it should also be installed:
   * Important observation: Even with a GPU enabled, directly encoding incoming frames from cameras to
   two destination video files causes performance to drop significantly, if two resolutions are needed,
   one should consider transcoding with scaling after the first and larger video is successfully encoded.
-
-### Misc
-
-* `nlohmann-json3` for JSON support: `apt install nlohmann-json3-dev`
-* `v4l-utils`: for manually examining and manipulating local video devices.
 
 ### Environment Variables
 
