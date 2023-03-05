@@ -101,7 +101,7 @@ void start_http_server() {
 
 int main() {
     app.stop();
-    spdlog::set_pattern("%Y-%m-%dT%T%z | %t | %8l | %v");
+    spdlog::set_pattern("%Y-%m-%dT%T.%e%z | %t | %8l | %v");
     spdlog::info("Camera Server started");
 
     register_signal_handlers();

@@ -129,8 +129,11 @@ void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown,
     int value = changeRate * 100;
     stringstream ssChangeRate;
     ssChangeRate << fixed << setprecision(2) << changeRate;
-    putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ", " + to_string(this->maxFramesPerVideo - videoFrameCount) + ")", 
-            Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,   0,   0  ), 8 * this->fontScale, LINE_AA, false);
+    putText(frame, ssChangeRate.str() + "% (" +
+        to_string(cooldown) + ", " +
+        to_string(this->maxFramesPerVideo - videoFrameCount) + ")", 
+        Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale,
+        Scalar(0,   0,   0  ), 8 * this->fontScale, LINE_AA, false);
     putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ", " + to_string(this->maxFramesPerVideo - videoFrameCount) + ")",
             Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255, 255, 255), 2 * this->fontScale, LINE_AA, false);
 }
@@ -228,7 +231,9 @@ void deviceManager::getLiveImage(vector<uint8_t>& pl) {
 void deviceManager::InternalThreadEntry() {
 
     vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
-    Mat prevFrame, currFrame, dispFrame, diffFrame;
+    vector<uint8_t> encodedJpgImage;
+    queue<Mat> dispFrames;
+    Mat prevFrame, currFrame, diffFrame;
     bool result = false;
     bool isShowingBlankFrame = false;
     VideoCapture cap;
@@ -287,29 +292,36 @@ void deviceManager::InternalThreadEntry() {
             prevFrame = currFrame.clone();
         }
         
-        dispFrame = currFrame.clone();
-        if (this->enableContoursDrawing) {
-            this->overlayContours(dispFrame, diffFrame); // CPU-intensive! Use with care!
+        dispFrames.push(currFrame.clone()); //rvalue ref!
+        if (dispFrames.size() > 5) {
+            dispFrames.pop();
         }
-        this->overlayChangeRate(dispFrame, rateOfChange, cooldown, videoFrameCount);
-        this->overlayDatetime(dispFrame);    
-        this->overlayDeviceName(dispFrame);
+        if (this->enableContoursDrawing) {
+            this->overlayContours(dispFrames.back(), diffFrame); // CPU-intensive! Use with care!
+        }
+        this->overlayChangeRate(
+            dispFrames.back(), rateOfChange, cooldown, videoFrameCount);
+        this->overlayDatetime(dispFrames.back());    
+        this->overlayDeviceName(dispFrames.back());
         
         totalCount = totalFrameCount;
         if (totalFrameCount % this->snapshotFrameInterval == 0) {
-            pthread_mutex_lock(&mutexLiveImage);
-            imencode(".jpg", dispFrame, encodedJpgImage, configs);
+            pthread_mutex_lock(&mutexLiveImage);            
+            imencode(".jpg", dispFrames.front(), encodedJpgImage, configs);
             pthread_mutex_unlock(&mutexLiveImage);
+            // Profiling show that the above mutex section without actual
+            // waiting takes ~30 ms to complete, means that the CPU can only
+            // handle ~30 fps
+
             // https://stackoverflow.com/questions/7054844/is-rename-atomic
-            // https://stackoverflow.com/questions/29261648/atomic-writing-to-file-on-linux
+            // https://stackoverflow.com/questions/29261648/atomic-writing-to-file-on-linux            
             ofstream fout(this->snapshotPath + ".tmp", ios::out | ios::binary);
             fout.write((char*)encodedJpgImage.data(), encodedJpgImage.size());
             fout.close();
             rename((this->snapshotPath + ".tmp").c_str(), this->snapshotPath.c_str());
+            // profiling shows from ofstream fout()... to rename() takes
+            // less than 1 ms.
 
-            // printf("[%s] totalFrameCount == %lu, imwrite()'ed\n", this->deviceName.c_str(), totalFrameCount);
-            // imwrite() turns out to be a very expensive operation, takes up to 30 ms to finish even with ramdisk used!!!
-            // profiling shows that using ramdisk isn't really helpful--perhaps imwrite()/Linux is already using RAM caching.
         }
         
         if (rateOfChange > this->rateOfChangeLower && rateOfChange < this->rateOfChangeUpper) {
@@ -327,15 +339,19 @@ void deviceManager::InternalThreadEntry() {
         }  
 
         if (ffmpegPipe != nullptr) {
-        fwrite(dispFrame.data, 1, dispFrame.dataend - dispFrame.datastart, ffmpegPipe);
-        // formula of dispFrame.dataend - dispFrame.datastart height x width x channel bytes.
-        // For example, for conventional 1920x1080x3 videos, one frame occupies 1920*1080*3 = 6,220,800 bytes or 6,075 KB
-        // profiling shows that:
-        // fwrite() takes around 10ms for piping raw video to 1080p@30fps.
-        // fwirte() takes around 20ms for piping raw video to 1080p@30fps + 360p@30fps concurrently
-        if (ferror(ffmpegPipe)) {
-            spdlog::error("[{}] ferror(ffmpegPipe) is true, unable to fwrite() more frames to the pipe (cooldown: {})", this->deviceName, cooldown);
-        }
+            fwrite(dispFrames.front().data, 1,
+                dispFrames.front().dataend - dispFrames.front().datastart,
+                ffmpegPipe);
+            // formula of dispFrame.dataend - dispFrame.datastart height x width x channel bytes.
+            // For example, for conventional 1920x1080x3 videos, one frame occupies 1920*1080*3 = 6,220,800 bytes or 6,075 KB
+            // profiling shows that:
+            // fwrite() takes around 10ms for piping raw video to 1080p@30fps.
+            // fwirte() takes around 20ms for piping raw video to 1080p@30fps + 360p@30fps concurrently
+            if (ferror(ffmpegPipe)) {
+                spdlog::error("[{}] ferror(ffmpegPipe) is true, unable to fwrite() "
+                    "more frames to the pipe (cooldown: {})",
+                    this->deviceName, cooldown);
+            }
         }
     }
     cap.release();
