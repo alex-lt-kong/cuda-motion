@@ -1,6 +1,9 @@
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include_directories(/usr/local/include/opencv4)
 
+find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
+
 if(NOT TARGET spdlog)
     # Stand-alone build
     find_package(spdlog REQUIRED)
@@ -11,7 +14,7 @@ add_library(deviceManager deviceManager.cpp)
 add_library(utils utils.cpp)
 
 
-target_link_libraries(cs deviceManager utils opencv_highgui opencv_imgcodecs opencv_video opencv_videoio opencv_imgproc opencv_core pthread spdlog::spdlog)
+target_link_libraries(cs deviceManager utils ${OpenCV_LIBS} pthread spdlog::spdlog)
 
 add_custom_command(
   TARGET cs POST_BUILD

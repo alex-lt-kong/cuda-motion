@@ -1,10 +1,12 @@
 # Camera server
 
-A C++11 project inspired by, similar to but simpler than [Motion](https://github.com/Motion-Project/motion) in C.
+A C++11 project inspired by, similar to but simpler than
+[Motion](https://github.com/Motion-Project/motion) in C.
 
 ## Dependencies
 
-* [Crow HTTP library](https://github.com/CrowCpp/Crow) for RESTful API support
+* [Crow HTTP library](https://github.com/CrowCpp/Crow) for HTTP service support
+  * `libboost-all-dev`: needed by Crow.
 * `nlohmann-json3` for JSON support: `apt install nlohmann-json3-dev`
 * `v4l-utils`: for manually examining and manipulating local video devices.
 
