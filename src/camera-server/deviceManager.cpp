@@ -231,7 +231,6 @@ void deviceManager::getLiveImage(vector<uint8_t>& pl) {
 void deviceManager::InternalThreadEntry() {
 
     vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
-    vector<uint8_t> encodedJpgImage;
     queue<Mat> dispFrames;
     Mat prevFrame, currFrame, diffFrame;
     bool result = false;
