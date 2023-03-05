@@ -13,7 +13,6 @@
 using namespace std;
 using njson = nlohmann::json;
 
-volatile sig_atomic_t done = 0;
 crow::SimpleApp app;
 vector<deviceManager> myDevices;
 
@@ -23,7 +22,9 @@ void signal_handler(int signum) {
     }
     spdlog::warn("Signal: {} caught, all threads will quit gracefully", signum);
     app.stop();
-    done = 1;
+    for (size_t i = 0; i < myDevices.size(); ++i) {
+        myDevices[i].StopInternalEventLoopThread();
+    }
 }
 
 void register_signal_handlers() {
@@ -111,19 +112,18 @@ int main() {
     njson settings = load_settings();
 
     size_t deviceCount = settings["devices"].size();
-    myDevices = vector<deviceManager>(deviceCount, deviceManager());
-    //vector<thread> deviceThreads;
 
     for (size_t i = 0; i < deviceCount; i++) {
         spdlog::info("Loading {}-th device with the following configs:\n{}",
             i, settings["devices"][i].dump(2));
-        myDevices[i].setParameters(settings["devices"][i], &done);
-        myDevices[i].StartInternalThread();
+        myDevices.emplace_back(settings["devices"][i]);
+        // A C++11 feature enabled by variadic template, rvalue reference, etc
+        myDevices.back().StartInternalEventLoopThread();
     }
 
     start_http_server();
     for (size_t i = 0; i < settings["devices"].size(); i++) {
-        myDevices[i].WaitForInternalThreadToExit();
+        myDevices[i].WaitForInternalEventLoopThreadToExit();
         spdlog::info("{}-th device thread exited gracefully", i);
     }
     spdlog::info("All device threads exited gracefully");

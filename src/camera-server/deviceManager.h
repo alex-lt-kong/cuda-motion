@@ -14,14 +14,20 @@ using namespace cv;
 using json = nlohmann::json;
 
 
-// This multithreading model is from: https://stackoverflow.com/questions/1151582/pthread-function-from-a-class
-class MyThreadClass {
+// This multithreading model is inspired by:
+// https://stackoverflow.com/questions/1151582/pthread-function-from-a-class
+class MyEventLoopThread {
 public:
-    MyThreadClass() {}
-    virtual ~MyThreadClass() {}
+    MyEventLoopThread() {}
+    virtual ~MyEventLoopThread() {}
 
     /** Returns true if the thread was successfully started, false if there was an error starting the thread */
-    void StartInternalThread() {
+    void StartInternalEventLoopThread() {
+        if (_internalThreadShouldQuit == false) {
+            throw runtime_error("StartInternalEventLoopThread() is called "
+                "when the internal thread is still running");
+        }
+        _internalThreadShouldQuit = false;
         if (pthread_create(&_thread, NULL,
             InternalThreadEntryFunc, this) != 0) {
             throw runtime_error("pthread_create() failed, errno: " +
@@ -29,27 +35,51 @@ public:
         }
     }
 
-    void WaitForInternalThreadToExit() {
+    /**
+     * @brief set the _internalThreadShouldQuit. Users should check this
+     * signal periodically and quit the event loop timely based on the signal.
+    */
+    void StopInternalEventLoopThread() {
+        _internalThreadShouldQuit = true;
+    }
+
+    void WaitForInternalEventLoopThreadToExit() {
         pthread_join(_thread, NULL);
     }
+
+    /**
+     * @brief One should either WaitForInternalEventLoopThreadToExit() or
+     * DetachInternalEventLoopThread()
+    */
+    void DetachInternalEventLoopThread() {
+        if (pthread_detach(_thread) == 0) {
+            throw runtime_error("failed to pthread_detach() a thread, errno: " +
+                to_string(errno));
+        }
+    }
+
+
 
 protected:
     /** Implement this method in your subclass with the code you want your thread to run. */
     virtual void InternalThreadEntry() = 0;
+    bool _internalThreadShouldQuit = true;
 
 private:
-    static void * InternalThreadEntryFunc(void * This) {((MyThreadClass *)This)->InternalThreadEntry(); return NULL;}
+    static void * InternalThreadEntryFunc(void * This) {
+        ((MyEventLoopThread *)This)->InternalThreadEntry();
+        return NULL;
+    }
     pthread_t _thread = 0;
 };
 
 
-class deviceManager : public MyThreadClass {
+class deviceManager : public MyEventLoopThread {
 
 public:
-    deviceManager();
+    deviceManager(json settings);
     ~deviceManager();
     bool captureImage(string imageSaveTo);
-    bool setParameters(json settings, volatile sig_atomic_t* done);
     void getLiveImage(vector<uint8_t>& pl);
     size_t totalCount;
 

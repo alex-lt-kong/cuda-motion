@@ -42,39 +42,33 @@ string deviceManager::convertToString(char* a, int size)
     return s;
 }
 
-bool deviceManager::setParameters(json settings, volatile sig_atomic_t* done) {
-    this->deviceUri = settings["uri"];
-    this->deviceName = settings["name"];
-    this->frameRotation = settings["frame"]["rotation"];
-    this->framePreferredWidth = settings["frame"]["preferredWidth"];
-    this->framePreferredHeight = settings["frame"]["preferredHeight"];
-    this->framePreferredFps = settings["frame"]["preferredFps"];
-    this->frameFpsUpperCap = settings["frame"]["FpsUpperCap"];
-    this->fontScale = settings["frame"]["overlayTextFontScale"];
-    this->enableContoursDrawing = settings["frame"]["enableContoursDrawing"];
-    this->snapshotPath = settings["snapshot"]["path"];
-    this->snapshotFrameInterval = settings["snapshot"]["frameInterval"];  
-    this->eventOnVideoStarts = settings["events"]["onVideoStarts"];
-    this->eventOnVideoEnds = settings["events"]["onVideoEnds"];
-    this->ffmpegCommand = settings["ffmpegCommand"];
-    this->rateOfChangeLower = settings["motionDetection"]["frameLevelRateOfChangeLowerLimit"];
-    this->rateOfChangeUpper = settings["motionDetection"]["frameLevelRateOfChangeUpperLimit"];
-    this->pixelLevelThreshold = settings["motionDetection"]["pixelLevelDiffThreshold"];
-    this->diffFrameInterval = settings["motionDetection"]["diffFrameInterval"];
-    this->framesAfterTrigger = settings["video"]["framesAfterTrigger"];
-    this->maxFramesPerVideo = settings["video"]["maxFramesPerVideo"];
-    
-    this->frameIntervalInMs = 1000 * (1.0 / this->frameFpsUpperCap);
-
-    this->done = done;
-    return true;
-}
-
-deviceManager::deviceManager() {
+deviceManager::deviceManager(json settings) {
     if (pthread_mutex_init(&mutexLiveImage, NULL) != 0) {
         throw runtime_error("pthread_mutex_init() failed, errno: " +
             to_string(errno));
     }
+    deviceUri = settings["uri"];
+    deviceName = settings["name"];
+    frameRotation = settings["frame"]["rotation"];
+    framePreferredWidth = settings["frame"]["preferredWidth"];
+    framePreferredHeight = settings["frame"]["preferredHeight"];
+    framePreferredFps = settings["frame"]["preferredFps"];
+    frameFpsUpperCap = settings["frame"]["FpsUpperCap"];
+    fontScale = settings["frame"]["overlayTextFontScale"];
+    enableContoursDrawing = settings["frame"]["enableContoursDrawing"];
+    snapshotPath = settings["snapshot"]["path"];
+    snapshotFrameInterval = settings["snapshot"]["frameInterval"];  
+    eventOnVideoStarts = settings["events"]["onVideoStarts"];
+    eventOnVideoEnds = settings["events"]["onVideoEnds"];
+    ffmpegCommand = settings["ffmpegCommand"];
+    rateOfChangeLower = settings["motionDetection"]["frameLevelRateOfChangeLowerLimit"];
+    rateOfChangeUpper = settings["motionDetection"]["frameLevelRateOfChangeUpperLimit"];
+    pixelLevelThreshold = settings["motionDetection"]["pixelLevelDiffThreshold"];
+    diffFrameInterval = settings["motionDetection"]["diffFrameInterval"];
+    framesAfterTrigger = settings["video"]["framesAfterTrigger"];
+    maxFramesPerVideo = settings["video"]["maxFramesPerVideo"];
+    
+    frameIntervalInMs = 1000 * (1.0 / frameFpsUpperCap);
 }
 
 deviceManager::~deviceManager() {
@@ -252,7 +246,7 @@ void deviceManager::InternalThreadEntry() {
     if (this->framePreferredHeight > 0) { cap.set(CAP_PROP_FRAME_HEIGHT, this->framePreferredHeight); }
     if (this->framePreferredFps > 0) { cap.set(CAP_PROP_FPS, this->framePreferredFps); }
     
-    while (*(this->done) == 0) {
+    while (!this->_internalThreadShouldQuit) {
         result = cap.grab();
         if (this->skipThisFrame() == true) { continue; }
         if (result) { result = result && cap.retrieve(currFrame); }
