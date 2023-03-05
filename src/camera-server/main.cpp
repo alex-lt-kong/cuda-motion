@@ -71,15 +71,32 @@ void start_http_server() {
         return "HTTP service running";
     });
 
-    CROW_ROUTE(app, "/live_image/")([](const crow::request&, crow::response& res){
+    CROW_ROUTE(app, "/live_image/")([](
+        const crow::request& req, crow::response& res) {
+        if (req.url_params.get("deviceId") == nullptr) {
+            res.code = 400;
+            res.end(crow::json::wvalue({
+                {"status", "error"}, {"data", "device_id not specified"}
+            }).dump());
+            return;
+        }
+        uint32_t deviceId = atoi(req.url_params.get("deviceId"));
+        if (deviceId > myDevices.size() - 1) {
+            res.code = 400;
+            res.end(crow::json::wvalue({
+                {"status", "error"},
+                {"data", "deviceId " + to_string(deviceId) + " is invalid"}
+            }).dump());
+            return;
+        }
+
         res.set_header("Content-Type", "image/jpg");
-        vector<uint8_t> encoded_img;
-        myDevices[0].getLiveImage(encoded_img);
-        res.end(string((char*)(encoded_img.data()), encoded_img.size()));
+        vector<uint8_t> encodedImg;
+        myDevices[deviceId].getLiveImage(encodedImg);
+        res.end(string((char*)(encodedImg.data()), encodedImg.size()));
     });
 
     app.bindaddr("127.0.0.1").port(54321).signal_clear().run();
-
 }
 
 int main() {

@@ -12,6 +12,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include "utils.h"
 #include "deviceManager.h"
 
 using json = nlohmann::json;
@@ -201,28 +202,32 @@ void deviceManager::rateOfChangeInRange(
         //setvbuf(*ffmpegPipe, &(this->buff), _IOFBF, this->buff_size);
         
         if (this->eventOnVideoStarts.length() > 0) {
-        spdlog::info("[{}] motion detected, video recording begins", this->deviceName);
-        string commandOnVideoStarts = regex_replace(
-            this->eventOnVideoStarts, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
-        );
-        system((commandOnVideoStarts + " &").c_str());
-        spdlog::info("[{}] onVideoStarts: command [{}] executed", this->deviceName, commandOnVideoStarts);
+            spdlog::info("[{}] motion detected, video recording begins", this->deviceName);
+            string commandOnVideoStarts = regex_replace(
+                this->eventOnVideoStarts, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
+            );
+            exec_async((void*)this, commandOnVideoStarts, [](void* This, string output){
+                    spdlog::info("[{}] stdout/stderr from command: [{}]",
+                    reinterpret_cast<deviceManager*>(This)->deviceName, output);
+            });
+            spdlog::info("[{}] onVideoStarts: command [{}] executed",
+                this->deviceName, commandOnVideoStarts);
         } else {
-        spdlog::info("[{}] onVideoStarts: no command to execute", this->deviceName);
+            spdlog::info("[{}] onVideoStarts: no command to execute",
+                this->deviceName);
         }
     }
 }
 
-void deviceManager::getLiveImage(vector<uint8_t>& pl) {    
-
+void deviceManager::getLiveImage(vector<uint8_t>& pl) {
     pthread_mutex_lock(&mutexLiveImage);
     pl = encodedJpgImage;
     pthread_mutex_unlock(&mutexLiveImage);
-
 }
 
 void deviceManager::InternalThreadEntry() {
 
+    vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
     Mat prevFrame, currFrame, dispFrame, diffFrame;
     bool result = false;
     bool isShowingBlankFrame = false;
@@ -293,7 +298,6 @@ void deviceManager::InternalThreadEntry() {
         totalCount = totalFrameCount;
         if (totalFrameCount % this->snapshotFrameInterval == 0) {
             pthread_mutex_lock(&mutexLiveImage);
-            vector<int> configs = {};
             imencode(".jpg", dispFrame, encodedJpgImage, configs);
             pthread_mutex_unlock(&mutexLiveImage);
             // https://stackoverflow.com/questions/7054844/is-rename-atomic
@@ -309,7 +313,7 @@ void deviceManager::InternalThreadEntry() {
         }
         
         if (rateOfChange > this->rateOfChangeLower && rateOfChange < this->rateOfChangeUpper) {
-        this->rateOfChangeInRange(&ffmpegPipe, &cooldown, &timestampOnVideoStarts);
+            this->rateOfChangeInRange(&ffmpegPipe, &cooldown, &timestampOnVideoStarts);
         }
         
         ++totalFrameCount;
@@ -335,5 +339,5 @@ void deviceManager::InternalThreadEntry() {
         }
     }
     cap.release();
-    spdlog::info("[{}] stop_signal received, thread startMotionDetection() quits gracefully", this->deviceName);
+    spdlog::info("[{}] thread quits gracefully", this->deviceName);
 }

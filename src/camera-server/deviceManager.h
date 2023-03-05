@@ -60,6 +60,7 @@ protected:
 private:
     pthread_mutex_t mutexLiveImage;
     vector<uint8_t> encodedJpgImage;
+    queue<vector<<uint8_t>> encodedJpgImageQueue;
     bool enableContoursDrawing = false;
     double fontScale = 1;
     double rateOfChangeUpper = 0;
