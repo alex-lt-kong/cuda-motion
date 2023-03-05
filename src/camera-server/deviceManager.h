@@ -77,11 +77,10 @@ private:
 class deviceManager : public MyEventLoopThread {
 
 public:
-    deviceManager(json settings);
+    deviceManager();
     ~deviceManager();
-    bool captureImage(string imageSaveTo);
+    void setParameters(json settings);
     void getLiveImage(vector<uint8_t>& pl);
-    size_t totalCount;
 
 protected:
     void InternalThreadEntry();
@@ -105,12 +104,12 @@ private:
     long long int maxFramesPerVideo = 1;
     int diffFrameInterval = 1;
     int frameIntervalInMs = 24;
-    string deviceUri = "";
-    string deviceName = "";   
-    string ffmpegCommand = "";
-    string snapshotPath = "";
-    string eventOnVideoStarts = "";
-    string eventOnVideoEnds = "";
+    string deviceUri;
+    string deviceName;   
+    string ffmpegCommand;
+    string snapshotPath;
+    string eventOnVideoStarts;
+    string eventOnVideoEnds;
     queue<long long int> frameTimestamps;
 
     volatile sig_atomic_t* done;

@@ -15,10 +15,6 @@
 #include "utils.h"
 #include "deviceManager.h"
 
-using json = nlohmann::json;
-using namespace std;
-using namespace cv;
-
 using sysclock_t = std::chrono::system_clock;
 
 string deviceManager::getCurrentTimestamp()
@@ -42,11 +38,14 @@ string deviceManager::convertToString(char* a, int size)
     return s;
 }
 
-deviceManager::deviceManager(json settings) {
+deviceManager::deviceManager() {
     if (pthread_mutex_init(&mutexLiveImage, NULL) != 0) {
         throw runtime_error("pthread_mutex_init() failed, errno: " +
             to_string(errno));
     }
+}
+
+void deviceManager::setParameters(json settings) {
     deviceUri = settings["uri"];
     deviceName = settings["name"];
     frameRotation = settings["frame"]["rotation"];
@@ -80,9 +79,9 @@ void deviceManager::overlayDatetime(Mat frame) {
     time(&now);
     char buf[sizeof "1970-01-01 00:00:00"];
     strftime(buf, sizeof buf, "%F %T", localtime(&now));
-    cv::Size textSize = getTextSize(buf, FONT_HERSHEY_DUPLEX, this->fontScale, 8 * this->fontScale, nullptr);
-    putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,  0,  0  ), 8 * this->fontScale, LINE_AA, false);
-    putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255,255,255), 2 * this->fontScale, LINE_AA, false);
+    cv::Size textSize = getTextSize(buf, FONT_HERSHEY_DUPLEX, fontScale, 8 * fontScale, nullptr);
+    putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX, fontScale, Scalar(0,  0,  0  ), 8 * fontScale, LINE_AA, false);
+    putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX, fontScale, Scalar(255,255,255), 2 * fontScale, LINE_AA, false);
     /*
     void cv::putText 	(InputOutputArray  	img,
                         const String &  	text,
@@ -105,18 +104,18 @@ float deviceManager::getFrameChanges(Mat prevFrame, Mat currFrame, Mat* diffFram
     
     absdiff(prevFrame, currFrame, *diffFrame);
     cvtColor(*diffFrame, *diffFrame, COLOR_BGR2GRAY);
-    threshold(*diffFrame, *diffFrame, this->pixelLevelThreshold, 255, THRESH_BINARY);
+    threshold(*diffFrame, *diffFrame, pixelLevelThreshold, 255, THRESH_BINARY);
     int nonZeroPixels = countNonZero(*diffFrame);
     return 100.0 * nonZeroPixels / (diffFrame->rows * diffFrame->cols);
 }
 
 void deviceManager::overlayDeviceName(Mat frame) {
 
-    cv::Size textSize = getTextSize(this->deviceName, FONT_HERSHEY_DUPLEX, this->fontScale, 8 * this->fontScale, nullptr);
-    putText(frame, this->deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5), 
-            FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(0,  0,  0  ), 8 * this->fontScale, LINE_AA, false);
-    putText(frame, this->deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
-            FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255,255,255), 2 * this->fontScale, LINE_AA, false);
+    cv::Size textSize = getTextSize(deviceName, FONT_HERSHEY_DUPLEX, fontScale, 8 * fontScale, nullptr);
+    putText(frame, deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5), 
+            FONT_HERSHEY_DUPLEX, fontScale, Scalar(0,  0,  0  ), 8 * fontScale, LINE_AA, false);
+    putText(frame, deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
+            FONT_HERSHEY_DUPLEX, fontScale, Scalar(255,255,255), 2 * fontScale, LINE_AA, false);
 }
 
 void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown, long long int videoFrameCount) {
@@ -125,11 +124,11 @@ void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown,
     ssChangeRate << fixed << setprecision(2) << changeRate;
     putText(frame, ssChangeRate.str() + "% (" +
         to_string(cooldown) + ", " +
-        to_string(this->maxFramesPerVideo - videoFrameCount) + ")", 
-        Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale,
-        Scalar(0,   0,   0  ), 8 * this->fontScale, LINE_AA, false);
-    putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ", " + to_string(this->maxFramesPerVideo - videoFrameCount) + ")",
-            Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, this->fontScale, Scalar(255, 255, 255), 2 * this->fontScale, LINE_AA, false);
+        to_string(maxFramesPerVideo - videoFrameCount) + ")", 
+        Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, fontScale,
+        Scalar(0,   0,   0  ), 8 * fontScale, LINE_AA, false);
+    putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ", " + to_string(maxFramesPerVideo - videoFrameCount) + ")",
+            Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, fontScale, Scalar(255, 255, 255), 2 * fontScale, LINE_AA, false);
 }
 
 void deviceManager::overlayContours(Mat dispFrame, Mat diffFrame) {
@@ -148,17 +147,17 @@ bool deviceManager::skipThisFrame() {
     int sampleMsLowerLimit = 1000;
     int sampleMsUpperLimit = 60 * 1000;
     int currMsSinceEpoch = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-    if (this->frameTimestamps.size() <= 1) { 
-        this->frameTimestamps.push(currMsSinceEpoch); 
+    if (frameTimestamps.size() <= 1) { 
+        frameTimestamps.push(currMsSinceEpoch); 
         return false;
     }
     
-    float fps = 1000.0 * this->frameTimestamps.size() / (1 + currMsSinceEpoch - this->frameTimestamps.front());
-    if (currMsSinceEpoch - this->frameTimestamps.front() > sampleMsUpperLimit) {
-        this->frameTimestamps.pop();
+    float fps = 1000.0 * frameTimestamps.size() / (1 + currMsSinceEpoch - frameTimestamps.front());
+    if (currMsSinceEpoch - frameTimestamps.front() > sampleMsUpperLimit) {
+        frameTimestamps.pop();
     }
-    if (fps > this->frameFpsUpperCap) { return true; }
-    this->frameTimestamps.push(currMsSinceEpoch);  
+    if (fps > frameFpsUpperCap) { return true; }
+    frameTimestamps.push(currMsSinceEpoch);  
     return false;
 }
 
@@ -169,16 +168,16 @@ void deviceManager::coolDownReachedZero(
         pclose(*ffmpegPipe); 
         *ffmpegPipe = nullptr; 
         
-        if (this->eventOnVideoEnds.length() > 0) {
-        spdlog::info("[{}] video recording ends", this->deviceName);
+        if (eventOnVideoEnds.length() > 0) {
+        spdlog::info("[{}] video recording ends", deviceName);
         string commandOnVideoEnds = regex_replace(
-            this->eventOnVideoEnds, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
+            eventOnVideoEnds, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
         );
         system((commandOnVideoEnds + " &").c_str());
 
-        spdlog::info("[{}] onVideoEnds triggered, command [{}] executed", this->deviceName, commandOnVideoEnds);
+        spdlog::info("[{}] onVideoEnds triggered, command [{}] executed", deviceName, commandOnVideoEnds);
         } else {
-        spdlog::info("[{}] onVideoEnds, no command to execute", this->deviceName);
+        spdlog::info("[{}] onVideoEnds, no command to execute", deviceName);
         }
     }
     *videoFrameCount = 0;
@@ -188,30 +187,30 @@ void deviceManager::coolDownReachedZero(
 void deviceManager::rateOfChangeInRange(
   FILE** ffmpegPipe, int* cooldown, string* timestampOnVideoStarts
 ) {
-    *cooldown = this->framesAfterTrigger;
+    *cooldown = framesAfterTrigger;
     if (*ffmpegPipe == nullptr) {
-        string command = this->ffmpegCommand;
-        *timestampOnVideoStarts = this->getCurrentTimestamp();
+        string command = ffmpegCommand;
+        *timestampOnVideoStarts = getCurrentTimestamp();
         command = regex_replace(
         command, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
         );
         *ffmpegPipe = popen((command).c_str(), "w");
-        //setvbuf(*ffmpegPipe, &(this->buff), _IOFBF, this->buff_size);
+        //setvbuf(*ffmpegPipe, &(buff), _IOFBF, buff_size);
         
-        if (this->eventOnVideoStarts.length() > 0) {
-            spdlog::info("[{}] motion detected, video recording begins", this->deviceName);
+        if (eventOnVideoStarts.length() > 0) {
+            spdlog::info("[{}] motion detected, video recording begins", deviceName);
             string commandOnVideoStarts = regex_replace(
-                this->eventOnVideoStarts, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
+                eventOnVideoStarts, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
             );
             exec_async((void*)this, commandOnVideoStarts, [](void* This, string output){
                     spdlog::info("[{}] stdout/stderr from command: [{}]",
                     reinterpret_cast<deviceManager*>(This)->deviceName, output);
             });
             spdlog::info("[{}] onVideoStarts: command [{}] executed",
-                this->deviceName, commandOnVideoStarts);
+                deviceName, commandOnVideoStarts);
         } else {
             spdlog::info("[{}] onVideoStarts: no command to execute",
-                this->deviceName);
+                deviceName);
         }
     }
 }
@@ -233,8 +232,9 @@ void deviceManager::InternalThreadEntry() {
     float rateOfChange = 0.0;
     string timestampOnVideoStarts = "";
 
-    result = cap.open(this->deviceUri);
-    spdlog::info("[{}] cap.open({}): {}", this->deviceName, this->deviceUri, result);
+    spdlog::info("deviceUri@deviceManager::InternalThreadEntry(): [{}]", deviceUri);
+    result = cap.open(deviceUri);
+    spdlog::info("[{}] cap.open({}): {}", deviceName, deviceUri, result);
     uint64_t totalFrameCount = 0;
     uint32_t videoFrameCount = 0;
     FILE *ffmpegPipe = nullptr;
@@ -242,25 +242,25 @@ void deviceManager::InternalThreadEntry() {
     
     cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 
     // Thought about moving CAP_PROP_FOURCC to config file. But seems they are good just to be hard-coded?
-    if (this->framePreferredWidth > 0) { cap.set(CAP_PROP_FRAME_WIDTH, this->framePreferredWidth); }
-    if (this->framePreferredHeight > 0) { cap.set(CAP_PROP_FRAME_HEIGHT, this->framePreferredHeight); }
-    if (this->framePreferredFps > 0) { cap.set(CAP_PROP_FPS, this->framePreferredFps); }
+    if (framePreferredWidth > 0) { cap.set(CAP_PROP_FRAME_WIDTH, framePreferredWidth); }
+    if (framePreferredHeight > 0) { cap.set(CAP_PROP_FRAME_HEIGHT, framePreferredHeight); }
+    if (framePreferredFps > 0) { cap.set(CAP_PROP_FPS, framePreferredFps); }
     
-    while (!this->_internalThreadShouldQuit) {
+    while (!_internalThreadShouldQuit) {
         result = cap.grab();
-        if (this->skipThisFrame() == true) { continue; }
+        if (skipThisFrame() == true) { continue; }
         if (result) { result = result && cap.retrieve(currFrame); }
 
         if (result == false || currFrame.empty() || cap.isOpened() == false) {
             spdlog::error("[{}] Unable to cap.read() a new frame. "
                 "currFrame.empty(): {}, cap.isOpened(): {}. "
                 "Sleep for 2 sec than then re-open()...",
-                this->deviceName, currFrame.empty(), cap.isOpened());
+                deviceName, currFrame.empty(), cap.isOpened());
             isShowingBlankFrame = true;
             this_thread::sleep_for(2000ms); // Don't wait for too long, most of the time the device can be re-open()ed immediately
-            cap.open(this->deviceUri);
-            if (this->framePreferredWidth >0 && this->framePreferredHeight > 0) {
-                currFrame = Mat(this->framePreferredHeight, this->framePreferredWidth, CV_8UC3, Scalar(128, 128, 128));
+            cap.open(deviceUri);
+            if (framePreferredWidth >0 && framePreferredHeight > 0) {
+                currFrame = Mat(framePreferredHeight, framePreferredWidth, CV_8UC3, Scalar(128, 128, 128));
             }
             else {
                 // We cant just do this and skip framePreferredWidth and framePreferredHeight
@@ -273,15 +273,15 @@ void deviceManager::InternalThreadEntry() {
             // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
         } else {
             if (isShowingBlankFrame == true) {
-                spdlog::info("[{}] Device is back online", this->deviceName);
+                spdlog::info("[{}] Device is back online", deviceName);
             }
             isShowingBlankFrame = false;
         }
-        if (this->frameRotation != -1 && isShowingBlankFrame == false) { rotate(currFrame, currFrame, this->frameRotation); }
+        if (frameRotation != -1 && isShowingBlankFrame == false) { rotate(currFrame, currFrame, frameRotation); }
 
-        if (totalFrameCount % this->diffFrameInterval == 0) {
+        if (totalFrameCount % diffFrameInterval == 0) {
             // profiling shows this if() block takes around 1-2 ms
-            rateOfChange = this->getFrameChanges(prevFrame, currFrame, &diffFrame);
+            rateOfChange = getFrameChanges(prevFrame, currFrame, &diffFrame);
             prevFrame = currFrame.clone();
         }
         
@@ -289,16 +289,15 @@ void deviceManager::InternalThreadEntry() {
         if (dispFrames.size() > 5) {
             dispFrames.pop();
         }
-        if (this->enableContoursDrawing) {
-            this->overlayContours(dispFrames.back(), diffFrame); // CPU-intensive! Use with care!
+        if (enableContoursDrawing) {
+            overlayContours(dispFrames.back(), diffFrame); // CPU-intensive! Use with care!
         }
-        this->overlayChangeRate(
+        overlayChangeRate(
             dispFrames.back(), rateOfChange, cooldown, videoFrameCount);
-        this->overlayDatetime(dispFrames.back());    
-        this->overlayDeviceName(dispFrames.back());
+        overlayDatetime(dispFrames.back());    
+        overlayDeviceName(dispFrames.back());
         
-        totalCount = totalFrameCount;
-        if (totalFrameCount % this->snapshotFrameInterval == 0) {
+        if (totalFrameCount % snapshotFrameInterval == 0) {
             pthread_mutex_lock(&mutexLiveImage);            
             imencode(".jpg", dispFrames.front(), encodedJpgImage, configs);
             pthread_mutex_unlock(&mutexLiveImage);
@@ -308,17 +307,17 @@ void deviceManager::InternalThreadEntry() {
 
             // https://stackoverflow.com/questions/7054844/is-rename-atomic
             // https://stackoverflow.com/questions/29261648/atomic-writing-to-file-on-linux            
-            ofstream fout(this->snapshotPath + ".tmp", ios::out | ios::binary);
+            ofstream fout(snapshotPath + ".tmp", ios::out | ios::binary);
             fout.write((char*)encodedJpgImage.data(), encodedJpgImage.size());
             fout.close();
-            rename((this->snapshotPath + ".tmp").c_str(), this->snapshotPath.c_str());
+            rename((snapshotPath + ".tmp").c_str(), snapshotPath.c_str());
             // profiling shows from ofstream fout()... to rename() takes
             // less than 1 ms.
 
         }
         
-        if (rateOfChange > this->rateOfChangeLower && rateOfChange < this->rateOfChangeUpper) {
-            this->rateOfChangeInRange(&ffmpegPipe, &cooldown, &timestampOnVideoStarts);
+        if (rateOfChange > rateOfChangeLower && rateOfChange < rateOfChangeUpper) {
+            rateOfChangeInRange(&ffmpegPipe, &cooldown, &timestampOnVideoStarts);
         }
         
         ++totalFrameCount;
@@ -326,9 +325,9 @@ void deviceManager::InternalThreadEntry() {
             cooldown --;
             if (cooldown > 0) { ++videoFrameCount; }
         }
-        if (videoFrameCount >= this->maxFramesPerVideo) { cooldown = 0; }
+        if (videoFrameCount >= maxFramesPerVideo) { cooldown = 0; }
         if (cooldown == 0) { 
-            this->coolDownReachedZero(&ffmpegPipe, &videoFrameCount, &timestampOnVideoStarts);
+            coolDownReachedZero(&ffmpegPipe, &videoFrameCount, &timestampOnVideoStarts);
         }  
 
         if (ffmpegPipe != nullptr) {
@@ -343,10 +342,10 @@ void deviceManager::InternalThreadEntry() {
             if (ferror(ffmpegPipe)) {
                 spdlog::error("[{}] ferror(ffmpegPipe) is true, unable to fwrite() "
                     "more frames to the pipe (cooldown: {})",
-                    this->deviceName, cooldown);
+                    deviceName, cooldown);
             }
         }
     }
     cap.release();
-    spdlog::info("[{}] thread quits gracefully", this->deviceName);
+    spdlog::info("[{}] thread quits gracefully", deviceName);
 }

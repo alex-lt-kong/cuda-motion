@@ -11,7 +11,7 @@
 #include "deviceManager.h"
 
 using namespace std;
-using njson = nlohmann::json;
+using json = nlohmann::json;
 
 crow::SimpleApp app;
 vector<deviceManager> myDevices;
@@ -38,14 +38,13 @@ void register_signal_handlers() {
     }
 }
 
-njson load_settings() {
+json load_settings() {
     string settingsPath = string(getenv("HOME")) + 
         "/.config/ak-studio/camera-server.json";
     spdlog::info("Loading json settings from {}", settingsPath);
+
     ifstream is(settingsPath);
-    njson settings;
-    is >> settings;
-    return settings;
+    return json::parse(is);
 }
 
 class CustomLogger : public crow::ILogHandler {
@@ -109,20 +108,19 @@ int main() {
     
     spdlog::info("cv::getBuildInformation(): {}", getBuildInformation());
 
-    njson settings = load_settings();
+    json settings = load_settings();
 
     size_t deviceCount = settings["devices"].size();
-
-    for (size_t i = 0; i < deviceCount; i++) {
+    myDevices = vector<deviceManager>(deviceCount, deviceManager());
+    for (size_t i = 0; i < deviceCount; ++i) {
         spdlog::info("Loading {}-th device with the following configs:\n{}",
             i, settings["devices"][i].dump(2));
-        myDevices.emplace_back(settings["devices"][i]);
-        // A C++11 feature enabled by variadic template, rvalue reference, etc
-        myDevices.back().StartInternalEventLoopThread();
+        myDevices[i].setParameters(settings["devices"][i]);
+        myDevices[i].StartInternalEventLoopThread();
     }
 
     start_http_server();
-    for (size_t i = 0; i < settings["devices"].size(); i++) {
+    for (size_t i = 0; i < myDevices.size(); ++i) {
         myDevices[i].WaitForInternalEventLoopThreadToExit();
         spdlog::info("{}-th device thread exited gracefully", i);
     }
