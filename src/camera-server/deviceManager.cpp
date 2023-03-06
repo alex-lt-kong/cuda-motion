@@ -63,15 +63,20 @@ void deviceManager::setParameters(const size_t deviceIndex,
 
     if (!conf.contains("/frame/rotation"_json_pointer))
         conf["frame"]["rotation"] = defaultConf["frame"]["rotation"];
-    framePreferredWidth = overrideConf["frame"]["preferredWidth"];
-    framePreferredHeight = overrideConf["frame"]["preferredHeight"];
-    framePreferredFps = overrideConf["frame"]["preferredFps"];
+    if (!conf.contains("/frame/preferredWidth"_json_pointer))
+        conf["frame"]["preferredWidth"] = defaultConf["frame"]["preferredWidth"];
+    if (!conf.contains("/frame/preferredHeight"_json_pointer))
+        conf["frame"]["preferredHeight"] = defaultConf["frame"]["preferredHeight"];
+    if (!conf.contains("/frame/preferredFps"_json_pointer))
+        conf["frame"]["preferredFps"] = defaultConf["frame"]["preferredFps"];
     if (!conf.contains("/frame/throttleFpsIfHigherThan"_json_pointer))
         conf["frame"]["throttleFpsIfHigherThan"] =
         defaultConf["frame"]["throttleFpsIfHigherThan"];
     throttleFpsIfHigherThan = conf["frame"]["throttleFpsIfHigherThan"];
     // throttleFpsIfHigherThan is duplicated as it is on the critical path.
-    fontScale = overrideConf["frame"]["overlayTextFontScale"];
+    if (!conf.contains("/frame/overlayTextFontScale"_json_pointer))
+        conf["frame"]["overlayTextFontScale"] =
+            defaultConf["frame"]["overlayTextFontScale"];
     if (!conf.contains("/frame/drawContours"_json_pointer))
         conf["frame"]["drawContours"] = defaultConf["frame"]["drawContours"];
 
@@ -267,6 +272,24 @@ void deviceManager::getLiveImage(vector<uint8_t>& pl) {
     pthread_mutex_unlock(&mutexLiveImage);
 }
 
+void deviceManager::generateBlankFrame(Mat& currFrame) {
+    if (conf["frame"]["preferredWidth"] > 0 &&
+        conf["frame"]["preferredHeight"] > 0) {
+        currFrame = Mat(conf["frame"]["preferredHeight"],
+        conf["frame"]["preferredWidth"],
+        CV_8UC3, Scalar(128, 128, 128));
+    }
+    else {
+        // We cant just do this and skip framePreferredWidth and framePreferredHeight
+        // problem will occur when piping frames to ffmpeg: In ffmpeg, we pre-define the frame size, which is mostly
+        // framePreferredWidth x framePreferredHeight. If the video device is down and we supply a smaller frame, 
+        // ffmpeg will wait until there are enough pixels filling the original resolution to write one frame, 
+        // causing screen tearing
+        currFrame = Mat(540, 960, CV_8UC3, Scalar(128, 128, 128));
+        // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
+    }
+}
+
 void deviceManager::InternalThreadEntry() {
 
     vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
@@ -288,9 +311,12 @@ void deviceManager::InternalThreadEntry() {
     
     cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 
     // Thought about moving CAP_PROP_FOURCC to config file. But seems they are good just to be hard-coded?
-    if (framePreferredWidth > 0) { cap.set(CAP_PROP_FRAME_WIDTH, framePreferredWidth); }
-    if (framePreferredHeight > 0) { cap.set(CAP_PROP_FRAME_HEIGHT, framePreferredHeight); }
-    if (framePreferredFps > 0) { cap.set(CAP_PROP_FPS, framePreferredFps); }
+    if (conf["frame"]["preferredWidth"] > 0)
+        cap.set(CAP_PROP_FRAME_WIDTH, conf["frame"]["preferredWidth"]);
+    if (conf["frame"]["preferredHeight"] > 0)
+        cap.set(CAP_PROP_FRAME_HEIGHT, conf["frame"]["preferredHeight"]);
+    if (conf["frame"]["preferredFps"] > 0)
+        cap.set(CAP_PROP_FPS, conf["frame"]["preferredFps"]);
     
     while (!_internalThreadShouldQuit) {
         result = cap.grab();
@@ -302,21 +328,10 @@ void deviceManager::InternalThreadEntry() {
                 "currFrame.empty(): {}, cap.isOpened(): {}. "
                 "Sleep for 2 sec than then re-open()...",
                 deviceName, currFrame.empty(), cap.isOpened());
-            isShowingBlankFrame = true;
             this_thread::sleep_for(2000ms); // Don't wait for too long, most of the time the device can be re-open()ed immediately
             cap.open(conf["uri"].get<string>());
-            if (framePreferredWidth >0 && framePreferredHeight > 0) {
-                currFrame = Mat(framePreferredHeight, framePreferredWidth, CV_8UC3, Scalar(128, 128, 128));
-            }
-            else {
-                // We cant just do this and skip framePreferredWidth and framePreferredHeight
-                // problem will occur when piping frames to ffmpeg: In ffmpeg, we pre-define the frame size, which is mostly
-                // framePreferredWidth x framePreferredHeight. If the video device is down and we supply a smaller frame, 
-                // ffmpeg will wait until there are enough pixels filling the original resolution to write one frame, 
-                // causing screen tearing
-                currFrame = Mat(540, 960, CV_8UC3, Scalar(128, 128, 128));
-            }
-            // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
+            isShowingBlankFrame = true;
+            generateBlankFrame(currFrame);
         } else {
             if (isShowingBlankFrame == true) {
                 spdlog::info("[{}] Device is back online", deviceName);

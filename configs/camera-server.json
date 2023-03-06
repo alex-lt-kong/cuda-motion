@@ -6,13 +6,13 @@
 		"frame": {
 			// A very interesting but computionally expensive feature!
 			"drawContours": false,
+			// Setting this to a lower value to limit CPU usage
 			"throttleFpsIfHigherThan": 30,
 			"rotation": -1,
-			"overlayTextFontScale": 1.25,
-      // preferredWidth, preferredHeight and preferredFps are only useful for local video source
+			"overlayTextFontScale": 1,
 			"preferredWidth": -1,
 			"preferredHeight": -1,
-			"preferredFps": -1
+			"preferredFps": 30
 		},
 		"snapshot": {
 			"path": "/tmp/snapshot-{{deviceIndex}}.jpg",

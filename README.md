@@ -1,6 +1,6 @@
 # Camera server
 
-A C++11 project inspired by, similar to but simpler than
+A C++17 project inspired by, similar to but simpler than
 [Motion](https://github.com/Motion-Project/motion) in C.
 
 ## Dependencies
@@ -8,8 +8,8 @@ A C++11 project inspired by, similar to but simpler than
 * [Crow HTTP library](https://github.com/CrowCpp/Crow) for HTTP service support
   * `Asio`, an  asynchronous mode used by Crow:  `apt install libasio-dev`
 * `nlohmann-json3 (>= 3.9)`, JSON support: `apt install nlohmann-json3-dev`
+* `opencv`, for frame manipulation: `apt install libopencv-dev`.
 * `v4l-utils`: for manually examining and manipulating local video devices.
-* `apt install libopencv-dev` for frame manipulcation.
 
 ### FFmpeg
 
@@ -36,20 +36,11 @@ a few libraries used by it should also be installed:
   two destination video files causes performance to drop significantly, if two resolutions are needed,
   one should consider transcoding with scaling after the first and larger video is successfully encoded.
 
-### Environment Variables
-
-* Sometimes you may be able to compile the project but running `motionDetector.out` gives
-`./motionDetector.out: error while loading shared libraries: libopencv_imgcodecs.so.405: cannot open shared object file: No such file or directory`
-* One solution is to add `/usr/local/lib/` to `LD_LIBRARY_PATH`: `export LD_LIBRARY_PATH=/usr/local/lib/:$LD_LIBRARY_PATH`
-
 
 ## Explanation of Some Confusing Parameters
 
 * `preferredWidth`,`preferredHeight`, `preferredFps`: If positive, they will be directly passed to `OpenCV`'s `CAP_PROP_FRAME_WIDTH`, `CAP_PROP_FRAME_HEIGHT` and `CAP_PROP_FPS`. It is subject to `OpenCV`'s discretion on how they are interpreted. Usually
 they are only effective when the source is a local Linux video device.
-* `FpsUpperCap`: If motionDetector gets frames faster than this value, it simply discard the frame and read the next 
-one, skipping all further processing. It is useful to limit the CPU usage of the program when FPS from a video device
-cannot be controlled by `preferredFps`.
 
 ## Useful Commands
 

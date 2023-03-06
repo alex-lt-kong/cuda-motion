@@ -98,9 +98,6 @@ private:
     double rateOfChangeLower = 0;
     double pixelLevelThreshold = 0;
     int snapshotFrameInterval = 1;
-    int framePreferredWidth = -1;
-    int framePreferredHeight = -1;
-    int framePreferredFps = -1;
     float throttleFpsIfHigherThan;
     int diffFrameInterval = 1;
     int frameIntervalInMs = 24;
@@ -121,4 +118,5 @@ private:
     void overlayContours(Mat dispFrame, Mat diffFrame);
     void overlayChangeRate(Mat frame, float changeRate, int cooldown, long long int videoFrameCount);
     float getFrameChanges(Mat prevFrame, Mat currFrame, Mat* diffFrame);
+    void generateBlankFrame(Mat& currFrame);
 };
