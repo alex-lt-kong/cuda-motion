@@ -119,8 +119,6 @@ int main() {
     }
     myDevices = vector<deviceManager>(deviceCount, deviceManager());
     for (size_t i = 0; i < deviceCount; ++i) {
-        spdlog::info("Loading {}-th device with the following configs:\n{}",
-            i, settings["devices"][i].dump(2));
         myDevices[i].setParameters(i, settings["devicesDefault"],
             settings["devices"][i]);
         myDevices[i].StartInternalEventLoopThread();

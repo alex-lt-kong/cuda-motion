@@ -79,7 +79,8 @@ class deviceManager : public MyEventLoopThread {
 public:
     deviceManager();
     ~deviceManager();
-    void setParameters(size_t deviceIndex, json settingsDefault, json settingsOverride);
+    void setParameters(const size_t deviceIndex, const json& defaultConf,
+        json& overrideConf);
     void getLiveImage(vector<uint8_t>& pl);
 
 protected:
@@ -89,34 +90,27 @@ protected:
 private:
     pthread_mutex_t mutexLiveImage;
     vector<uint8_t> encodedJpgImage;
-    bool enableContoursDrawing = false;
+    json conf;
     size_t deviceIndex = 0;
     double fontScale = 1;
     double rateOfChangeUpper = 0;
     double rateOfChangeLower = 0;
     double pixelLevelThreshold = 0;
     int snapshotFrameInterval = 1;
-    int frameRotation = -1;
     int framePreferredWidth = -1;
     int framePreferredHeight = -1;
     int framePreferredFps = -1;
-    int frameFpsUpperCap = 1;
-    int framesAfterTrigger = 0;
-    long long int maxFramesPerVideo = 1;
+    float throttleFpsIfHigherThan;
     int diffFrameInterval = 1;
     int frameIntervalInMs = 24;
-    string deviceUri;
-    string deviceName;   
     string ffmpegCommand;
     string snapshotPath;
-    string eventOnVideoStarts;
-    string eventOnVideoEnds;
     queue<long long int> frameTimestamps;
 
     volatile sig_atomic_t* done;
     
-    bool skipThisFrame();
-    string fillinVariables(string originalString);
+    bool shouldFrameBeThrottled();
+    string fillinVariables(basic_string<char> originalString);
     string convertToString(char* a, int size);
     string getCurrentTimestamp();
     void rateOfChangeInRange(FILE** ffmpegPipe, int* cooldown, string* timestampOnVideoStarts);

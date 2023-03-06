@@ -3,6 +3,17 @@
 		// Human-readable name for the device
 		"name": "Device-{{deviceIndex}}",
 		"uri": "/dev/video-{{deviceIndex}}.mp4",
+		"frame": {
+			// A very interesting but computionally expensive feature!
+			"drawContours": false,
+			"throttleFpsIfHigherThan": 30,
+			"rotation": -1,
+			"overlayTextFontScale": 1.25,
+			"preferredWidth": 1920,
+			"preferredHeight": 1080,
+			"preferredFps": 10,
+			"note": "preferredWidth, preferredHeight and preferredFps are only useful for local video source "
+		},
 		"snapshot": {
 			"path": "/tmp/snapshot-{{deviceIndex}}.jpg",
 			"frameInterval": 5
@@ -10,6 +21,10 @@
 		"events": {
 			"onVideoStarts": "",
 			"onVideoEnds": ""
+		},
+		"videoRecording": {
+			"minFramesPerVideo": 240,
+			"maxFramesPerVideo": 108000
 		}
 	},
 	"devices": []

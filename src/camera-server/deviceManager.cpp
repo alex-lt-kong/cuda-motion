@@ -43,52 +43,71 @@ deviceManager::deviceManager() {
     }
 }
 
-string deviceManager::fillinVariables(string originalString) {
+string deviceManager::fillinVariables(basic_string<char> originalString) {
     string filledString = regex_replace(originalString,
         regex(R"(\{\{deviceIndex\}\})"), to_string(deviceIndex));
     return filledString;
 }
 
-void deviceManager::setParameters(size_t deviceIndex, json df, json dev) {
-    this->deviceIndex = deviceIndex;
+void deviceManager::setParameters(const size_t deviceIndex,
+    const json& defaultConf, json& overrideConf) {
+
+    this->deviceIndex = deviceIndex;    
+    conf = overrideConf;
+    if (!conf.contains("uri")) conf["uri"] = defaultConf["uri"];
+    conf["uri"] = fillinVariables(conf["uri"]);    
+
+    if (!conf.contains("name")) conf["name"] = defaultConf["name"];
+    conf["name"] = fillinVariables(conf["name"]);  
     
-    deviceUri = dev.contains("uri") ? dev["uri"] : df["uri"];
-    deviceUri = fillinVariables(deviceUri);
-    deviceName = dev.contains("name") ? dev["name"] : df["name"];
-    deviceName = fillinVariables(deviceName);
-    frameRotation = dev["frame"]["rotation"];
-    framePreferredWidth = dev["frame"]["preferredWidth"];
-    framePreferredHeight = dev["frame"]["preferredHeight"];
-    framePreferredFps = dev["frame"]["preferredFps"];
-    frameFpsUpperCap = dev["frame"]["FpsUpperCap"];
-    fontScale = dev["frame"]["overlayTextFontScale"];
-    enableContoursDrawing = dev["frame"]["enableContoursDrawing"];
+    
+    if (!conf.contains("/frame/rotation"_json_pointer))
+        conf["frame"]["rotation"] = defaultConf["frame"]["rotation"];
+    framePreferredWidth = overrideConf["frame"]["preferredWidth"];
+    framePreferredHeight = overrideConf["frame"]["preferredHeight"];
+    framePreferredFps = overrideConf["frame"]["preferredFps"];
+    if (!conf.contains("/frame/throttleFpsIfHigherThan"_json_pointer))
+        conf["frame"]["throttleFpsIfHigherThan"] =
+        defaultConf["frame"]["throttleFpsIfHigherThan"];
+    throttleFpsIfHigherThan = conf["frame"]["throttleFpsIfHigherThan"];
+    // throttleFpsIfHigherThan is duplicated as it is on the critical path.
+    fontScale = overrideConf["frame"]["overlayTextFontScale"];
+    if (!conf.contains("/frame/drawContours"_json_pointer))
+        conf["frame"]["drawContours"] = defaultConf["frame"]["drawContours"];
 
     // =====  snapshot =====
-    snapshotPath = dev.contains("/snapshot/path"_json_pointer) ?
-        dev["snapshot"]["path"] : df["snapshot"]["path"];
+    snapshotPath = overrideConf.contains("/snapshot/path"_json_pointer) ?
+        overrideConf["snapshot"]["path"] : defaultConf["snapshot"]["path"];
     snapshotPath = fillinVariables(snapshotPath);
-    snapshotFrameInterval = dev.contains("/snapshot/frameInterval"_json_pointer) ?
-        dev["snapshot"]["frameInterval"] : df["snapshot"]["frameInterval"];
+    snapshotFrameInterval = overrideConf.contains("/snapshot/frameInterval"_json_pointer) ?
+        overrideConf["snapshot"]["frameInterval"] : defaultConf["snapshot"]["frameInterval"];
 
     // ===== events =====
-    eventOnVideoStarts = dev.contains("/events/onVideoStarts"_json_pointer) ?
-        dev["events"]["onVideoStarts"] : df["events"]["onVideoStarts"];
-    eventOnVideoStarts = fillinVariables(eventOnVideoStarts);
-    eventOnVideoEnds = dev.contains("/events/onVideoEnds"_json_pointer) ?
-        dev["events"]["onVideoEnds"] : df["events"]["onVideoEnds"];
-    eventOnVideoEnds = fillinVariables(eventOnVideoEnds);
+    if (!conf.contains("/events/onVideoStarts"_json_pointer))
+        conf["events"]["onVideoStarts"] = defaultConf["events"]["onVideoStarts"];
+    conf["events"]["onVideoStarts"] = fillinVariables(conf["events"]["onVideoStarts"]);  
+    if (!conf.contains("/events/onVideoEnds"_json_pointer))
+        conf["events"]["onVideoEnds"] = defaultConf["events"]["onVideoEnds"];
+    conf["events"]["onVideoEnds"] = fillinVariables(conf["events"]["onVideoEnds"]);  
 
+    ffmpegCommand = overrideConf["ffmpegCommand"];
+    rateOfChangeLower = overrideConf["motionDetection"]["frameLevelRateOfChangeLowerLimit"];
+    rateOfChangeUpper = overrideConf["motionDetection"]["frameLevelRateOfChangeUpperLimit"];
+    pixelLevelThreshold = overrideConf["motionDetection"]["pixelLevelDiffThreshold"];
+    diffFrameInterval = overrideConf["motionDetection"]["diffFrameInterval"];
 
-    ffmpegCommand = dev["ffmpegCommand"];
-    rateOfChangeLower = dev["motionDetection"]["frameLevelRateOfChangeLowerLimit"];
-    rateOfChangeUpper = dev["motionDetection"]["frameLevelRateOfChangeUpperLimit"];
-    pixelLevelThreshold = dev["motionDetection"]["pixelLevelDiffThreshold"];
-    diffFrameInterval = dev["motionDetection"]["diffFrameInterval"];
-    framesAfterTrigger = dev["video"]["framesAfterTrigger"];
-    maxFramesPerVideo = dev["video"]["maxFramesPerVideo"];
+    // ===== video recording =====
+    if (!conf.contains("/videoRecording/minFramesPerVideo"_json_pointer))
+        conf["videoRecording"]["minFramesPerVideo"] = 
+            defaultConf["videoRecording"]["minFramesPerVideo"];
+    if (!conf.contains("/videoRecording/maxFramesPerVideo"_json_pointer))
+        conf["videoRecording"]["maxFramesPerVideo"] =
+            defaultConf["videoRecording"]["maxFramesPerVideo"];
     
-    frameIntervalInMs = 1000 * (1.0 / frameFpsUpperCap);
+    frameIntervalInMs = 1000 * (1.0 / throttleFpsIfHigherThan);
+    
+    spdlog::info("{}-th device to be used with the following configs:\n{}",
+        deviceIndex, conf.dump(2));
 }
 
 deviceManager::~deviceManager() {
@@ -132,10 +151,10 @@ float deviceManager::getFrameChanges(Mat prevFrame, Mat currFrame, Mat* diffFram
 
 void deviceManager::overlayDeviceName(Mat frame) {
 
-    cv::Size textSize = getTextSize(deviceName, FONT_HERSHEY_DUPLEX, fontScale, 8 * fontScale, nullptr);
-    putText(frame, deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5), 
+    cv::Size textSize = getTextSize(conf["name"], FONT_HERSHEY_DUPLEX, fontScale, 8 * fontScale, nullptr);
+    putText(frame, conf["name"], Point(frame.cols - textSize.width * 1.05, frame.rows - 5), 
             FONT_HERSHEY_DUPLEX, fontScale, Scalar(0,  0,  0  ), 8 * fontScale, LINE_AA, false);
-    putText(frame, deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
+    putText(frame, conf["name"], Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
             FONT_HERSHEY_DUPLEX, fontScale, Scalar(255,255,255), 2 * fontScale, LINE_AA, false);
 }
 
@@ -145,11 +164,12 @@ void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown,
     ssChangeRate << fixed << setprecision(2) << changeRate;
     putText(frame, ssChangeRate.str() + "% (" +
         to_string(cooldown) + ", " +
-        to_string(maxFramesPerVideo - videoFrameCount) + ")", 
+        to_string(conf["videoRecording"]["maxFramesPerVideo"].get<int64_t>() - videoFrameCount) + ")", 
         Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, fontScale,
         Scalar(0,   0,   0  ), 8 * fontScale, LINE_AA, false);
-    putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ", " + to_string(maxFramesPerVideo - videoFrameCount) + ")",
-            Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, fontScale, Scalar(255, 255, 255), 2 * fontScale, LINE_AA, false);
+    putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ", " +
+        to_string(conf["videoRecording"]["maxFramesPerVideo"].get<int64_t>() - videoFrameCount) + ")",
+        Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, fontScale, Scalar(255, 255, 255), 2 * fontScale, LINE_AA, false);
 }
 
 void deviceManager::overlayContours(Mat dispFrame, Mat diffFrame) {
@@ -164,8 +184,7 @@ void deviceManager::overlayContours(Mat dispFrame, Mat diffFrame) {
     }
 }
 
-bool deviceManager::skipThisFrame() {
-    int sampleMsLowerLimit = 1000;
+bool deviceManager::shouldFrameBeThrottled() {
     int sampleMsUpperLimit = 60 * 1000;
     int currMsSinceEpoch = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
     if (frameTimestamps.size() <= 1) { 
@@ -177,7 +196,7 @@ bool deviceManager::skipThisFrame() {
     if (currMsSinceEpoch - frameTimestamps.front() > sampleMsUpperLimit) {
         frameTimestamps.pop();
     }
-    if (fps > frameFpsUpperCap) { return true; }
+    if (fps > throttleFpsIfHigherThan) { return true; }
     frameTimestamps.push(currMsSinceEpoch);  
     return false;
 }
@@ -189,20 +208,21 @@ void deviceManager::coolDownReachedZero(
         pclose(*ffmpegPipe); 
         *ffmpegPipe = nullptr; 
         
-        if (eventOnVideoEnds.length() > 0) {
-            spdlog::info("[{}] video recording ends", deviceName);
-            string commandOnVideoEnds = regex_replace(eventOnVideoEnds,
+        if (conf["events"]["onVideoEnds"].get<string>().length() > 0) {
+            spdlog::info("[{}] video recording ends", conf["name"]);
+            string commandOnVideoEnds = regex_replace(
+                conf["events"]["onVideoEnds"].get<string>(),
                 regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts);
             exec_async((void*)this, commandOnVideoEnds,
                 [](void* This, string output){
                 spdlog::info("[{}] stdout/stderr from command: [{}]",
-                reinterpret_cast<deviceManager*>(This)->deviceName, output);
+                reinterpret_cast<deviceManager*>(This)->conf["name"], output);
             });
 
             spdlog::info("[{}] onVideoEnds triggered, command [{}] executed",
-                deviceName, commandOnVideoEnds);
+                conf["name"], commandOnVideoEnds);
         } else {
-            spdlog::info("[{}] onVideoEnds, no command to execute", deviceName);
+            spdlog::info("[{}] onVideoEnds, no command to execute", conf["name"]);
         }
     }
     *videoFrameCount = 0;
@@ -212,7 +232,7 @@ void deviceManager::coolDownReachedZero(
 void deviceManager::rateOfChangeInRange(
   FILE** ffmpegPipe, int* cooldown, string* timestampOnVideoStarts
 ) {
-    *cooldown = framesAfterTrigger;
+    *cooldown = conf["videoRecording"]["minFramesPerVideo"];
     if (*ffmpegPipe == nullptr) {
         string command = ffmpegCommand;
         *timestampOnVideoStarts = getCurrentTimestamp();
@@ -222,20 +242,21 @@ void deviceManager::rateOfChangeInRange(
         *ffmpegPipe = popen((command).c_str(), "w");
         //setvbuf(*ffmpegPipe, &(buff), _IOFBF, buff_size);
         
-        if (eventOnVideoStarts.length() > 0) {
-            spdlog::info("[{}] motion detected, video recording begins", deviceName);
+        if (conf["events"]["onVideoStarts"].get<string>().length() > 0) {
+            spdlog::info("[{}] motion detected, video recording begins", conf["name"]);
             string commandOnVideoStarts = regex_replace(
-                eventOnVideoStarts, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
+                conf["events"]["onVideoStarts"].get<string>(),
+                regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
             );
             exec_async((void*)this, commandOnVideoStarts, [](void* This, string output){
                     spdlog::info("[{}] stdout/stderr from command: [{}]",
-                    reinterpret_cast<deviceManager*>(This)->deviceName, output);
+                    reinterpret_cast<deviceManager*>(This)->conf["name"], output);
             });
             spdlog::info("[{}] onVideoStarts: command [{}] executed",
-                deviceName, commandOnVideoStarts);
+                conf["name"], commandOnVideoStarts);
         } else {
             spdlog::info("[{}] onVideoStarts: no command to execute",
-                deviceName);
+                conf["name"]);
         }
     }
 }
@@ -257,9 +278,8 @@ void deviceManager::InternalThreadEntry() {
     float rateOfChange = 0.0;
     string timestampOnVideoStarts = "";
 
-    spdlog::info("deviceUri@deviceManager::InternalThreadEntry(): [{}]", deviceUri);
-    result = cap.open(deviceUri);
-    spdlog::info("[{}] cap.open({}): {}", deviceName, deviceUri, result);
+    result = cap.open(conf["uri"].get<string>());
+    spdlog::info("[{}] cap.open({}): {}", conf["name"], conf["uri"], result);
     uint64_t totalFrameCount = 0;
     uint32_t videoFrameCount = 0;
     FILE *ffmpegPipe = nullptr;
@@ -273,17 +293,17 @@ void deviceManager::InternalThreadEntry() {
     
     while (!_internalThreadShouldQuit) {
         result = cap.grab();
-        if (skipThisFrame() == true) { continue; }
+        if (shouldFrameBeThrottled() == true) { continue; }
         if (result) { result = result && cap.retrieve(currFrame); }
 
         if (result == false || currFrame.empty() || cap.isOpened() == false) {
             spdlog::error("[{}] Unable to cap.read() a new frame. "
                 "currFrame.empty(): {}, cap.isOpened(): {}. "
                 "Sleep for 2 sec than then re-open()...",
-                deviceName, currFrame.empty(), cap.isOpened());
+                conf["name"], currFrame.empty(), cap.isOpened());
             isShowingBlankFrame = true;
             this_thread::sleep_for(2000ms); // Don't wait for too long, most of the time the device can be re-open()ed immediately
-            cap.open(deviceUri);
+            cap.open(conf["uri"].get<string>());
             if (framePreferredWidth >0 && framePreferredHeight > 0) {
                 currFrame = Mat(framePreferredHeight, framePreferredWidth, CV_8UC3, Scalar(128, 128, 128));
             }
@@ -298,11 +318,13 @@ void deviceManager::InternalThreadEntry() {
             // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
         } else {
             if (isShowingBlankFrame == true) {
-                spdlog::info("[{}] Device is back online", deviceName);
+                spdlog::info("[{}] Device is back online", conf["name"]);
             }
             isShowingBlankFrame = false;
         }
-        if (frameRotation != -1 && isShowingBlankFrame == false) { rotate(currFrame, currFrame, frameRotation); }
+        if (conf["frame"]["rotation"] != -1 && isShowingBlankFrame == false) {
+            rotate(currFrame, currFrame, conf["frame"]["rotation"]);
+        }
 
         if (totalFrameCount % diffFrameInterval == 0) {
             // profiling shows this if() block takes around 1-2 ms
@@ -314,8 +336,9 @@ void deviceManager::InternalThreadEntry() {
         if (dispFrames.size() > 5) {
             dispFrames.pop();
         }
-        if (enableContoursDrawing) {
-            overlayContours(dispFrames.back(), diffFrame); // CPU-intensive! Use with care!
+        if (conf["frame"]["drawContours"]) {
+            overlayContours(dispFrames.back(), diffFrame);
+            // CPU-intensive! Use with care!
         }
         overlayChangeRate(
             dispFrames.back(), rateOfChange, cooldown, videoFrameCount);
@@ -350,7 +373,7 @@ void deviceManager::InternalThreadEntry() {
             cooldown --;
             if (cooldown > 0) { ++videoFrameCount; }
         }
-        if (videoFrameCount >= maxFramesPerVideo) { cooldown = 0; }
+        if (videoFrameCount >= conf["videoRecording"]["maxFramesPerVideo"]) { cooldown = 0; }
         if (cooldown == 0) { 
             coolDownReachedZero(&ffmpegPipe, &videoFrameCount, &timestampOnVideoStarts);
         }  
@@ -367,10 +390,10 @@ void deviceManager::InternalThreadEntry() {
             if (ferror(ffmpegPipe)) {
                 spdlog::error("[{}] ferror(ffmpegPipe) is true, unable to fwrite() "
                     "more frames to the pipe (cooldown: {})",
-                    deviceName, cooldown);
+                    conf["name"], cooldown);
             }
         }
     }
     cap.release();
-    spdlog::info("[{}] thread quits gracefully", deviceName);
+    spdlog::info("[{}] thread quits gracefully", conf["name"]);
 }
