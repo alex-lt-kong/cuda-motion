@@ -17,8 +17,7 @@
 
 using sysclock_t = std::chrono::system_clock;
 
-string deviceManager::getCurrentTimestamp()
-{
+string deviceManager::getCurrentTimestamp() {
     std::time_t now = sysclock_t::to_time_t(sysclock_t::now());
     //"19700101_000000"
     char buf[16] = { 0 };
@@ -28,8 +27,7 @@ string deviceManager::getCurrentTimestamp()
 }
 
 
-string deviceManager::convertToString(char* a, int size)
-{
+string deviceManager::convertToString(char* a, int size) {
     int i;
     string s = "";
     for (i = 0; i < size; i++) {
@@ -45,27 +43,50 @@ deviceManager::deviceManager() {
     }
 }
 
-void deviceManager::setParameters(json settings) {
-    deviceUri = settings["uri"];
-    deviceName = settings["name"];
-    frameRotation = settings["frame"]["rotation"];
-    framePreferredWidth = settings["frame"]["preferredWidth"];
-    framePreferredHeight = settings["frame"]["preferredHeight"];
-    framePreferredFps = settings["frame"]["preferredFps"];
-    frameFpsUpperCap = settings["frame"]["FpsUpperCap"];
-    fontScale = settings["frame"]["overlayTextFontScale"];
-    enableContoursDrawing = settings["frame"]["enableContoursDrawing"];
-    snapshotPath = settings["snapshot"]["path"];
-    snapshotFrameInterval = settings["snapshot"]["frameInterval"];  
-    eventOnVideoStarts = settings["events"]["onVideoStarts"];
-    eventOnVideoEnds = settings["events"]["onVideoEnds"];
-    ffmpegCommand = settings["ffmpegCommand"];
-    rateOfChangeLower = settings["motionDetection"]["frameLevelRateOfChangeLowerLimit"];
-    rateOfChangeUpper = settings["motionDetection"]["frameLevelRateOfChangeUpperLimit"];
-    pixelLevelThreshold = settings["motionDetection"]["pixelLevelDiffThreshold"];
-    diffFrameInterval = settings["motionDetection"]["diffFrameInterval"];
-    framesAfterTrigger = settings["video"]["framesAfterTrigger"];
-    maxFramesPerVideo = settings["video"]["maxFramesPerVideo"];
+string deviceManager::fillinVariables(string originalString) {
+    string filledString = regex_replace(originalString,
+        regex(R"(\{\{deviceIndex\}\})"), to_string(deviceIndex));
+    return filledString;
+}
+
+void deviceManager::setParameters(size_t deviceIndex, json df, json dev) {
+    this->deviceIndex = deviceIndex;
+    
+    deviceUri = dev.contains("uri") ? dev["uri"] : df["uri"];
+    deviceUri = fillinVariables(deviceUri);
+    deviceName = dev.contains("name") ? dev["name"] : df["name"];
+    deviceName = fillinVariables(deviceName);
+    frameRotation = dev["frame"]["rotation"];
+    framePreferredWidth = dev["frame"]["preferredWidth"];
+    framePreferredHeight = dev["frame"]["preferredHeight"];
+    framePreferredFps = dev["frame"]["preferredFps"];
+    frameFpsUpperCap = dev["frame"]["FpsUpperCap"];
+    fontScale = dev["frame"]["overlayTextFontScale"];
+    enableContoursDrawing = dev["frame"]["enableContoursDrawing"];
+
+    // =====  snapshot =====
+    snapshotPath = dev.contains("/snapshot/path"_json_pointer) ?
+        dev["snapshot"]["path"] : df["snapshot"]["path"];
+    snapshotPath = fillinVariables(snapshotPath);
+    snapshotFrameInterval = dev.contains("/snapshot/frameInterval"_json_pointer) ?
+        dev["snapshot"]["frameInterval"] : df["snapshot"]["frameInterval"];
+
+    // ===== events =====
+    eventOnVideoStarts = dev.contains("/events/onVideoStarts"_json_pointer) ?
+        dev["events"]["onVideoStarts"] : df["events"]["onVideoStarts"];
+    eventOnVideoStarts = fillinVariables(eventOnVideoStarts);
+    eventOnVideoEnds = dev.contains("/events/onVideoEnds"_json_pointer) ?
+        dev["events"]["onVideoEnds"] : df["events"]["onVideoEnds"];
+    eventOnVideoEnds = fillinVariables(eventOnVideoEnds);
+
+
+    ffmpegCommand = dev["ffmpegCommand"];
+    rateOfChangeLower = dev["motionDetection"]["frameLevelRateOfChangeLowerLimit"];
+    rateOfChangeUpper = dev["motionDetection"]["frameLevelRateOfChangeUpperLimit"];
+    pixelLevelThreshold = dev["motionDetection"]["pixelLevelDiffThreshold"];
+    diffFrameInterval = dev["motionDetection"]["diffFrameInterval"];
+    framesAfterTrigger = dev["video"]["framesAfterTrigger"];
+    maxFramesPerVideo = dev["video"]["maxFramesPerVideo"];
     
     frameIntervalInMs = 1000 * (1.0 / frameFpsUpperCap);
 }
@@ -169,15 +190,19 @@ void deviceManager::coolDownReachedZero(
         *ffmpegPipe = nullptr; 
         
         if (eventOnVideoEnds.length() > 0) {
-        spdlog::info("[{}] video recording ends", deviceName);
-        string commandOnVideoEnds = regex_replace(
-            eventOnVideoEnds, regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
-        );
-        system((commandOnVideoEnds + " &").c_str());
+            spdlog::info("[{}] video recording ends", deviceName);
+            string commandOnVideoEnds = regex_replace(eventOnVideoEnds,
+                regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts);
+            exec_async((void*)this, commandOnVideoEnds,
+                [](void* This, string output){
+                spdlog::info("[{}] stdout/stderr from command: [{}]",
+                reinterpret_cast<deviceManager*>(This)->deviceName, output);
+            });
 
-        spdlog::info("[{}] onVideoEnds triggered, command [{}] executed", deviceName, commandOnVideoEnds);
+            spdlog::info("[{}] onVideoEnds triggered, command [{}] executed",
+                deviceName, commandOnVideoEnds);
         } else {
-        spdlog::info("[{}] onVideoEnds, no command to execute", deviceName);
+            spdlog::info("[{}] onVideoEnds, no command to execute", deviceName);
         }
     }
     *videoFrameCount = 0;

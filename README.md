@@ -6,18 +6,14 @@ A C++11 project inspired by, similar to but simpler than
 ## Dependencies
 
 * [Crow HTTP library](https://github.com/CrowCpp/Crow) for HTTP service support
-  * `libboost-all-dev`: needed by Crow.
-* `nlohmann-json3` for JSON support: `apt install nlohmann-json3-dev`
+  * `Asio`, an  asynchronous mode used by Crow:  `apt install libasio-dev`
+* `nlohmann-json3`, JSON support: `apt install nlohmann-json3-dev`
 * `v4l-utils`: for manually examining and manipulating local video devices.
-
-### OpenCV
-
-* Used to manipulate frames.
-* Follow [this link](https://github.com/alex-lt-kong/q-rtsp-viewer)
+* `apt install libopencv-dev` for frame manipulcation.
 
 ### FFmpeg
 
-* Used to encode videos.
+* FFmpeg is the back-end used by `OpenCV` to decode/encode videos.
 * If you don't have an Nvidia GPU, simply issue `apt install ffmpeg` should be enough--we will use FFmpeg's default
 configuration and use the CPU to do all the heavy-lifting things. Apart from `FFmpeg` itself,
 a few libraries used by it should also be installed: 

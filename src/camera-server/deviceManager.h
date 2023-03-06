@@ -79,7 +79,7 @@ class deviceManager : public MyEventLoopThread {
 public:
     deviceManager();
     ~deviceManager();
-    void setParameters(json settings);
+    void setParameters(size_t deviceIndex, json settingsDefault, json settingsOverride);
     void getLiveImage(vector<uint8_t>& pl);
 
 protected:
@@ -90,6 +90,7 @@ private:
     pthread_mutex_t mutexLiveImage;
     vector<uint8_t> encodedJpgImage;
     bool enableContoursDrawing = false;
+    size_t deviceIndex = 0;
     double fontScale = 1;
     double rateOfChangeUpper = 0;
     double rateOfChangeLower = 0;
@@ -115,6 +116,7 @@ private:
     volatile sig_atomic_t* done;
     
     bool skipThisFrame();
+    string fillinVariables(string originalString);
     string convertToString(char* a, int size);
     string getCurrentTimestamp();
     void rateOfChangeInRange(FILE** ffmpegPipe, int* cooldown, string* timestampOnVideoStarts);

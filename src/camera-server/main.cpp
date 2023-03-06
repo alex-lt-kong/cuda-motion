@@ -44,7 +44,10 @@ json load_settings() {
     spdlog::info("Loading json settings from {}", settingsPath);
 
     ifstream is(settingsPath);
-    return json::parse(is);
+    return json::parse(is,
+        /* callback */ nullptr,
+        /* allow exceptions */ true,
+        /* ignore_comments */ true);
 }
 
 class CustomLogger : public crow::ILogHandler {
@@ -76,7 +79,7 @@ void start_http_server() {
         if (req.url_params.get("deviceId") == nullptr) {
             res.code = 400;
             res.end(crow::json::wvalue({
-                {"status", "error"}, {"data", "device_id not specified"}
+                {"status", "error"}, {"data", "deviceId not specified"}
             }).dump());
             return;
         }
@@ -111,11 +114,15 @@ int main() {
     json settings = load_settings();
 
     size_t deviceCount = settings["devices"].size();
+    if (deviceCount == 0) {
+        throw logic_error("No devices are defined.");
+    }
     myDevices = vector<deviceManager>(deviceCount, deviceManager());
     for (size_t i = 0; i < deviceCount; ++i) {
         spdlog::info("Loading {}-th device with the following configs:\n{}",
             i, settings["devices"][i].dump(2));
-        myDevices[i].setParameters(settings["devices"][i]);
+        myDevices[i].setParameters(i, settings["devicesDefault"],
+            settings["devices"][i]);
         myDevices[i].StartInternalEventLoopThread();
     }
 
