@@ -5,7 +5,6 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
-#include <nlohmann/json.hpp>
 #include <regex>
 #include <sstream>
 #include <sys/socket.h>
@@ -50,7 +49,7 @@ string deviceManager::fillinVariables(basic_string<char> originalString) {
 }
 
 void deviceManager::setParameters(const size_t deviceIndex,
-    const json& defaultConf, json& overrideConf) {
+    const njson& defaultConf, njson& overrideConf) {
 
     this->deviceIndex = deviceIndex;    
     conf = overrideConf;
@@ -59,8 +58,9 @@ void deviceManager::setParameters(const size_t deviceIndex,
 
     if (!conf.contains("name")) conf["name"] = defaultConf["name"];
     conf["name"] = fillinVariables(conf["name"]);  
-    
-    
+    deviceName = conf["name"];
+    // deviceName is duplicated as it is on the critical path.
+
     if (!conf.contains("/frame/rotation"_json_pointer))
         conf["frame"]["rotation"] = defaultConf["frame"]["rotation"];
     framePreferredWidth = overrideConf["frame"]["preferredWidth"];
@@ -151,10 +151,10 @@ float deviceManager::getFrameChanges(Mat prevFrame, Mat currFrame, Mat* diffFram
 
 void deviceManager::overlayDeviceName(Mat frame) {
 
-    cv::Size textSize = getTextSize(conf["name"], FONT_HERSHEY_DUPLEX, fontScale, 8 * fontScale, nullptr);
-    putText(frame, conf["name"], Point(frame.cols - textSize.width * 1.05, frame.rows - 5), 
+    cv::Size textSize = getTextSize(deviceName, FONT_HERSHEY_DUPLEX, fontScale, 8 * fontScale, nullptr);
+    putText(frame, deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5), 
             FONT_HERSHEY_DUPLEX, fontScale, Scalar(0,  0,  0  ), 8 * fontScale, LINE_AA, false);
-    putText(frame, conf["name"], Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
+    putText(frame, deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
             FONT_HERSHEY_DUPLEX, fontScale, Scalar(255,255,255), 2 * fontScale, LINE_AA, false);
 }
 
@@ -209,20 +209,20 @@ void deviceManager::coolDownReachedZero(
         *ffmpegPipe = nullptr; 
         
         if (conf["events"]["onVideoEnds"].get<string>().length() > 0) {
-            spdlog::info("[{}] video recording ends", conf["name"]);
+            spdlog::info("[{}] video recording ends", deviceName);
             string commandOnVideoEnds = regex_replace(
                 conf["events"]["onVideoEnds"].get<string>(),
                 regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts);
             exec_async((void*)this, commandOnVideoEnds,
                 [](void* This, string output){
                 spdlog::info("[{}] stdout/stderr from command: [{}]",
-                reinterpret_cast<deviceManager*>(This)->conf["name"], output);
+                reinterpret_cast<deviceManager*>(This)->deviceName, output);
             });
 
             spdlog::info("[{}] onVideoEnds triggered, command [{}] executed",
-                conf["name"], commandOnVideoEnds);
+                deviceName, commandOnVideoEnds);
         } else {
-            spdlog::info("[{}] onVideoEnds, no command to execute", conf["name"]);
+            spdlog::info("[{}] onVideoEnds, no command to execute", deviceName);
         }
     }
     *videoFrameCount = 0;
@@ -243,20 +243,20 @@ void deviceManager::rateOfChangeInRange(
         //setvbuf(*ffmpegPipe, &(buff), _IOFBF, buff_size);
         
         if (conf["events"]["onVideoStarts"].get<string>().length() > 0) {
-            spdlog::info("[{}] motion detected, video recording begins", conf["name"]);
+            spdlog::info("[{}] motion detected, video recording begins", deviceName);
             string commandOnVideoStarts = regex_replace(
                 conf["events"]["onVideoStarts"].get<string>(),
                 regex("\\{\\{timestamp\\}\\}"), *timestampOnVideoStarts
             );
             exec_async((void*)this, commandOnVideoStarts, [](void* This, string output){
                     spdlog::info("[{}] stdout/stderr from command: [{}]",
-                    reinterpret_cast<deviceManager*>(This)->conf["name"], output);
+                    reinterpret_cast<deviceManager*>(This)->deviceName, output);
             });
             spdlog::info("[{}] onVideoStarts: command [{}] executed",
-                conf["name"], commandOnVideoStarts);
+                deviceName, commandOnVideoStarts);
         } else {
             spdlog::info("[{}] onVideoStarts: no command to execute",
-                conf["name"]);
+                deviceName);
         }
     }
 }
@@ -279,7 +279,8 @@ void deviceManager::InternalThreadEntry() {
     string timestampOnVideoStarts = "";
 
     result = cap.open(conf["uri"].get<string>());
-    spdlog::info("[{}] cap.open({}): {}", conf["name"], conf["uri"], result);
+    spdlog::info("[{}] cap.open({}): {}", deviceName,
+        conf["uri"].get<string>(), result);
     uint64_t totalFrameCount = 0;
     uint32_t videoFrameCount = 0;
     FILE *ffmpegPipe = nullptr;
@@ -300,7 +301,7 @@ void deviceManager::InternalThreadEntry() {
             spdlog::error("[{}] Unable to cap.read() a new frame. "
                 "currFrame.empty(): {}, cap.isOpened(): {}. "
                 "Sleep for 2 sec than then re-open()...",
-                conf["name"], currFrame.empty(), cap.isOpened());
+                deviceName, currFrame.empty(), cap.isOpened());
             isShowingBlankFrame = true;
             this_thread::sleep_for(2000ms); // Don't wait for too long, most of the time the device can be re-open()ed immediately
             cap.open(conf["uri"].get<string>());
@@ -318,7 +319,7 @@ void deviceManager::InternalThreadEntry() {
             // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
         } else {
             if (isShowingBlankFrame == true) {
-                spdlog::info("[{}] Device is back online", conf["name"]);
+                spdlog::info("[{}] Device is back online", deviceName);
             }
             isShowingBlankFrame = false;
         }
@@ -390,10 +391,10 @@ void deviceManager::InternalThreadEntry() {
             if (ferror(ffmpegPipe)) {
                 spdlog::error("[{}] ferror(ffmpegPipe) is true, unable to fwrite() "
                     "more frames to the pipe (cooldown: {})",
-                    conf["name"], cooldown);
+                    deviceName, cooldown);
             }
         }
     }
     cap.release();
-    spdlog::info("[{}] thread quits gracefully", conf["name"]);
+    spdlog::info("[{}] thread quits gracefully", deviceName);
 }

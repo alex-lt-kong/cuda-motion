@@ -9,10 +9,10 @@
 			"throttleFpsIfHigherThan": 30,
 			"rotation": -1,
 			"overlayTextFontScale": 1.25,
-			"preferredWidth": 1920,
-			"preferredHeight": 1080,
-			"preferredFps": 10,
-			"note": "preferredWidth, preferredHeight and preferredFps are only useful for local video source "
+      // preferredWidth, preferredHeight and preferredFps are only useful for local video source
+			"preferredWidth": -1,
+			"preferredHeight": -1,
+			"preferredFps": -1
 		},
 		"snapshot": {
 			"path": "/tmp/snapshot-{{deviceIndex}}.jpg",

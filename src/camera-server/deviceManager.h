@@ -11,7 +11,7 @@
 
 using namespace std;
 using namespace cv;
-using json = nlohmann::json;
+using njson = nlohmann::json;
 
 
 // This multithreading model is inspired by:
@@ -79,8 +79,8 @@ class deviceManager : public MyEventLoopThread {
 public:
     deviceManager();
     ~deviceManager();
-    void setParameters(const size_t deviceIndex, const json& defaultConf,
-        json& overrideConf);
+    void setParameters(const size_t deviceIndex, const njson& defaultConf,
+        njson& overrideConf);
     void getLiveImage(vector<uint8_t>& pl);
 
 protected:
@@ -90,8 +90,9 @@ protected:
 private:
     pthread_mutex_t mutexLiveImage;
     vector<uint8_t> encodedJpgImage;
-    json conf;
+    njson conf;
     size_t deviceIndex = 0;
+    string deviceName;
     double fontScale = 1;
     double rateOfChangeUpper = 0;
     double rateOfChangeLower = 0;
