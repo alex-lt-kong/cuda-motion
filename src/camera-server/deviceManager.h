@@ -45,6 +45,7 @@ public:
 
     void WaitForInternalEventLoopThreadToExit() {
         pthread_join(_thread, NULL);
+        cout << "pthread_join()ed!" << endl;
     }
 
     /**
@@ -94,14 +95,20 @@ private:
     size_t deviceIndex = 0;
     string deviceName;
     double fontScale = 1;
-    double rateOfChangeUpper = 0;
-    double rateOfChangeLower = 0;
-    double pixelLevelThreshold = 0;
+
+    // motionDetection variables
+    double frameDiffPercentageUpperLimit = 0;
+    double frameDiffPercentageLowerLimit = 0;
+    double pixelDiffAbsThreshold = 0;    
+    int diffEveryNthFrame = 1;
+
+    // videoRecording variables    
+    string PipeRawVideoTo;
+    uint32_t maxFramesPerVideo;
+
     int snapshotFrameInterval = 1;
     float throttleFpsIfHigherThan;
-    int diffFrameInterval = 1;
     int frameIntervalInMs = 24;
-    string ffmpegCommand;
     string snapshotPath;
     queue<long long int> frameTimestamps;
 
@@ -111,8 +118,9 @@ private:
     string fillinVariables(basic_string<char> originalString);
     string convertToString(char* a, int size);
     string getCurrentTimestamp();
-    void rateOfChangeInRange(FILE** ffmpegPipe, int* cooldown, string* timestampOnVideoStarts);
-    void coolDownReachedZero(FILE** ffmpegPipe, uint32_t* videoFrameCount, string* timestampOnVideoStarts);
+    void rateOfChangeInRange(FILE** ffmpegPipe, int* cooldown, string& timestampOnVideoStarts);
+    void stopVideoRecording(FILE** ffmpegPipe, uint32_t& videoFrameCount,
+        string& timestampOnVideoStarts, int cooldown);
     void overlayDatetime(Mat frame);
     void overlayDeviceName(Mat frame);
     void overlayContours(Mat dispFrame, Mat diffFrame);

@@ -14,7 +14,7 @@ using namespace std;
 using json = nlohmann::json;
 
 crow::SimpleApp app;
-vector<deviceManager> myDevices;
+static vector<deviceManager> myDevices;
 
 void signal_handler(int signum) {
     if (signum == SIGPIPE) {    
@@ -24,6 +24,7 @@ void signal_handler(int signum) {
     app.stop();
     for (size_t i = 0; i < myDevices.size(); ++i) {
         myDevices[i].StopInternalEventLoopThread();
+        spdlog::info("{}-th device: StopInternalEventLoopThread() called", i);
     }
 }
 
@@ -40,7 +41,7 @@ void register_signal_handlers() {
 
 json load_settings() {
     string settingsPath = string(getenv("HOME")) + 
-        "/.config/ak-studio/camera-server.json";
+        "/.config/ak-studio/camera-server.jsonc";
     spdlog::info("Loading json settings from {}", settingsPath);
 
     ifstream is(settingsPath);
@@ -99,7 +100,7 @@ void start_http_server() {
         res.end(string((char*)(encodedImg.data()), encodedImg.size()));
     });
 
-    app.bindaddr("127.0.0.1").port(54321).signal_clear().run();
+    app.bindaddr("127.0.0.1").port(54321).signal_clear().run_async();
 }
 
 int main() {
@@ -124,7 +125,7 @@ int main() {
         myDevices[i].StartInternalEventLoopThread();
     }
 
-    start_http_server();
+    //start_http_server();
     for (size_t i = 0; i < myDevices.size(); ++i) {
         myDevices[i].WaitForInternalEventLoopThreadToExit();
         spdlog::info("{}-th device thread exited gracefully", i);
