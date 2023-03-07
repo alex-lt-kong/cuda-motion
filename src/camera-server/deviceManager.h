@@ -45,7 +45,6 @@ public:
 
     void WaitForInternalEventLoopThreadToExit() {
         pthread_join(_thread, NULL);
-        cout << "pthread_join()ed!" << endl;
     }
 
     /**

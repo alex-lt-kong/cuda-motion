@@ -311,7 +311,7 @@ void deviceManager::startOrKeepVideoRecording(FILE** extRawVideoPipePtr,
         // Use OpenCV to encode video
         vwriter = VideoWriter(
             command,
-            VideoWriter::fourcc('M','P','4','V'),
+            VideoWriter::fourcc('a','v','c','1'),
             conf["videoRecording"]["encoder"]["internal"]["fps"],
             Size(conf["videoRecording"]["encoder"]["internal"]["width"],
             conf["videoRecording"]["encoder"]["internal"]["height"]));

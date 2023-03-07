@@ -14,9 +14,10 @@ A C++17 project inspired by, similar to but simpler than
 ### FFmpeg
 
 * FFmpeg is the back-end used by `OpenCV` to decode/encode videos.
-* If you don't have an Nvidia GPU, simply issue `apt install ffmpeg` should be enough--we will use FFmpeg's default
-configuration and use the CPU to do all the heavy-lifting things. Apart from `FFmpeg` itself,
-a few libraries used by it should also be installed: 
+* If you don't have an Nvidia GPU, simply issue `apt install ffmpeg` should
+be enough--we will use FFmpeg's default configuration and use the CPU to do
+all the heavy-lifting things. Apart from `FFmpeg` itself, a few libraries
+used by it should also be installed: 
   * `libavcodec` provides implementation of a wider range of codecs.
   * `libavformat` implements streaming protocols, container formats and basic I/O access.
   * `libavutil` includes hashers, decompressors and miscellaneous utility functions.
