@@ -38,12 +38,18 @@
 		"videoRecording": {
 			"minFramesPerVideo": 240,
 			"maxFramesPerVideo": 108000,
-			/*
-			This should be something like:
-			ffmpeg -y -f rawvideo -pixel_format bgr24 -framerate 16 -video_size 1920x1080 -i pipe:0 -vcodec libx264 -pix_fmt yuv420p /tmp/vid.mp4
-			mencoder -demuxer rawvideo -rawvideo w=1920:h=1080:fps=10 -ovc x264 -x264encopts preset=ultrafast -of lavf -o /tmp/vid.mp4 - -fps 10
-			*/
-			"PipeRawVideoTo": ""
+			"encoder": {
+				"useExternal": false,
+				"internal": {
+					"width": 1920,
+					"height": 1080,
+					"fps": 30,
+					"videoPath": "/tmp/{{timestamp}}.mp4"
+				},
+				"external": {
+					"pipeRawVideoTo": "/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 -framerate 30 -video_size 1920x1080 -i pipe:0 -vcodec libx264 -pix_fmt yuv420p /tmp/{{timestamp}}.mp4 >> /tmp/ffmpeg-vid1.log 2>&1"
+				}
+			}
 		}
 	},
 	"devices": []

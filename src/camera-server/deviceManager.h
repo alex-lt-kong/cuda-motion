@@ -102,8 +102,9 @@ private:
     double pixelDiffAbsThreshold = 0;    
     int diffEveryNthFrame = 1;
 
-    // videoRecording variables    
-    string PipeRawVideoTo;
+    // videoRecording variables   
+    bool encoderUseExternal; 
+    string pipeRawVideoTo;
     uint32_t maxFramesPerVideo;
 
     int snapshotFrameInterval = 1;
@@ -118,9 +119,10 @@ private:
     string fillinVariables(basic_string<char> originalString);
     string convertToString(char* a, int size);
     string getCurrentTimestamp();
-    void rateOfChangeInRange(FILE** ffmpegPipe, int* cooldown, string& timestampOnVideoStarts);
-    void stopVideoRecording(FILE** ffmpegPipe, uint32_t& videoFrameCount,
-        string& timestampOnVideoStarts, int cooldown);
+    void startOrKeepVideoRecording(FILE** ffmpegPipe, VideoWriter& vwriter,
+        int& cooldown, string& timestampOnVideoStarts);
+    void stopVideoRecording(FILE** ffmpegPipe, VideoWriter& vwriter,
+        uint32_t& videoFrameCount, string& timestampOnVideoStarts, int cooldown);
     void overlayDatetime(Mat frame);
     void overlayDeviceName(Mat frame);
     void overlayContours(Mat dispFrame, Mat diffFrame);

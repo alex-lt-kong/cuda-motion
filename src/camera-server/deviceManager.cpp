@@ -3,6 +3,7 @@
 #include <ctime>
 #include <filesystem>
 #include <iostream>
+#include <errno.h>
 #include <fstream>
 #include <iomanip>
 #include <regex>
@@ -23,16 +24,6 @@ string deviceManager::getCurrentTimestamp() {
     std::strftime(buf, sizeof(buf), "%Y%m%d-%H%M%S", localtime(&now));
     // https://www.cplusplus.com/reference/ctime/strftime/
     return std::string(buf);
-}
-
-
-string deviceManager::convertToString(char* a, int size) {
-    int i;
-    string s = "";
-    for (i = 0; i < size; i++) {
-        s = s + a[i];
-    }
-    return s;
 }
 
 deviceManager::deviceManager() {
@@ -129,11 +120,14 @@ void deviceManager::setParameters(const size_t deviceIndex,
         conf["videoRecording"]["maxFramesPerVideo"] =
             defaultConf["videoRecording"]["maxFramesPerVideo"];
     maxFramesPerVideo = conf["videoRecording"]["maxFramesPerVideo"];
-    if (!conf.contains("/videoRecording/PipeRawVideoTo"_json_pointer))
-        conf["videoRecording"]["PipeRawVideoTo"] =
-            defaultConf["videoRecording"]["PipeRawVideoTo"];
-    PipeRawVideoTo = conf["videoRecording"]["PipeRawVideoTo"];
-    
+    if (!conf.contains("/videoRecording/encoder"_json_pointer))
+        conf["videoRecording"]["encoder"] =
+            defaultConf["videoRecording"]["encoder"];
+    encoderUseExternal = conf["videoRecording"]["encoder"]["useExternal"];
+    if (encoderUseExternal) {
+        pipeRawVideoTo = conf["videoRecording"]["encoder"]["external"]["pipeRawVideoTo"];
+    }
+
     frameIntervalInMs = 1000 * (1.0 / throttleFpsIfHigherThan);
     
     spdlog::info("{}-th device to be used with the following configs:\n{}",
@@ -149,9 +143,12 @@ void deviceManager::overlayDatetime(Mat frame) {
     time(&now);
     char buf[sizeof "1970-01-01 00:00:00"];
     strftime(buf, sizeof buf, "%F %T", localtime(&now));
-    cv::Size textSize = getTextSize(buf, FONT_HERSHEY_DUPLEX, fontScale, 8 * fontScale, nullptr);
-    putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX, fontScale, Scalar(0,  0,  0  ), 8 * fontScale, LINE_AA, false);
-    putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX, fontScale, Scalar(255,255,255), 2 * fontScale, LINE_AA, false);
+    cv::Size textSize = getTextSize(buf, FONT_HERSHEY_DUPLEX, fontScale,
+        8 * fontScale, nullptr);
+    putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
+        fontScale, Scalar(0,  0,  0  ), 8 * fontScale, LINE_AA, false);
+    putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
+        fontScale, Scalar(255,255,255), 2 * fontScale, LINE_AA, false);
     /*
     void cv::putText 	(InputOutputArray  	img,
                         const String &  	text,
@@ -216,7 +213,8 @@ void deviceManager::overlayContours(Mat dispFrame, Mat diffFrame) {
 
 bool deviceManager::shouldFrameBeThrottled() {
     int sampleMsUpperLimit = 60 * 1000;
-    int currMsSinceEpoch = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+    int currMsSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
+        chrono::system_clock::now().time_since_epoch()).count();
     if (frameTimestamps.size() <= 1) { 
         frameTimestamps.push(currMsSinceEpoch); 
         return false;
@@ -232,15 +230,15 @@ bool deviceManager::shouldFrameBeThrottled() {
 }
 
 void deviceManager::stopVideoRecording(FILE** extRawVideoPipePtr,
-    uint32_t& videoFrameCount, string& timestampOnVideoStarts, int cooldown) {
-    if (*extRawVideoPipePtr != nullptr) { // No, you cannot pclose() a nullptr
+    VideoWriter& vwriter, uint32_t& videoFrameCount,
+    string& timestampOnVideoStarts, int cooldown) {
+
+    auto handleOnVideoEnds = [&] () {
         if (cooldown > 0) {
             spdlog::warn("[{}] video recording stopped before cooldown "
                 "reaches 0", deviceName);
         }
-        pclose(*extRawVideoPipePtr); 
-        *extRawVideoPipePtr = nullptr; 
-        
+
         if (conf["events"]["onVideoEnds"].get<string>().length() > 0 &&
             cooldown == 0) {
             spdlog::info("[{}] video recording ends", deviceName);
@@ -261,24 +259,25 @@ void deviceManager::stopVideoRecording(FILE** extRawVideoPipePtr,
         } else {
             spdlog::info("[{}] onVideoEnds, no command to execute", deviceName);
         }
+    };
+
+    if (!encoderUseExternal) {
+        vwriter.release();
+    } else {
+        if (*extRawVideoPipePtr != nullptr) { // No, you cannot pclose() a nullptr
+            pclose(*extRawVideoPipePtr); 
+            *extRawVideoPipePtr = nullptr;
+        }
     }
+    handleOnVideoEnds();
     videoFrameCount = 0;
 }
 
 
-void deviceManager::rateOfChangeInRange(
-  FILE** extRawVideoPipePtr, int* cooldown, string& timestampOnVideoStarts
-) {
-    *cooldown = conf["videoRecording"]["minFramesPerVideo"];
-    if (*extRawVideoPipePtr == nullptr) {
-        string command = PipeRawVideoTo;
-        timestampOnVideoStarts = getCurrentTimestamp();
-        command = regex_replace(
-        command, regex("\\{\\{timestamp\\}\\}"), timestampOnVideoStarts
-        );
-        *extRawVideoPipePtr = popen((command).c_str(), "w");
-        //setvbuf(*extRawVideoPipePtr, &(buff), _IOFBF, buff_size);
-        
+void deviceManager::startOrKeepVideoRecording(FILE** extRawVideoPipePtr,
+    VideoWriter& vwriter, int& cooldown, string& timestampOnVideoStarts) {
+
+    auto handleOnVideoStarts = [&] () {
         if (conf["events"]["onVideoStarts"].get<string>().length() > 0) {
             spdlog::info("[{}] motion detected, video recording begins", deviceName);
             string commandOnVideoStarts = regex_replace(
@@ -295,7 +294,36 @@ void deviceManager::rateOfChangeInRange(
             spdlog::info("[{}] onVideoStarts: no command to execute",
                 deviceName);
         }
+    };
+
+    cooldown = conf["videoRecording"]["minFramesPerVideo"];
+
+    if (!encoderUseExternal && vwriter.isOpened()) return;
+    if (encoderUseExternal && *extRawVideoPipePtr != nullptr) return;
+    string command = encoderUseExternal ?
+        conf["videoRecording"]["encoder"]["external"]["pipeRawVideoTo"] :
+        conf["videoRecording"]["encoder"]["internal"]["videoPath"];
+    timestampOnVideoStarts = getCurrentTimestamp();
+    command = regex_replace(
+        command, regex("\\{\\{timestamp\\}\\}"), timestampOnVideoStarts
+    );
+    if (!encoderUseExternal) {
+        // Use OpenCV to encode video
+        vwriter = VideoWriter(
+            command,
+            VideoWriter::fourcc('M','P','4','V'),
+            conf["videoRecording"]["encoder"]["internal"]["fps"],
+            Size(conf["videoRecording"]["encoder"]["internal"]["width"],
+            conf["videoRecording"]["encoder"]["internal"]["height"]));
+    } else {
+        // Use external encoder to encode video
+        *extRawVideoPipePtr = popen((command).c_str(), "w");
+        if (*extRawVideoPipePtr == nullptr) {
+            // most likely due to invalid command or lack of memory
+            throw runtime_error("popen() failed, errno: " + to_string(errno));
+        }
     }
+    handleOnVideoStarts();
 }
 
 void deviceManager::getLiveImage(vector<uint8_t>& pl) {
@@ -339,6 +367,7 @@ void deviceManager::InternalThreadEntry() {
     uint64_t totalFrameCount = 0;
     uint32_t videoFrameCount = 0;
     FILE *extRawVideoPipePtr = nullptr;
+    VideoWriter vwriter;
     int cooldown = 0;
     
     cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 
@@ -412,8 +441,10 @@ void deviceManager::InternalThreadEntry() {
 
         }
         
-        if (rateOfChange > frameDiffPercentageLowerLimit && rateOfChange < frameDiffPercentageUpperLimit) {
-            rateOfChangeInRange(&extRawVideoPipePtr, &cooldown, timestampOnVideoStarts);
+        if (rateOfChange > frameDiffPercentageLowerLimit &&
+            rateOfChange < frameDiffPercentageUpperLimit) {
+            startOrKeepVideoRecording(&extRawVideoPipePtr, vwriter, cooldown,
+                timestampOnVideoStarts);
         }
         
         ++totalFrameCount;
@@ -425,27 +456,31 @@ void deviceManager::InternalThreadEntry() {
             cooldown = 0;
         }
         if (cooldown == 0) { 
-            stopVideoRecording(&extRawVideoPipePtr, videoFrameCount,
+            stopVideoRecording(&extRawVideoPipePtr, vwriter, videoFrameCount,
                 timestampOnVideoStarts, cooldown);
         }  
 
-        if (extRawVideoPipePtr != nullptr) {
-            fwrite(dispFrames.front().data, 1,
-                dispFrames.front().dataend - dispFrames.front().datastart,
-                extRawVideoPipePtr);
-            // formula of dispFrame.dataend - dispFrame.datastart height x width x channel bytes.
-            // For example, for conventional 1920x1080x3 videos, one frame occupies 1920*1080*3 = 6,220,800 bytes or 6,075 KB
-            // profiling shows that:
-            // fwrite() takes around 10ms for piping raw video to 1080p@30fps.
-            // fwirte() takes around 20ms for piping raw video to 1080p@30fps + 360p@30fps concurrently
-            if (ferror(extRawVideoPipePtr)) {
-                spdlog::error("[{}] ferror(extRawVideoPipePtr) is true, unable to fwrite() "
-                    "more frames to the pipe (cooldown: {})",
-                    deviceName, cooldown);
+        if (!encoderUseExternal)  {
+            vwriter.write(dispFrames.front());
+        } else {
+            if (extRawVideoPipePtr != nullptr) {
+                fwrite(dispFrames.front().data, 1,
+                    dispFrames.front().dataend - dispFrames.front().datastart,
+                    extRawVideoPipePtr);
+                // formula of dispFrame.dataend - dispFrame.datastart height x width x channel bytes.
+                // For example, for conventional 1920x1080x3 videos, one frame occupies 1920*1080*3 = 6,220,800 bytes or 6,075 KB
+                // profiling shows that:
+                // fwrite() takes around 10ms for piping raw video to 1080p@30fps.
+                // fwirte() takes around 20ms for piping raw video to 1080p@30fps + 360p@30fps concurrently
+                if (ferror(extRawVideoPipePtr)) {
+                    spdlog::error("[{}] ferror(extRawVideoPipePtr) is true, "
+                        "unable to fwrite() more frames to the pipe (cooldown: {})",
+                        deviceName, cooldown);
+                }
             }
         }
     }
-    stopVideoRecording(&extRawVideoPipePtr, videoFrameCount,
+    stopVideoRecording(&extRawVideoPipePtr, vwriter, videoFrameCount,
         timestampOnVideoStarts, cooldown);
     cap.release();
     spdlog::info("[{}] thread quits gracefully", deviceName);

@@ -125,7 +125,7 @@ int main() {
         myDevices[i].StartInternalEventLoopThread();
     }
 
-    //start_http_server();
+    start_http_server();
     for (size_t i = 0; i < myDevices.size(); ++i) {
         myDevices[i].WaitForInternalEventLoopThreadToExit();
         spdlog::info("{}-th device thread exited gracefully", i);
