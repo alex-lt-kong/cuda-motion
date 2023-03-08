@@ -70,8 +70,7 @@ void deviceManager::setParameters(const size_t deviceIndex,
     if (!conf.contains("/frame/overlayTextFontScale"_json_pointer))
         conf["frame"]["overlayTextFontScale"] =
             defaultConf["frame"]["overlayTextFontScale"];
-    if (!conf.contains("/frame/drawContours"_json_pointer))
-        conf["frame"]["drawContours"] = defaultConf["frame"]["drawContours"];
+    
 
     // =====  snapshot =====
     snapshotPath = overrideConf.contains("/snapshot/path"_json_pointer) ?
@@ -134,6 +133,10 @@ void deviceManager::setParameters(const size_t deviceIndex,
         pipeRawVideoTo =
             conf["motionDetection"]["videoRecording"]["encoder"]["external"]["pipeRawVideoTo"];
     }
+    if (!conf.contains("/motionDetection/drawContours"_json_pointer))
+        conf["motionDetection"]["drawContours"] =
+            defaultConf["motionDetection"]["drawContours"];
+    drawContours = conf["motionDetection"]["drawContours"];
 
     frameIntervalInMs = 1000 * (1.0 / throttleFpsIfHigherThan);
     
@@ -214,7 +217,7 @@ void deviceManager::overlayContours(Mat dispFrame, Mat diffFrame) {
     findContours(diffFrame, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE );
     int idx = 0;
     for( ; idx >= 0; idx = hierarchy[idx][0] ) {
-        drawContours(dispFrame, contours, idx, Scalar(255, 255, 255), 0.25, 8, hierarchy);
+        cv::drawContours(dispFrame, contours, idx, Scalar(255, 255, 255), 0.25, 8, hierarchy);
     }
 }
 
@@ -430,7 +433,7 @@ void deviceManager::InternalThreadEntry() {
         if (dispFrames.size() > 5) {
             dispFrames.pop();
         }
-        if (conf["frame"]["drawContours"]) {
+        if (drawContours && motionDetectionMode == DETECT_MOTION) {
             overlayContours(dispFrames.back(), diffFrame);
             // CPU-intensive! Use with care!
         }

@@ -3,8 +3,6 @@
 		"name": "Device-{{deviceIndex}}",
 		"uri": "/dev/video-{{deviceIndex}}.mp4",
 		"frame": {
-			// Useful for debug but CPU intensive
-			"drawContours": false,
 			// Setting this to a lower value to limit CPU usage
 			"throttleFpsIfHigherThan": 30,
 			"rotation": -1,
@@ -40,6 +38,8 @@
 			"changed". A changed frame will trigger motion detection. */
 			"frameDiffPercentageLowerLimit": 1.0,
 			"frameDiffPercentageUpperLimit": 50.0,
+			// Useful for debug but CPU intensive
+			"drawContours": false,
 			"videoRecording": {
 				"minFramesPerVideo": 240,
 				"maxFramesPerVideo": 108000,

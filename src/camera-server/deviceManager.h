@@ -103,6 +103,7 @@ private:
     double frameDiffPercentageLowerLimit = 0;
     double pixelDiffAbsThreshold = 0;    
     uint64_t diffEveryNthFrame = 1;
+    bool drawContours;
 
     // videoRecording variables   
     bool encoderUseExternal; 
