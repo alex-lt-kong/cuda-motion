@@ -134,4 +134,5 @@ private:
     void overlayChangeRate(Mat frame, float changeRate, int cooldown, long long int videoFrameCount);
     float getFrameChanges(Mat prevFrame, Mat currFrame, Mat* diffFrame);
     void generateBlankFrame(Mat& currFrame);
+    static void asyncExecCallback(void* This, string stdout, string stderr, int rc);
 };

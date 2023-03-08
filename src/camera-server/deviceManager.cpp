@@ -239,6 +239,23 @@ bool deviceManager::shouldFrameBeThrottled() {
     return false;
 }
 
+void deviceManager::asyncExecCallback(void* This, string stdout, string stderr,
+    int rc) {
+    if (stdout.size() > 0) {
+        spdlog::info("[{}] non-empty stdout from command: [{}]",
+            reinterpret_cast<deviceManager*>(This)->deviceName, stdout);    
+    }
+    if (stderr.size() > 0) {
+        spdlog::info("[{}] non-empty stderr from command: [{}]",
+            reinterpret_cast<deviceManager*>(This)->deviceName, stderr, rc);    
+    }
+    if (rc != 0) {
+        spdlog::info("[{}] non-zero return code from command: [{}]",
+            reinterpret_cast<deviceManager*>(This)->deviceName, rc);    
+    }
+    
+}
+
 void deviceManager::stopVideoRecording(FILE*& extRawVideoPipePtr,
     VideoWriter& vwriter, uint32_t& videoFrameCount,
     string& timestampOnVideoStarts, int cooldown) {
@@ -255,11 +272,7 @@ void deviceManager::stopVideoRecording(FILE*& extRawVideoPipePtr,
             string commandOnVideoEnds = regex_replace(
                 conf["events"]["onVideoEnds"].get<string>(),
                 regex("\\{\\{timestamp\\}\\}"), timestampOnVideoStarts);
-            exec_async((void*)this, commandOnVideoEnds,
-                [](void* This, string output){
-                spdlog::info("[{}] stdout/stderr from command: [{}]",
-                reinterpret_cast<deviceManager*>(This)->deviceName, output);
-            });
+            exec_async((void*)this, commandOnVideoEnds, asyncExecCallback);
             spdlog::info("[{}] onVideoEnds triggered, command [{}] executed",
                 deviceName, commandOnVideoEnds);
         } else if (conf["events"]["onVideoEnds"].get<string>().length() > 0 &&
@@ -292,10 +305,7 @@ void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
                 conf["events"]["onVideoStarts"].get<string>(),
                 regex("\\{\\{timestamp\\}\\}"), timestampOnVideoStarts
             );
-            exec_async((void*)this, commandOnVideoStarts, [](void* This, string output){
-                    spdlog::info("[{}] stdout/stderr from command: [{}]",
-                    reinterpret_cast<deviceManager*>(This)->deviceName, output);
-            });
+            exec_async((void*)this, commandOnVideoStarts, asyncExecCallback);
             spdlog::info("[{}] onVideoStarts: command [{}] executed",
                 deviceName, commandOnVideoStarts);
         } else {

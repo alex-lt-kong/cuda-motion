@@ -16,32 +16,24 @@ A C++17 project inspired by, similar to but simpler than
 * FFmpeg is the back-end used by `OpenCV` to decode/encode videos.
 * If you don't have an Nvidia GPU, simply issue `apt install ffmpeg` should
 be enough--we will use FFmpeg's default configuration and use the CPU to do
-all the heavy-lifting things. Apart from `FFmpeg` itself, a few libraries
-used by it should also be installed: 
-  * `libavcodec` provides implementation of a wider range of codecs.
-  * `libavformat` implements streaming protocols, container formats and basic I/O access.
-  * `libavutil` includes hashers, decompressors and miscellaneous utility functions.
-  * `libavfilter` provides a mean to alter decoded Audio and Video through chain of filters.
-  * `libavdevice` provides an abstraction to access capture and playback devices.
-  * `libswresample` implements audio mixing and resampling routines.
-  
+all the heavy-lifting things.
 
-* Otherwise, it is going to be much more complicated as we need to make FFmpeg work with the GPU:
+* Otherwise, it is going to be much more complicated as we need to make
+FFmpeg work with the GPU:
   * If there is an `FFmpeg` installed by `apt`, remove it first.
-  * Install an Nvidia GPU driver and make sure everything works with `nvidia-smi`.
-  * Install `FFmpeg` 4.4 with Nvidia Cuda support following Nvidia's official guide:
-  https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/. Note that as of February 2022,
-  `FFmpeg` 4.5 does not seem to work since it appears to be incompatible with `OpenCV`.
-  * There are tons of parameters to tweak while using FFmpeg with Nvidia GPUs, [this doc](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/) is a good starting point.
-  * Important observation: Even with a GPU enabled, directly encoding incoming frames from cameras to
-  two destination video files causes performance to drop significantly, if two resolutions are needed,
-  one should consider transcoding with scaling after the first and larger video is successfully encoded.
-
-
-## Explanation of Some Confusing Parameters
-
-* `preferredWidth`,`preferredHeight`, `preferredFps`: If positive, they will be directly passed to `OpenCV`'s `CAP_PROP_FRAME_WIDTH`, `CAP_PROP_FRAME_HEIGHT` and `CAP_PROP_FPS`. It is subject to `OpenCV`'s discretion on how they are interpreted. Usually
-they are only effective when the source is a local Linux video device.
+  * Install an Nvidia GPU driver and make sure everything works with
+  `nvidia-smi`.
+  * Install `FFmpeg` 4.4 with Nvidia Cuda support following Nvidia's
+  [official guide](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/).
+  Note that as of February 2022, `FFmpeg` 4.5 does not seem to work since
+  it appears to be incompatible with `OpenCV`.
+  * There are tons of parameters to tweak while using FFmpeg with Nvidia GPUs,
+  [this doc](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/) is a good starting point.
+  * Important observation: Even with a GPU enabled, directly encoding
+  incoming frames from cameras to two destination video files causes
+  performance to drop significantly, if two resolutions are needed, one
+  should consider transcoding with scaling after the first and larger video
+  is successfully encoded.
 
 ## Useful Commands
 
