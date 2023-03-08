@@ -10,6 +10,12 @@
 
 using namespace std;
 
+enum MotionDetectionMode {
+  ALWAYS_RECORD = 2,
+  DETECT_MOTION = 1,  
+  DISABLED = 0
+};
+
 typedef void (*exec_cb)(void* This, string output); // type for conciseness
 
 string exec(const string& cmd);

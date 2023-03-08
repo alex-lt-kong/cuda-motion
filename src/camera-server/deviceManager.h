@@ -9,6 +9,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include "utils.h"
+
 using namespace std;
 using namespace cv;
 using njson = nlohmann::json;
@@ -96,10 +98,11 @@ private:
     double fontScale = 1;
 
     // motionDetection variables
+    enum MotionDetectionMode motionDetectionMode;
     double frameDiffPercentageUpperLimit = 0;
     double frameDiffPercentageLowerLimit = 0;
     double pixelDiffAbsThreshold = 0;    
-    int diffEveryNthFrame = 1;
+    uint64_t diffEveryNthFrame = 1;
 
     // videoRecording variables   
     bool encoderUseExternal; 
@@ -114,13 +117,15 @@ private:
 
     volatile sig_atomic_t* done;
     
+    void updateVideoCooldownAndVideoFrameCount(int64_t& cooldown,
+        uint32_t& videoFrameCount);
     bool shouldFrameBeThrottled();
     string fillinVariables(basic_string<char> originalString);
     string convertToString(char* a, int size);
     string getCurrentTimestamp();
-    void startOrKeepVideoRecording(FILE** ffmpegPipe, VideoWriter& vwriter,
-        int& cooldown, string& timestampOnVideoStarts);
-    void stopVideoRecording(FILE** ffmpegPipe, VideoWriter& vwriter,
+    void startOrKeepVideoRecording(FILE*& ffmpegPipe, VideoWriter& vwriter,
+        int64_t& cooldown, string& timestampOnVideoStarts);
+    void stopVideoRecording(FILE*& ffmpegPipe, VideoWriter& vwriter,
         uint32_t& videoFrameCount, string& timestampOnVideoStarts, int cooldown);
     void overlayDatetime(Mat frame);
     void overlayDeviceName(Mat frame);

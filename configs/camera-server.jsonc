@@ -18,6 +18,16 @@
 			"frameInterval": 5
 		},
 		"motionDetection": {
+			/* Valid values are:
+			* 0, meaning "disabled": motion detection will NOT run and no video
+			will be saved.
+			* 1, meaning "detectMotion": motion detection will run and video will
+			only be recorded if the following conditions are met. Events will be
+			triggered.
+			* 2, meaning "alwaysRecord": motion detection will NOT run and video
+			will always be recorded. Events will be triggered.
+			*/
+			"mode": 0,
 			/* To conserve CPU resources, motion detection will only be
 			performed on every Nth frame, instead of every frame. */
 			"diffEveryNthFrame": 10,
@@ -29,28 +39,29 @@
 			frameDiffPercentageUpperLimit], the frame will be considered
 			"changed". A changed frame will trigger motion detection. */
 			"frameDiffPercentageLowerLimit": 1.0,
-			"frameDiffPercentageUpperLimit": 50.0
+			"frameDiffPercentageUpperLimit": 50.0,
+			"videoRecording": {
+				"minFramesPerVideo": 240,
+				"maxFramesPerVideo": 108000,
+				"encoder": {
+					"useExternal": false,
+					"internal": {
+						"width": 1920,
+						"height": 1080,
+						"fps": 30,
+						"videoPath": "/tmp/{{timestamp}}.mp4"
+					},
+					"external": {
+						"pipeRawVideoTo": "/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 -framerate 30 -video_size 1920x1080 -i pipe:0 -vcodec libx264 -pix_fmt yuv420p /tmp/{{timestamp}}.mp4 >> /tmp/ffmpeg-vid1.log 2>&1"
+					}
+				}
+			}
 		},
 		"events": {
 			"onVideoStarts": "",
 			"onVideoEnds": ""
-		},
-		"videoRecording": {
-			"minFramesPerVideo": 240,
-			"maxFramesPerVideo": 108000,
-			"encoder": {
-				"useExternal": false,
-				"internal": {
-					"width": 1920,
-					"height": 1080,
-					"fps": 30,
-					"videoPath": "/tmp/{{timestamp}}.mp4"
-				},
-				"external": {
-					"pipeRawVideoTo": "/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 -framerate 30 -video_size 1920x1080 -i pipe:0 -vcodec libx264 -pix_fmt yuv420p /tmp/{{timestamp}}.mp4 >> /tmp/ffmpeg-vid1.log 2>&1"
-				}
-			}
 		}
+		
 	},
 	"devices": []
 }
