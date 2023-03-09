@@ -4,19 +4,14 @@
 
 #include "utils.h"
 
-void exec(const string& cmd, string& stdout, string& stderr, int& rc) {
-    istringstream iss(cmd);
-    vector<string> args;
-    string s;
+void exec(const vector<string>& args, string& stdout, string& stderr, int& rc) {
 
-    while (iss >> quoted(s)) {
-        args.push_back(s);
-    }
     vector<char*> cargs;
     cargs.reserve(args.size() + 1);
 
-    for(size_t i = 0; i < args.size(); ++i)
+    for(size_t i = 0; i < args.size(); ++i) {
         cargs.push_back(const_cast<char*>(args[i].c_str()));
+    }
     cargs.push_back(NULL);
 
     int pipefd_stdout[2], pipefd_stderr[2];
@@ -86,13 +81,13 @@ void exec(const string& cmd, string& stdout, string& stderr, int& rc) {
     }
 }
 
-void exec_async(void* This, const string& cmd, exec_cb cb) {
-    auto f = [](void* This, string cmd, exec_cb cb) {
+void exec_async(void* This, const vector<string>& args, exec_cb cb) {
+    auto f = [](void* This, const vector<string>& args, exec_cb cb) {
         string stdout, stderr;
         int rc;
-        exec(cmd.c_str(), stdout, stderr, rc);
+        exec(args, stdout, stderr, rc);
         cb(This, stdout, stderr, rc);
     };    
-    thread th_exec(f, This, cmd, cb);
+    thread th_exec(f, This, args, cb);
     th_exec.detach();
 }

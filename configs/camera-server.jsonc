@@ -62,8 +62,8 @@
 			}
 		},
 		"events": {
-			"onVideoStarts": "",
-			"onVideoEnds": ""
+			"onVideoStarts": ["/usr/bin/printf", "video starts at [{{timestamp}}] %s", "!"],
+			"onVideoEnds": ["/usr/bin/echo", "onVideoEnds echoed from device [{{deviceIndex}}]"]
 		}
 		
 	},

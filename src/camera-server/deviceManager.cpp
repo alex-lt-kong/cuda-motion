@@ -32,7 +32,13 @@ deviceManager::deviceManager() {
     }
 }
 
-string deviceManager::fillinVariables(basic_string<char> originalString) {
+string deviceManager::evaluateVideoSpecficVariables(basic_string<char> originalString) {
+    string filledString = regex_replace(originalString,
+        regex(R"(\{\{timestamp\}\})"), timestampOnVideoStarts);
+    return filledString;
+}
+
+string deviceManager::evaluateStaticVariables(basic_string<char> originalString) {
     string filledString = regex_replace(originalString,
         regex(R"(\{\{deviceIndex\}\})"), to_string(deviceIndex));
     return filledString;
@@ -47,10 +53,10 @@ void deviceManager::setParameters(const size_t deviceIndex,
     this->deviceIndex = deviceIndex;    
     conf = overrideConf;
     if (!conf.contains("uri")) conf["uri"] = defaultConf["uri"];
-    conf["uri"] = fillinVariables(conf["uri"]);    
+    conf["uri"] = evaluateStaticVariables(conf["uri"]);    
 
     if (!conf.contains("name")) conf["name"] = defaultConf["name"];
-    conf["name"] = fillinVariables(conf["name"]);  
+    conf["name"] = evaluateStaticVariables(conf["name"]);  
     deviceName = conf["name"];
     // deviceName is duplicated as it is on the critical path.
 
@@ -75,17 +81,23 @@ void deviceManager::setParameters(const size_t deviceIndex,
     // =====  snapshot =====
     snapshotPath = overrideConf.contains("/snapshot/path"_json_pointer) ?
         overrideConf["snapshot"]["path"] : defaultConf["snapshot"]["path"];
-    snapshotPath = fillinVariables(snapshotPath);
+    snapshotPath = evaluateStaticVariables(snapshotPath);
     snapshotFrameInterval = overrideConf.contains("/snapshot/frameInterval"_json_pointer) ?
         overrideConf["snapshot"]["frameInterval"] : defaultConf["snapshot"]["frameInterval"];
 
     // ===== events =====
     if (!conf.contains("/events/onVideoStarts"_json_pointer))
         conf["events"]["onVideoStarts"] = defaultConf["events"]["onVideoStarts"];
-    conf["events"]["onVideoStarts"] = fillinVariables(conf["events"]["onVideoStarts"]);  
+    for (size_t i = 0; i < conf["events"]["onVideoStarts"].size(); ++i) {
+        conf["events"]["onVideoStarts"][i] =
+            evaluateStaticVariables(conf["events"]["onVideoStarts"][i]);
+    }
     if (!conf.contains("/events/onVideoEnds"_json_pointer))
-        conf["events"]["onVideoEnds"] = defaultConf["events"]["onVideoEnds"];
-    conf["events"]["onVideoEnds"] = fillinVariables(conf["events"]["onVideoEnds"]);  
+        conf["events"]["onVideoEnds"] = defaultConf["events"]["onVideoEnds"];    
+    for (size_t i = 0; i < conf["events"]["onVideoEnds"].size(); ++i) {
+        conf["events"]["onVideoEnds"][i] =
+            evaluateStaticVariables(conf["events"]["onVideoEnds"][i]);
+    }
 
     // ===== motion detection =====
     if (!conf.contains("/motionDetection/mode"_json_pointer))
@@ -257,24 +269,24 @@ void deviceManager::asyncExecCallback(void* This, string stdout, string stderr,
 }
 
 void deviceManager::stopVideoRecording(FILE*& extRawVideoPipePtr,
-    VideoWriter& vwriter, uint32_t& videoFrameCount,
-    string& timestampOnVideoStarts, int cooldown) {
+    VideoWriter& vwriter, uint32_t& videoFrameCount, int cooldown) {
 
     auto handleOnVideoEnds = [&] () {
         if (cooldown > 0) {
             spdlog::warn("[{}] video recording stopped before cooldown "
                 "reaches 0", deviceName);
         }
-
-        if (conf["events"]["onVideoEnds"].get<string>().length() > 0 &&
-            cooldown == 0) {
+        
+        if (conf["events"]["onVideoEnds"].size() > 0 && cooldown == 0) {
+            vector<string> args;
+            args.reserve(conf["events"]["onVideoEnds"].size());
             spdlog::info("[{}] video recording ends", deviceName);
-            string commandOnVideoEnds = regex_replace(
-                conf["events"]["onVideoEnds"].get<string>(),
-                regex("\\{\\{timestamp\\}\\}"), timestampOnVideoStarts);
-            exec_async((void*)this, commandOnVideoEnds, asyncExecCallback);
+            for (size_t i = 0; i < conf["events"]["onVideoEnds"].size(); ++i) {
+                args.push_back(evaluateVideoSpecficVariables(conf["events"]["onVideoEnds"][i]));
+            }
+            exec_async((void*)this, args, asyncExecCallback);
             spdlog::info("[{}] onVideoEnds triggered, command [{}] executed",
-                deviceName, commandOnVideoEnds);
+                deviceName, args[0]);
         } else if (conf["events"]["onVideoEnds"].get<string>().length() > 0 &&
             cooldown > 0) {
             spdlog::warn("[{}] onVideoEnds event defined but it won't be "
@@ -296,18 +308,19 @@ void deviceManager::stopVideoRecording(FILE*& extRawVideoPipePtr,
 
 
 void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
-    VideoWriter& vwriter, int64_t& cooldown, string& timestampOnVideoStarts) {
+    VideoWriter& vwriter, int64_t& cooldown) {
 
     auto handleOnVideoStarts = [&] () {
-        if (conf["events"]["onVideoStarts"].get<string>().length() > 0) {
+        if (conf["events"]["onVideoStarts"].size() > 0) {
+            vector<string> args;
+            args.reserve(conf["events"]["onVideoStarts"].size());
+            for (size_t i = 0; i < conf["events"]["onVideoStarts"].size(); ++i) {
+                args.push_back(evaluateVideoSpecficVariables(conf["events"]["onVideoStarts"][i]));
+            }
             spdlog::info("[{}] motion detected, video recording begins", deviceName);
-            string commandOnVideoStarts = regex_replace(
-                conf["events"]["onVideoStarts"].get<string>(),
-                regex("\\{\\{timestamp\\}\\}"), timestampOnVideoStarts
-            );
-            exec_async((void*)this, commandOnVideoStarts, asyncExecCallback);
+            exec_async((void*)this, args, asyncExecCallback);
             spdlog::info("[{}] onVideoStarts: command [{}] executed",
-                deviceName, commandOnVideoStarts);
+                deviceName, args[0]);
         } else {
             spdlog::info("[{}] onVideoStarts: no command to execute",
                 deviceName);
@@ -322,9 +335,7 @@ void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
         conf["motionDetection"]["videoRecording"]["encoder"]["external"]["pipeRawVideoTo"] :
         conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"];
     timestampOnVideoStarts = getCurrentTimestamp();
-    command = regex_replace(
-        command, regex("\\{\\{timestamp\\}\\}"), timestampOnVideoStarts
-    );
+    command = evaluateVideoSpecficVariables(command);
     if (!encoderUseExternal) {
         // Use OpenCV to encode video
         vwriter = VideoWriter(
@@ -388,7 +399,6 @@ void deviceManager::InternalThreadEntry() {
     bool isShowingBlankFrame = false;
     VideoCapture cap;
     float rateOfChange = 0.0;
-    string timestampOnVideoStarts = "";
 
     result = cap.open(conf["uri"].get<string>());
     spdlog::info("[{}] cap.open({}): {}", deviceName,
@@ -474,8 +484,7 @@ void deviceManager::InternalThreadEntry() {
         if (motionDetectionMode == ALWAYS_RECORD ||
             (rateOfChange > frameDiffPercentageLowerLimit &&
              rateOfChange < frameDiffPercentageUpperLimit)) {
-            startOrKeepVideoRecording(extRawVideoPipePtr, vwriter, cooldown,
-                timestampOnVideoStarts);
+            startOrKeepVideoRecording(extRawVideoPipePtr, vwriter, cooldown);
         }
         
         ++retrievedFrameCount;
@@ -483,8 +492,7 @@ void deviceManager::InternalThreadEntry() {
 
         if (cooldown < 0) { continue; }
         if (cooldown == 0) { 
-            stopVideoRecording(extRawVideoPipePtr, vwriter, videoFrameCount,
-                timestampOnVideoStarts, cooldown);
+            stopVideoRecording(extRawVideoPipePtr, vwriter, videoFrameCount, cooldown);
             continue;
         } 
         if (!encoderUseExternal)  {
@@ -506,8 +514,7 @@ void deviceManager::InternalThreadEntry() {
         }
     }
     if (cooldown > 0) {
-        stopVideoRecording(extRawVideoPipePtr, vwriter, videoFrameCount,
-            timestampOnVideoStarts, cooldown);
+        stopVideoRecording(extRawVideoPipePtr, vwriter, videoFrameCount, cooldown);
     }
     cap.release();
     spdlog::info("[{}] thread quits gracefully", deviceName);

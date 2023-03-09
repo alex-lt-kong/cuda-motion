@@ -113,6 +113,7 @@ private:
     int snapshotFrameInterval = 1;
     float throttleFpsIfHigherThan;
     int frameIntervalInMs = 24;
+    string timestampOnVideoStarts;
     string snapshotPath;
     queue<long long int> frameTimestamps;
 
@@ -121,13 +122,14 @@ private:
     void updateVideoCooldownAndVideoFrameCount(int64_t& cooldown,
         uint32_t& videoFrameCount);
     bool shouldFrameBeThrottled();
-    string fillinVariables(basic_string<char> originalString);
+    string evaluateStaticVariables(basic_string<char> originalString);
+    string evaluateVideoSpecficVariables(basic_string<char> originalString);
     string convertToString(char* a, int size);
     string getCurrentTimestamp();
     void startOrKeepVideoRecording(FILE*& ffmpegPipe, VideoWriter& vwriter,
-        int64_t& cooldown, string& timestampOnVideoStarts);
+        int64_t& cooldown);
     void stopVideoRecording(FILE*& ffmpegPipe, VideoWriter& vwriter,
-        uint32_t& videoFrameCount, string& timestampOnVideoStarts, int cooldown);
+        uint32_t& videoFrameCount, int cooldown);
     void overlayDatetime(Mat frame);
     void overlayDeviceName(Mat frame);
     void overlayContours(Mat dispFrame, Mat diffFrame);
