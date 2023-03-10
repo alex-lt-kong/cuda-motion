@@ -19,4 +19,4 @@ enum MotionDetectionMode {
 typedef void (*exec_cb)(void* This, string stdout, string stderr, int rc); // type for conciseness
 
 string exec(const string& cmd);
-void exec_async(void* This, const vector<string>& args, exec_cb cb);
+void execAsync(void* This, const vector<string>& args, exec_cb cb);

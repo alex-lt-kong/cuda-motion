@@ -17,12 +17,12 @@
 using sysclock_t = std::chrono::system_clock;
 
 string deviceManager::getCurrentTimestamp() {
-    std::time_t now = sysclock_t::to_time_t(sysclock_t::now());
+    time_t now = sysclock_t::to_time_t(sysclock_t::now());
     //"19700101_000000"
     char buf[16] = { 0 };
-    std::strftime(buf, sizeof(buf), "%Y%m%d-%H%M%S", localtime(&now));
+    strftime(buf, sizeof(buf), "%Y%m%d-%H%M%S", localtime(&now));
     // https://www.cplusplus.com/reference/ctime/strftime/
-    return std::string(buf);
+    return string(buf);
 }
 
 deviceManager::deviceManager() {
@@ -34,7 +34,10 @@ deviceManager::deviceManager() {
 
 string deviceManager::evaluateVideoSpecficVariables(basic_string<char> originalString) {
     string filledString = regex_replace(originalString,
-        regex(R"(\{\{timestamp\}\})"), timestampOnVideoStarts);
+        regex(R"(\{\{timestampOnVideoStarts\}\})"), timestampOnVideoStarts);
+    
+    filledString = regex_replace(filledString,
+        regex(R"(\{\{timestampOnDeviceOffline\}\})"), timestampOnDeviceOffline);
     return filledString;
 }
 
@@ -98,6 +101,13 @@ void deviceManager::setParameters(const size_t deviceIndex,
         conf["events"]["onVideoEnds"][i] =
             evaluateStaticVariables(conf["events"]["onVideoEnds"][i]);
     }
+    if (!conf.contains("/events/onDeviceOffline"_json_pointer))
+        conf["events"]["onDeviceOffline"] =
+            defaultConf["events"]["onDeviceOffline"];    
+    for (size_t i = 0; i < conf["events"]["onDeviceOffline"].size(); ++i) {
+        conf["events"]["onDeviceOffline"][i] =
+            evaluateStaticVariables(conf["events"]["onDeviceOffline"][i]);
+    }
 
     // ===== motion detection =====
     if (!conf.contains("/motionDetection/mode"_json_pointer))
@@ -160,16 +170,20 @@ deviceManager::~deviceManager() {
     pthread_mutex_destroy(&mutexLiveImage);
 }
 
-void deviceManager::overlayDatetime(Mat frame) {
+void deviceManager::overlayDatetime(Mat& frame) {
     time_t now;
     time(&now);
-    char buf[sizeof "1970-01-01 00:00:00"];
-    strftime(buf, sizeof buf, "%F %T", localtime(&now));
-    cv::Size textSize = getTextSize(buf, FONT_HERSHEY_DUPLEX, fontScale,
+    //char buf[sizeof "1970-01-01 00:00:00"];
+    //strftime(buf, sizeof buf, "%F %T", localtime(&now));
+    string ts = getCurrentTimestamp();
+    if (timestampOnDeviceOffline.size() > 0) {
+        ts += " (Offline since " + timestampOnDeviceOffline + ")";
+    }
+    cv::Size textSize = getTextSize(ts, FONT_HERSHEY_DUPLEX, fontScale,
         8 * fontScale, nullptr);
-    putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
+    putText(frame, ts, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
         fontScale, Scalar(0,  0,  0  ), 8 * fontScale, LINE_AA, false);
-    putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
+    putText(frame, ts, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
         fontScale, Scalar(255,255,255), 2 * fontScale, LINE_AA, false);
     /*
     void cv::putText 	(InputOutputArray  	img,
@@ -185,8 +199,8 @@ void deviceManager::overlayDatetime(Mat frame) {
     */
 }
 
-
-float deviceManager::getFrameChanges(Mat prevFrame, Mat currFrame, Mat* diffFrame) {
+float deviceManager::getFrameChanges(Mat& prevFrame, Mat& currFrame,
+    Mat* diffFrame) {
     if (prevFrame.empty() || currFrame.empty()) { return -1; }
     if (prevFrame.cols != currFrame.cols || prevFrame.rows != currFrame.rows) { return -1; }
     if (prevFrame.cols == 0 || prevFrame.rows == 0) { return -1; }
@@ -198,7 +212,7 @@ float deviceManager::getFrameChanges(Mat prevFrame, Mat currFrame, Mat* diffFram
     return 100.0 * nonZeroPixels / (diffFrame->rows * diffFrame->cols);
 }
 
-void deviceManager::overlayDeviceName(Mat frame) {
+void deviceManager::overlayDeviceName(Mat& frame) {
 
     cv::Size textSize = getTextSize(deviceName, FONT_HERSHEY_DUPLEX, fontScale, 8 * fontScale, nullptr);
     putText(frame, deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5), 
@@ -207,7 +221,8 @@ void deviceManager::overlayDeviceName(Mat frame) {
             FONT_HERSHEY_DUPLEX, fontScale, Scalar(255,255,255), 2 * fontScale, LINE_AA, false);
 }
 
-void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown, long long int videoFrameCount) {
+void deviceManager::overlayChangeRate(Mat& frame, float changeRate,
+    int cooldown, long long int videoFrameCount) {
     int value = changeRate * 100;
     stringstream ssChangeRate;
     ssChangeRate << fixed << setprecision(2) << changeRate;
@@ -221,7 +236,7 @@ void deviceManager::overlayChangeRate(Mat frame, float changeRate, int cooldown,
         Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, fontScale, Scalar(255, 255, 255), 2 * fontScale, LINE_AA, false);
 }
 
-void deviceManager::overlayContours(Mat dispFrame, Mat diffFrame) {
+void deviceManager::overlayContours(Mat& dispFrame, Mat& diffFrame) {
     if (diffFrame.empty()) return;
     vector<vector<Point>> contours;
     vector<Vec4i> hierarchy;
@@ -234,7 +249,7 @@ void deviceManager::overlayContours(Mat dispFrame, Mat diffFrame) {
 }
 
 bool deviceManager::shouldFrameBeThrottled() {
-    int sampleMsUpperLimit = 60 * 1000;
+    constexpr int sampleMsUpperLimit = 60 * 1000;
     int currMsSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
         chrono::system_clock::now().time_since_epoch()).count();
     if (frameTimestamps.size() <= 1) { 
@@ -242,7 +257,10 @@ bool deviceManager::shouldFrameBeThrottled() {
         return false;
     }
     
-    float fps = 1000.0 * frameTimestamps.size() / (1 + currMsSinceEpoch - frameTimestamps.front());
+    // time complexity of frameTimestamps.size()/front()/back()/push()/pop()
+    // are guaranteed to be O(1)
+    float fps = 1000.0 * frameTimestamps.size() / (1 + currMsSinceEpoch -
+        frameTimestamps.front());
     if (currMsSinceEpoch - frameTimestamps.front() > sampleMsUpperLimit) {
         frameTimestamps.pop();
     }
@@ -282,13 +300,13 @@ void deviceManager::stopVideoRecording(FILE*& extRawVideoPipePtr,
             args.reserve(conf["events"]["onVideoEnds"].size());
             spdlog::info("[{}] video recording ends", deviceName);
             for (size_t i = 0; i < conf["events"]["onVideoEnds"].size(); ++i) {
-                args.push_back(evaluateVideoSpecficVariables(conf["events"]["onVideoEnds"][i]));
+                args.push_back(evaluateVideoSpecficVariables(
+                    conf["events"]["onVideoEnds"][i]));
             }
-            exec_async((void*)this, args, asyncExecCallback);
+            execAsync((void*)this, args, asyncExecCallback);
             spdlog::info("[{}] onVideoEnds triggered, command [{}] executed",
                 deviceName, args[0]);
-        } else if (conf["events"]["onVideoEnds"].get<string>().length() > 0 &&
-            cooldown > 0) {
+        } else if (conf["events"]["onVideoEnds"].size() > 0 && cooldown > 0) {
             spdlog::warn("[{}] onVideoEnds event defined but it won't be "
                 "triggered", deviceName);
         } else {
@@ -318,7 +336,7 @@ void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
                 args.push_back(evaluateVideoSpecficVariables(conf["events"]["onVideoStarts"][i]));
             }
             spdlog::info("[{}] motion detected, video recording begins", deviceName);
-            exec_async((void*)this, args, asyncExecCallback);
+            execAsync((void*)this, args, asyncExecCallback);
             spdlog::info("[{}] onVideoStarts: command [{}] executed",
                 deviceName, args[0]);
         } else {
@@ -361,12 +379,12 @@ void deviceManager::getLiveImage(vector<uint8_t>& pl) {
     pthread_mutex_unlock(&mutexLiveImage);
 }
 
-void deviceManager::generateBlankFrame(Mat& currFrame) {
-    if (conf["frame"]["preferredWidth"] > 0 &&
-        conf["frame"]["preferredHeight"] > 0) {
-        currFrame = Mat(conf["frame"]["preferredHeight"],
-        conf["frame"]["preferredWidth"],
-        CV_8UC3, Scalar(128, 128, 128));
+void deviceManager::generateBlankFrameAt1Fps(Mat& currFrame,
+    const Size& actualFrameSize) {
+    this_thread::sleep_for(999ms); // Throttle the generation at 1 fps.
+    if (actualFrameSize.width > 0 && actualFrameSize.height > 0) {
+        currFrame = Mat(actualFrameSize.height, actualFrameSize.width,
+            CV_8UC3, Scalar(128, 128, 128));
     }
     else {
         // We cant just do this and skip framePreferredWidth and framePreferredHeight
@@ -390,6 +408,46 @@ void deviceManager::updateVideoCooldownAndVideoFrameCount(int64_t& cooldown,
     }
 }
 
+void deviceManager::deviceIsOffline(Mat& currFrame, const Size& actualFrameSize,
+    bool& isShowingBlankFrame) {
+    
+    if (isShowingBlankFrame == false) {
+        timestampOnDeviceOffline = getCurrentTimestamp();
+        isShowingBlankFrame = true;
+        if (conf["events"]["onDeviceOffline"].size() > 0) {
+            vector<string> args;
+            args.reserve(conf["events"]["onDeviceOffline"].size());
+            for (size_t i = 0; i < conf["events"]["onDeviceOffline"].size(); ++i) {
+                args.push_back(evaluateVideoSpecficVariables(
+                    conf["events"]["onDeviceOffline"][i]));
+            }
+            spdlog::info("[{}] motion detected, video recording begins", deviceName);
+            execAsync((void*)this, args, asyncExecCallback);
+            spdlog::info("[{}] onDeviceOffline: command [{}] executed",
+                deviceName, args[0]);
+        } else {
+            spdlog::info("[{}] onDeviceOffline: no command to execute",
+                deviceName);
+        }
+    }
+    generateBlankFrameAt1Fps(currFrame, actualFrameSize);
+}
+
+void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
+    const Size& actualFrameSize) {
+    result = cap.open(conf["uri"].get<string>());
+    spdlog::info("[{}] cap.open({}): {}", deviceName, conf["uri"].get<string>(),
+        result);
+    cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 
+    // Thought about moving CAP_PROP_FOURCC to config file. But seems they are good just to be hard-coded?
+    if (actualFrameSize.width > 0)
+        cap.set(CAP_PROP_FRAME_WIDTH, actualFrameSize.width);
+    if (actualFrameSize.height > 0)
+        cap.set(CAP_PROP_FRAME_HEIGHT, actualFrameSize.height);
+    if (conf["frame"]["preferredFps"] > 0)
+        cap.set(CAP_PROP_FPS, conf["frame"]["preferredFps"]);
+}
+
 void deviceManager::InternalThreadEntry() {
 
     vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
@@ -399,44 +457,48 @@ void deviceManager::InternalThreadEntry() {
     bool isShowingBlankFrame = false;
     VideoCapture cap;
     float rateOfChange = 0.0;
-
-    result = cap.open(conf["uri"].get<string>());
-    spdlog::info("[{}] cap.open({}): {}", deviceName,
-        conf["uri"].get<string>(), result);
+    
     uint64_t retrievedFrameCount = 0;
     uint32_t videoFrameCount = 0;
+    Size actualFrameSize = Size(conf["frame"]["preferredWidth"],
+        conf["frame"]["preferredHeight"]);
     FILE *extRawVideoPipePtr = nullptr;
     VideoWriter vwriter;
     int64_t cooldown = 0;
+    size_t openRetryDelay = 1;
     
-    cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 
-    // Thought about moving CAP_PROP_FOURCC to config file. But seems they are good just to be hard-coded?
-    if (conf["frame"]["preferredWidth"] > 0)
-        cap.set(CAP_PROP_FRAME_WIDTH, conf["frame"]["preferredWidth"]);
-    if (conf["frame"]["preferredHeight"] > 0)
-        cap.set(CAP_PROP_FRAME_HEIGHT, conf["frame"]["preferredHeight"]);
-    if (conf["frame"]["preferredFps"] > 0)
-        cap.set(CAP_PROP_FPS, conf["frame"]["preferredFps"]);
+    goto entryPoint;
+    /* We use the evil goto so that we can avoid the duplication of
+       initializeDevice()...*/
     
     while (!_internalThreadShouldQuit) {
         result = cap.grab();
-        if (shouldFrameBeThrottled() == true) { continue; }
-        if (result) { result = result && cap.retrieve(currFrame); }
+        if (shouldFrameBeThrottled()) {continue; }
+        if (result) {
+            result = result && cap.retrieve(currFrame);
+        }
+        ++retrievedFrameCount;
 
         if (result == false || currFrame.empty() || cap.isOpened() == false) {
-            spdlog::error("[{}] Unable to cap.read() a new frame. "
-                "currFrame.empty(): {}, cap.isOpened(): {}. "
-                "Sleep for 2 sec than then re-open()...",
-                deviceName, currFrame.empty(), cap.isOpened());
-            this_thread::sleep_for(2000ms); // Don't wait for too long, most of the time the device can be re-open()ed immediately
-            cap.open(conf["uri"].get<string>());
-            isShowingBlankFrame = true;
-            generateBlankFrame(currFrame);
+            deviceIsOffline(currFrame, actualFrameSize, isShowingBlankFrame);
+            if (retrievedFrameCount % openRetryDelay == 0) {
+                openRetryDelay *= 2;
+                spdlog::error("[{}] Unable to cap.read() a new frame. "
+                    "currFrame.empty(): {}, cap.isOpened(): {}. "
+                    "Wait for {} frames than then re-open()...",
+                    deviceName, currFrame.empty(), cap.isOpened(), openRetryDelay);
+entryPoint:
+                initializeDevice(cap, result, actualFrameSize);
+                if (retrievedFrameCount == 0) { continue; }
+            }
         } else {
             if (isShowingBlankFrame == true) {
                 spdlog::info("[{}] Device is back online", deviceName);
+                openRetryDelay = 1;
+                isShowingBlankFrame = false;
+                timestampOnDeviceOffline = "";
             }
-            isShowingBlankFrame = false;
+            actualFrameSize = currFrame.size();
         }
         if (conf["frame"]["rotation"] != -1 && isShowingBlankFrame == false) {
             rotate(currFrame, currFrame, conf["frame"]["rotation"]);
@@ -487,7 +549,6 @@ void deviceManager::InternalThreadEntry() {
             startOrKeepVideoRecording(extRawVideoPipePtr, vwriter, cooldown);
         }
         
-        ++retrievedFrameCount;
         updateVideoCooldownAndVideoFrameCount(cooldown, videoFrameCount);
 
         if (cooldown < 0) { continue; }

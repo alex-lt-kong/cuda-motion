@@ -15,6 +15,7 @@ using json = nlohmann::json;
 
 crow::SimpleApp app;
 static vector<deviceManager> myDevices;
+json settings;
 
 void signal_handler(int signum) {
     if (signum == SIGPIPE) {    
@@ -35,7 +36,8 @@ void register_signal_handlers() {
     act.sa_flags = SA_RESETHAND;
     if (sigaction(SIGINT, &act, 0) + sigaction(SIGABRT, &act, 0) +
         sigaction(SIGTERM, &act, 0) + sigaction(SIGPIPE, &act, 0) < 0) {
-        throw runtime_error("sigaction() called failed, errno: " + errno);
+        throw runtime_error("sigaction() called failed, errno: " +
+            to_string(errno));
     }
 }
 
@@ -100,7 +102,8 @@ void start_http_server() {
         res.end(string((char*)(encodedImg.data()), encodedImg.size()));
     });
 
-    app.bindaddr("127.0.0.1").port(54321).signal_clear().run_async();
+    app.bindaddr(settings["httpService"]["interface"])
+        .port(settings["httpService"]["port"]).signal_clear().run_async();
 }
 
 int main() {
@@ -112,7 +115,7 @@ int main() {
     
     spdlog::info("cv::getBuildInformation(): {}", getBuildInformation());
 
-    json settings = load_settings();
+    settings = load_settings();
 
     size_t deviceCount = settings["devices"].size();
     if (deviceCount == 0) {

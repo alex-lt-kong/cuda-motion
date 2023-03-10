@@ -2,6 +2,8 @@
 #include <iomanip>
 #include <sstream>
 
+#include <spdlog/spdlog.h>
+
 #include "utils.h"
 
 void exec(const vector<string>& args, string& stdout, string& stderr, int& rc) {
@@ -22,19 +24,22 @@ void exec(const vector<string>& args, string& stdout, string& stderr, int& rc) {
     char buffer[256];
     int status;
 
-    if (pipe(pipefd_stdout) == -1) {
-        throw runtime_error("pipe(pipefd_stdout) failed, errno: " + to_string(errno));
+    if (pipe(pipefd_stdout) == -1) {      
+        spdlog::error("pipe(pipefd_stdout) failed, errno: {}", errno);
+        return;
     }
     if (pipe(pipefd_stderr) == -1) {
         close(pipefd_stdout[0]);
         close(pipefd_stdout[1]);
-        throw runtime_error("pipe(pipefd_stderr) failed, errno: " + to_string(errno));
+        spdlog::error("pipe(pipefd_stderr) failed, errno: {}", errno);
+        return;
     }
     
     pid_t child_pid = fork(); //span a child process
 
     if (child_pid == -1) { // fork() failed, no child process created
-        throw runtime_error("fork() failed, errno: " + to_string(errno));
+        spdlog::error("fork() failed, errno: {}", errno);
+        return;
     }
 
     if (child_pid == 0) { // fork() succeeded, we are in the child process
@@ -56,11 +61,13 @@ void exec(const vector<string>& args, string& stdout, string& stderr, int& rc) {
     close(pipefd_stderr[1]);
 
     if ((stdoutFd = fdopen(pipefd_stdout[0], "r")) == NULL) {
-        throw runtime_error("fdopen() failed, errno: " + to_string(errno));
+        spdlog::error("fdopen() failed, errno: {}", errno);
+        return;
     }
     if ((stderrFd = fdopen(pipefd_stderr[0], "r")) == NULL) {
         fclose(stdoutFd);
-        throw runtime_error("fdopen() failed, errno: " + to_string(errno));
+        spdlog::error("fdopen() failed, errno: {}", errno);
+        return;
     }
 
     while(fgets(buffer, sizeof(buffer) - 1, stdoutFd)) {            
@@ -73,15 +80,28 @@ void exec(const vector<string>& args, string& stdout, string& stderr, int& rc) {
     fclose(stderrFd);
 
     // wait for the child process to terminate
-    waitpid(child_pid, &status, 0);
+    if (waitpid(child_pid, &status, 0) == -1) {
+        spdlog::error("waitpid() failed, errno: {}", errno);
+        return;
+    }
     if (WIFEXITED(status)) {
         rc = WEXITSTATUS(status);
     } else {
-        rc = -1;
+        rc = EXIT_FAILURE;
+        if (WIFSIGNALED(status)) {
+            spdlog::error("child process exited abnormally "
+                "(terminated by a signal: {})", WTERMSIG(status));
+        } else if (WIFSTOPPED(status)) {
+            spdlog::error("child process exited abnormally "
+                "(stopped by delivery of a signal: {})", WSTOPSIG(status));
+        } else {
+            spdlog::error("child process exited abnormally "
+                "(unknown status: {})", status);
+        }
     }
 }
 
-void exec_async(void* This, const vector<string>& args, exec_cb cb) {
+void execAsync(void* This, const vector<string>& args, exec_cb cb) {
     auto f = [](void* This, const vector<string>& args, exec_cb cb) {
         string stdout, stderr;
         int rc;

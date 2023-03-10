@@ -76,7 +76,8 @@
     "source_location": "cpp",
     "cfenv": "cpp",
     "typeindex": "cpp",
-    "variant": "cpp"
+    "variant": "cpp",
+    "cerrno": "cpp"
   },
   "C_Cpp.errorSquiggles": "Disabled",
   "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"

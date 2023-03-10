@@ -114,6 +114,7 @@ private:
     float throttleFpsIfHigherThan;
     int frameIntervalInMs = 24;
     string timestampOnVideoStarts;
+    string timestampOnDeviceOffline;
     string snapshotPath;
     queue<long long int> frameTimestamps;
 
@@ -130,11 +131,16 @@ private:
         int64_t& cooldown);
     void stopVideoRecording(FILE*& ffmpegPipe, VideoWriter& vwriter,
         uint32_t& videoFrameCount, int cooldown);
-    void overlayDatetime(Mat frame);
-    void overlayDeviceName(Mat frame);
-    void overlayContours(Mat dispFrame, Mat diffFrame);
-    void overlayChangeRate(Mat frame, float changeRate, int cooldown, long long int videoFrameCount);
-    float getFrameChanges(Mat prevFrame, Mat currFrame, Mat* diffFrame);
-    void generateBlankFrame(Mat& currFrame);
+    void overlayDatetime(Mat& frame);
+    void overlayDeviceName(Mat& frame);
+    void overlayContours(Mat& dispFrame, Mat& diffFrame);
+    void overlayChangeRate(Mat& frame, float changeRate, int cooldown,
+        long long int videoFrameCount);
+    float getFrameChanges(Mat& prevFrame, Mat& currFrame, Mat* diffFrame);
+    void generateBlankFrameAt1Fps(Mat& currFrame, const Size& actualFrameSize);
+    void deviceIsOffline(Mat& currFrame, const Size& actualFrameSize,
+        bool& isShowingBlankFrame);
+    void initializeDevice(VideoCapture& cap, bool& result,
+        const Size& actualFrameSize);
     static void asyncExecCallback(void* This, string stdout, string stderr, int rc);
 };

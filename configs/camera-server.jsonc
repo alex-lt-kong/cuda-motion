@@ -1,4 +1,8 @@
 {
+	"httpService": {
+		"interface": "127.0.0.1",
+		"port": 54321
+	},
 	"devicesDefault": {
 		"name": "Device-{{deviceIndex}}",
 		"uri": "/dev/video-{{deviceIndex}}.mp4",
@@ -53,7 +57,7 @@
 						"width": 1920,
 						"height": 1080,
 						"fps": 30,
-						"videoPath": "/tmp/{{timestamp}}.mp4"
+						"videoPath": "/tmp/{{timestampOnVideoStarts}}.mp4"
 					},
 					"external": {
 						"pipeRawVideoTo": "/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 -framerate 30 -video_size 1920x1080 -i pipe:0 -vcodec libx264 -pix_fmt yuv420p /tmp/{{timestamp}}.mp4 >> /tmp/ffmpeg-vid1.log 2>&1"
@@ -62,8 +66,9 @@
 			}
 		},
 		"events": {
-			"onVideoStarts": ["/usr/bin/printf", "video starts at [{{timestamp}}] %s", "!"],
-			"onVideoEnds": ["/usr/bin/echo", "onVideoEnds echoed from device [{{deviceIndex}}]"]
+			"onVideoStarts": ["/usr/bin/printf", "video starts at [{{timestampOnVideoStarts}}] %s", "!"],
+			"onVideoEnds": ["/usr/bin/echo", "onVideoEnds echoed from device [{{deviceIndex}}]"],
+			"onDeviceOffline": ["/usr/bin/echo", "Device [{{deviceIndex}}] is offline at [{{timestampOnDeviceOffline}}]"]
 		}
 		
 	},
