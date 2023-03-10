@@ -68,7 +68,8 @@
 		"events": {
 			"onVideoStarts": ["/usr/bin/printf", "video starts at [{{timestampOnVideoStarts}}] %s", "!"],
 			"onVideoEnds": ["/usr/bin/echo", "onVideoEnds echoed from device [{{deviceIndex}}]"],
-			"onDeviceOffline": ["/usr/bin/echo", "Device [{{deviceIndex}}] is offline at [{{timestampOnDeviceOffline}}]"]
+			"onDeviceOffline": ["/usr/bin/echo", "Device [{{deviceIndex}}] is offline at [{{timestampOnDeviceOffline}}]"],
+			"onDeviceBackOnline": ["/usr/bin/echo", "Device [{{deviceName}}] is back online"]
 		}
 		
 	},

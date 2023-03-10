@@ -44,6 +44,8 @@ string deviceManager::evaluateVideoSpecficVariables(basic_string<char> originalS
 string deviceManager::evaluateStaticVariables(basic_string<char> originalString) {
     string filledString = regex_replace(originalString,
         regex(R"(\{\{deviceIndex\}\})"), to_string(deviceIndex));
+    filledString = regex_replace(filledString,
+        regex(R"(\{\{deviceName\}\})"), conf["name"].get<string>());
     return filledString;
 }
 
@@ -107,6 +109,13 @@ void deviceManager::setParameters(const size_t deviceIndex,
     for (size_t i = 0; i < conf["events"]["onDeviceOffline"].size(); ++i) {
         conf["events"]["onDeviceOffline"][i] =
             evaluateStaticVariables(conf["events"]["onDeviceOffline"][i]);
+    }
+    if (!conf.contains("/events/onDeviceBackOnline"_json_pointer))
+        conf["events"]["onDeviceBackOnline"] =
+            defaultConf["events"]["onDeviceBackOnline"];    
+    for (size_t i = 0; i < conf["events"]["onDeviceBackOnline"].size(); ++i) {
+        conf["events"]["onDeviceBackOnline"][i] =
+            evaluateStaticVariables(conf["events"]["onDeviceBackOnline"][i]);
     }
 
     // ===== motion detection =====
@@ -421,7 +430,6 @@ void deviceManager::deviceIsOffline(Mat& currFrame, const Size& actualFrameSize,
                 args.push_back(evaluateVideoSpecficVariables(
                     conf["events"]["onDeviceOffline"][i]));
             }
-            spdlog::info("[{}] motion detected, video recording begins", deviceName);
             execAsync((void*)this, args, asyncExecCallback);
             spdlog::info("[{}] onDeviceOffline: command [{}] executed",
                 deviceName, args[0]);
@@ -431,6 +439,25 @@ void deviceManager::deviceIsOffline(Mat& currFrame, const Size& actualFrameSize,
         }
     }
     generateBlankFrameAt1Fps(currFrame, actualFrameSize);
+}
+
+void deviceManager::deviceIsBackOnline(size_t& openRetryDelay,
+    bool& isShowingBlankFrame) {
+    spdlog::info("[{}] Device is back online", deviceName);
+    timestampOnDeviceOffline = "";
+    openRetryDelay = 1;
+    isShowingBlankFrame = false;
+    if (conf["events"]["onDeviceBackOnline"].size() > 0) {
+        vector<string> args;
+        args.reserve(conf["events"]["onDeviceBackOnline"].size());
+        for (size_t i = 0; i < conf["events"]["onDeviceBackOnline"].size(); ++i) {
+            args.push_back(evaluateVideoSpecficVariables(
+                conf["events"]["onDeviceBackOnline"][i]));
+        }
+        execAsync((void*)this, args, asyncExecCallback);
+        spdlog::info("[{}] onDeviceBackOnline: command [{}] executed",
+            deviceName, args[0]);
+    } 
 }
 
 void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
@@ -492,11 +519,8 @@ entryPoint:
                 if (retrievedFrameCount == 0) { continue; }
             }
         } else {
-            if (isShowingBlankFrame == true) {
-                spdlog::info("[{}] Device is back online", deviceName);
-                openRetryDelay = 1;
-                isShowingBlankFrame = false;
-                timestampOnDeviceOffline = "";
+            if (isShowingBlankFrame) {
+                deviceIsBackOnline(openRetryDelay, isShowingBlankFrame);
             }
             actualFrameSize = currFrame.size();
         }

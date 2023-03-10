@@ -140,6 +140,7 @@ private:
     void generateBlankFrameAt1Fps(Mat& currFrame, const Size& actualFrameSize);
     void deviceIsOffline(Mat& currFrame, const Size& actualFrameSize,
         bool& isShowingBlankFrame);
+    void deviceIsBackOnline(size_t& openRetryDelay, bool& isShowingBlankFrame);
     void initializeDevice(VideoCapture& cap, bool& result,
         const Size& actualFrameSize);
     static void asyncExecCallback(void* This, string stdout, string stderr, int rc);
