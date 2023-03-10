@@ -21,7 +21,7 @@ void exec(const vector<string>& args, string& stdout, string& stderr, int& rc) {
     // pipefd[1] is the write end of the pipe
     FILE* stdoutFd;
     FILE* stderrFd;
-    char buffer[256];
+    char buffer[4096];
     int status;
 
     if (pipe(pipefd_stdout) == -1) {      
