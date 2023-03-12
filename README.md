@@ -7,6 +7,7 @@ A C++17 project inspired by, similar to but simpler than
 
 * [Crow HTTP library](https://github.com/CrowCpp/Crow) for HTTP service support
   * `Asio`, an  asynchronous mode used by Crow:  `apt install libasio-dev`
+  * `OpenSSL`, for SSL support: `apt-get install libssl-dev`
 * `nlohmann-json3 (>= 3.9)`, JSON support: `apt install nlohmann-json3-dev`
 * `opencv`, for frame manipulation: `apt install libopencv-dev`.
 * `v4l-utils`: for manually examining and manipulating local video devices.

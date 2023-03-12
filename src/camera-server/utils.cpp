@@ -8,7 +8,8 @@
 
 #include "utils.h"
 
-void exec(const vector<string>& args, string& stdoutStr, string& stderrStr, int& rc) {
+void exec(const vector<string>& args, string& stdoutStr, string& stderrStr,
+    int& rc) {
 
     vector<char*> cargs;
     cargs.reserve(args.size() + 1);
@@ -87,7 +88,8 @@ void exec(const vector<string>& args, string& stdoutStr, string& stderrStr, int&
         for (int j = 0; j < nfds; j++) {            
             if (pfds[j].revents != 0) {
                 if (pfds[j].revents & POLLIN) {
-                    ssize_t s = read(pfds[j].fd, buffer, sizeof(buffer)-1);
+                    memset(buffer, 0, sizeof buffer);
+                    ssize_t s = read(pfds[j].fd, buffer, sizeof buffer -1);
                     if (s == -1) {
                         spdlog::error("read() failed, "
                             "some output may be missing, errno: {}", errno);
