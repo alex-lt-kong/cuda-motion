@@ -1,7 +1,18 @@
 {
 	"httpService": {
 		"interface": "127.0.0.1",
-		"port": 54321
+		"port": 54321,
+		"ssl": {
+			"enabled": false,
+			"keyPath": "",
+			"crtPath": ""
+		},
+		"httpAuthentication": {
+			"enabled": false,
+			"accounts": {
+				"defaultUser": "defaultPassword"
+			}
+		}
 	},
 	"devicesDefault": {
 		"name": "Device-{{deviceIndex}}",

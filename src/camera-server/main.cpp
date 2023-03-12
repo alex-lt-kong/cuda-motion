@@ -12,10 +12,56 @@
 
 using namespace std;
 using json = nlohmann::json;
-
-crow::SimpleApp app;
-static vector<deviceManager> myDevices;
 json settings;
+
+void askForCred(crow::response& res) {
+    res.set_header("WWW-Authenticate", "Basic realm=On-demand CCTV server");
+    res.code = 401;
+    res.write("<h1>Unauthorized access</h1>");
+    res.end();
+}
+
+string httpAuthenticate(const crow::request& req) {
+    string myauth = req.get_header_value("Authorization");
+    if (myauth.size() < 6) {
+        return "";
+    } 
+    string mycreds = myauth.substr(6);
+    string d_mycreds = crow::utility::base64decode(mycreds, mycreds.size());
+    size_t found = d_mycreds.find(':');
+    string username = d_mycreds.substr(0, found);
+    string password = d_mycreds.substr(found+1);
+    if (!settings["httpService"]["httpAuthentication"]["accounts"].contains(username)) {
+        return "";
+    }
+    if (settings["httpService"]["httpAuthentication"]["accounts"][username] != password) {
+        return "";
+    }
+    return username;
+}
+
+struct httpAuthMiddleware: crow::ILocalMiddleware {
+    struct context{};
+
+    void before_handle(crow::request& req, crow::response& res,
+        __attribute__((unused)) context& ctx) {
+        if (settings["httpService"]["httpAuthentication"]["enabled"]) {
+            string username = httpAuthenticate(req);
+            if (username.size() == 0) {
+                askForCred(res);
+                return;
+            }
+        }
+    }
+
+
+    void after_handle(__attribute__((unused)) crow::request& req,
+        __attribute__((unused)) crow::response& res,
+        __attribute__((unused)) context& ctx) {}
+};
+
+crow::App<httpAuthMiddleware> app;
+static vector<deviceManager> myDevices;
 
 void signal_handler(int signum) {
     if (signum == SIGPIPE) {    
@@ -73,11 +119,14 @@ void start_http_server() {
     crow::logger::setHandler(&logger);
     app.loglevel(crow::LogLevel::Warning);
 
-    CROW_ROUTE(app, "/")([](){
-        return "HTTP service running";
+    CROW_ROUTE(app, "/").CROW_MIDDLEWARES(app, httpAuthMiddleware)([](){
+        return string("HTTP service running\nTry: ") +
+            (settings["httpService"]["ssl"]["enabled"] ? "https" : "http") +
+            "://<host>:" + to_string(settings["httpService"]["port"]) +
+            "/live_image/?deviceId=0";
     });
 
-    CROW_ROUTE(app, "/live_image/")([](
+    CROW_ROUTE(app, "/live_image/").CROW_MIDDLEWARES(app, httpAuthMiddleware)([](
         const crow::request& req, crow::response& res) {
         if (req.url_params.get("deviceId") == nullptr) {
             res.code = 400;
@@ -102,8 +151,15 @@ void start_http_server() {
         res.end(string((char*)(encodedImg.data()), encodedImg.size()));
     });
 
-    app.bindaddr(settings["httpService"]["interface"])
-        .port(settings["httpService"]["port"]).signal_clear().run_async();
+    if (settings["httpService"]["ssl"]["enabled"]) {
+        app.bindaddr(settings["httpService"]["interface"])
+            .ssl_file(settings["httpService"]["ssl"]["crtPath"],
+                    settings["httpService"]["ssl"]["keyPath"])
+            .port(settings["httpService"]["port"]).signal_clear().run_async();
+    } else {
+        app.bindaddr(settings["httpService"]["interface"])
+            .port(settings["httpService"]["port"]).signal_clear().run_async();
+    }
 }
 
 int main() {
