@@ -103,6 +103,11 @@ void exec(const vector<string>& args, string& stdoutStr, string& stderrStr,
         }
     }
 
+    if (close(pipefd_out[0]) == -1 || close(pipefd_err[0]) == -1) {
+        spdlog::error("close() in parent failed: {}({})",
+            errno, strerror(errno));
+    }
+
     int status;
     // wait for the child process to terminate
     if (waitpid(child_pid, &status, 0) == -1) {
