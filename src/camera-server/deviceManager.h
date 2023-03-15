@@ -109,6 +109,7 @@ private:
     bool encoderUseExternal; 
     string pipeRawVideoTo;
     uint32_t maxFramesPerVideo;
+    size_t precaptureFrames;
 
     int snapshotFrameInterval = 1;
     float throttleFpsIfHigherThan;

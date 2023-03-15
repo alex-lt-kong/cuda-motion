@@ -155,6 +155,11 @@ void deviceManager::setParameters(const size_t deviceIndex,
             defaultConf["motionDetection"]["videoRecording"]["maxFramesPerVideo"];
     maxFramesPerVideo =
         conf["motionDetection"]["videoRecording"]["maxFramesPerVideo"];
+    if (!conf.contains("/motionDetection/videoRecording/precaptureFrames"_json_pointer))
+        conf["motionDetection"]["videoRecording"]["precaptureFrames"] =
+            defaultConf["motionDetection"]["videoRecording"]["precaptureFrames"];
+    precaptureFrames = conf["motionDetection"]["videoRecording"]["precaptureFrames"];
+
     if (!conf.contains("/motionDetection/videoRecording/encoder"_json_pointer))
         conf["motionDetection"]["videoRecording"]["encoder"] =
             defaultConf["motionDetection"]["videoRecording"]["encoder"];
@@ -536,7 +541,7 @@ entryPoint:
         }
         
         dispFrames.push(currFrame.clone()); //rvalue ref!
-        if (dispFrames.size() > 5) {
+        if (dispFrames.size() > precaptureFrames) {
             dispFrames.pop();
         }
         if (drawContours && motionDetectionMode == DETECT_MOTION) {

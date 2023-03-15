@@ -60,6 +60,10 @@
 			// Useful for debug but CPU intensive
 			"drawContours": false,
 			"videoRecording": {
+				/* If a motion is detected on the N-th frame, the video shall start from
+				(N - precaptureFrames)-th frame, so that we can get a bit of context
+				about the motion being recorded */
+				"precaptureFrames": 5,
 				"minFramesPerVideo": 240,
 				"maxFramesPerVideo": 108000,
 				"encoder": {
