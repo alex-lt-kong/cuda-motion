@@ -78,17 +78,42 @@ void deviceManager::setParameters(const size_t deviceIndex,
         defaultConf["frame"]["throttleFpsIfHigherThan"];
     throttleFpsIfHigherThan = conf["frame"]["throttleFpsIfHigherThan"];
     // throttleFpsIfHigherThan is duplicated as it is on the critical path.
-    if (!conf.contains("/frame/overlayTextFontScale"_json_pointer))
-        conf["frame"]["overlayTextFontScale"] =
-            defaultConf["frame"]["overlayTextFontScale"];
+    if (!conf.contains("/frame/textOverlay/enabled"_json_pointer))
+        conf["frame"]["textOverlay"]["enabled"] =
+            defaultConf["frame"]["textOverlay"]["enabled"];
+    textOverlayEnabled = conf["frame"]["textOverlay"]["enabled"];
+    if (!conf.contains("/frame/textOverlay/fontScale"_json_pointer))
+        conf["frame"]["textOverlay"]["fontScale"] =
+            defaultConf["frame"]["textOverlay"]["fontScale"];
+    textOverlayFontSacle = conf["frame"]["textOverlay"]["fontScale"];
     
 
     // =====  snapshot =====
-    snapshotPath = overrideConf.contains("/snapshot/path"_json_pointer) ?
-        overrideConf["snapshot"]["path"] : defaultConf["snapshot"]["path"];
-    snapshotPath = evaluateStaticVariables(snapshotPath);
-    snapshotFrameInterval = overrideConf.contains("/snapshot/frameInterval"_json_pointer) ?
-        overrideConf["snapshot"]["frameInterval"] : defaultConf["snapshot"]["frameInterval"];
+    cout << !conf.contains("/snapshot/frameInterval"_json_pointer) << endl;
+    if (!conf.contains("/snapshot/frameInterval"_json_pointer)) {
+        conf["snapshot"]["frameInterval"] =
+            defaultConf["snapshot"]["frameInterval"];
+    }
+    snapshotFrameInterval = conf["snapshot"]["frameInterval"];
+    if (!conf.contains("/snapshot/ipc/switch/http"_json_pointer)) {
+        conf["snapshot"]["ipc"]["switch"]["http"] =
+            defaultConf["snapshot"]["ipc"]["switch"]["http"];
+    }
+    snapshotIpcHttpEnabled = conf["snapshot"]["ipc"]["switch"]["http"];
+    if (!conf.contains("/snapshot/ipc/switch/file"_json_pointer)) {
+        conf["snapshot"]["ipc"]["switch"]["file"] =
+            defaultConf["snapshot"]["ipc"]["switch"]["file"];
+    }
+    snapshotIpcFileEnabled = conf["snapshot"]["ipc"]["switch"]["file"];
+    if (snapshotIpcFileEnabled) {
+        if (!conf.contains("/snapshot/ipc/file/path"_json_pointer)) {
+            conf["snapshot"]["ipc"]["file"]["path"] =
+                defaultConf["snapshot"]["ipc"]["file"]["path"];
+        }      
+        snapshotIpcFilePath = evaluateStaticVariables(
+            conf["snapshot"]["ipc"]["file"]["path"]);
+    }
+    
 
     // ===== events =====
     if (!conf.contains("/events/onVideoStarts"_json_pointer))
@@ -193,18 +218,20 @@ void deviceManager::overlayDatetime(Mat& frame) {
     if (timestampOnDeviceOffline.size() > 0) {
         ts += " (Offline since " + timestampOnDeviceOffline + ")";
     }
-    cv::Size textSize = getTextSize(ts, FONT_HERSHEY_DUPLEX, fontScale,
-        8 * fontScale, nullptr);
+    cv::Size textSize = getTextSize(ts, FONT_HERSHEY_DUPLEX,
+        textOverlayFontSacle, 8 * textOverlayFontSacle, nullptr);
     putText(frame, ts, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
-        fontScale, Scalar(0,  0,  0  ), 8 * fontScale, LINE_AA, false);
+        textOverlayFontSacle, Scalar(0,  0,  0  ), 8 * textOverlayFontSacle,
+        LINE_AA, false);
     putText(frame, ts, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
-        fontScale, Scalar(255,255,255), 2 * fontScale, LINE_AA, false);
+        textOverlayFontSacle, Scalar(255,255,255), 2 * textOverlayFontSacle,
+        LINE_AA, false);
     /*
     void cv::putText 	(InputOutputArray  	img,
                         const String &  	text,
                         Point  	org,
                         int  	fontFace,
-                        double  	fontScale,
+                        double  	textOverlayFontSacle,
                         Scalar  	color,
                         int  	thickness = 1,
                         int  	lineType = LINE_8,
@@ -216,7 +243,9 @@ void deviceManager::overlayDatetime(Mat& frame) {
 float deviceManager::getFrameChanges(Mat& prevFrame, Mat& currFrame,
     Mat* diffFrame) {
     if (prevFrame.empty() || currFrame.empty()) { return -1; }
-    if (prevFrame.cols != currFrame.cols || prevFrame.rows != currFrame.rows) { return -1; }
+    if (prevFrame.cols != currFrame.cols || prevFrame.rows != currFrame.rows) {
+        return -1;
+    }
     if (prevFrame.cols == 0 || prevFrame.rows == 0) { return -1; }
     
     absdiff(prevFrame, currFrame, *diffFrame);
@@ -228,11 +257,16 @@ float deviceManager::getFrameChanges(Mat& prevFrame, Mat& currFrame,
 
 void deviceManager::overlayDeviceName(Mat& frame) {
 
-    cv::Size textSize = getTextSize(deviceName, FONT_HERSHEY_DUPLEX, fontScale, 8 * fontScale, nullptr);
-    putText(frame, deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5), 
-            FONT_HERSHEY_DUPLEX, fontScale, Scalar(0,  0,  0  ), 8 * fontScale, LINE_AA, false);
-    putText(frame, deviceName, Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
-            FONT_HERSHEY_DUPLEX, fontScale, Scalar(255,255,255), 2 * fontScale, LINE_AA, false);
+    cv::Size textSize = getTextSize(deviceName, FONT_HERSHEY_DUPLEX,
+        textOverlayFontSacle, 8 * textOverlayFontSacle, nullptr);
+    putText(frame, deviceName,
+        Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
+        FONT_HERSHEY_DUPLEX, textOverlayFontSacle,
+        Scalar(0,  0,  0  ), 8 * textOverlayFontSacle, LINE_AA, false);
+    putText(frame, deviceName,
+        Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
+        FONT_HERSHEY_DUPLEX, textOverlayFontSacle, Scalar(255,255,255),
+        2 * textOverlayFontSacle, LINE_AA, false);
 }
 
 void deviceManager::overlayChangeRate(Mat& frame, float changeRate,
@@ -243,11 +277,12 @@ void deviceManager::overlayChangeRate(Mat& frame, float changeRate,
     putText(frame, ssChangeRate.str() + "% (" +
         to_string(cooldown) + ", " +
         to_string(conf["motionDetection"]["videoRecording"]["maxFramesPerVideo"].get<int64_t>() - videoFrameCount) + ")", 
-        Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, fontScale,
-        Scalar(0,   0,   0  ), 8 * fontScale, LINE_AA, false);
+        Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, textOverlayFontSacle,
+        Scalar(0,   0,   0  ), 8 * textOverlayFontSacle, LINE_AA, false);
     putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ", " +
         to_string(conf["motionDetection"]["videoRecording"]["maxFramesPerVideo"].get<int64_t>() - videoFrameCount) + ")",
-        Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, fontScale, Scalar(255, 255, 255), 2 * fontScale, LINE_AA, false);
+        Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, textOverlayFontSacle,
+            Scalar(255, 255, 255), 2 * textOverlayFontSacle, LINE_AA, false);
 }
 
 void deviceManager::overlayContours(Mat& dispFrame, Mat& diffFrame) {
@@ -258,7 +293,8 @@ void deviceManager::overlayContours(Mat& dispFrame, Mat& diffFrame) {
     findContours(diffFrame, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE );
     int idx = 0;
     for( ; idx >= 0; idx = hierarchy[idx][0] ) {
-        cv::drawContours(dispFrame, contours, idx, Scalar(255, 255, 255), 0.25, 8, hierarchy);
+        cv::drawContours(dispFrame, contours, idx,
+            Scalar(255, 255, 255), 0.25, 8, hierarchy);
     }
 }
 
@@ -347,7 +383,9 @@ void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
             vector<string> args;
             args.reserve(conf["events"]["onVideoStarts"].size());
             for (size_t i = 0; i < conf["events"]["onVideoStarts"].size(); ++i) {
-                args.push_back(evaluateVideoSpecficVariables(conf["events"]["onVideoStarts"][i]));
+                args.push_back(
+                    evaluateVideoSpecficVariables(
+                        conf["events"]["onVideoStarts"][i]));
             }
             spdlog::info("[{}] motion detected, video recording begins", deviceName);
             execAsync((void*)this, args, asyncExecCallback);
@@ -374,8 +412,10 @@ void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
             command,
             VideoWriter::fourcc('a','v','c','1'),
             conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["fps"],
-            Size(conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["width"],
-            conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["height"]));
+            Size(
+                conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["width"],
+                conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["height"]
+            ));
     } else {
         // Use external encoder to encode video
         extRawVideoPipePtr = popen((command).c_str(), "w");
@@ -388,9 +428,13 @@ void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
 }
 
 void deviceManager::getLiveImage(vector<uint8_t>& pl) {
-    pthread_mutex_lock(&mutexLiveImage);
-    pl = encodedJpgImage;
-    pthread_mutex_unlock(&mutexLiveImage);
+    if (encodedJpgImage.size() > 0) {
+        pthread_mutex_lock(&mutexLiveImage);
+        pl = encodedJpgImage;
+        pthread_mutex_unlock(&mutexLiveImage);
+    } else {
+        pl = vector<uint8_t>();
+    }
 }
 
 void deviceManager::generateBlankFrameAt1Fps(Mat& currFrame,
@@ -480,9 +524,33 @@ void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
         cap.set(CAP_PROP_FPS, conf["frame"]["preferredFps"]);
 }
 
+void deviceManager::prepareDataForIpc(queue<cv::Mat>& dispFrames) {
+    if (snapshotIpcHttpEnabled) {
+        pthread_mutex_lock(&mutexLiveImage);            
+        //vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
+        vector<int> configs = {};
+        imencode(".jpg", dispFrames.front(), encodedJpgImage, configs);
+        pthread_mutex_unlock(&mutexLiveImage);
+    }
+    // Profiling show that the above mutex section without actual
+    // waiting takes ~30 ms to complete, means that the CPU can only
+    // handle ~30 fps
+
+    // https://stackoverflow.com/questions/7054844/is-rename-atomic
+    // https://stackoverflow.com/questions/29261648/atomic-writing-to-file-on-linux            
+    if (snapshotIpcFileEnabled) {
+        ofstream fout(snapshotIpcFilePath + ".tmp", ios::out | ios::binary);
+        fout.write((char*)encodedJpgImage.data(), encodedJpgImage.size());
+        fout.close();
+        rename((snapshotIpcFilePath + ".tmp").c_str(),
+            snapshotIpcFilePath.c_str());
+    }
+    // profiling shows from ofstream fout()... to rename() takes
+    // less than 1 ms.
+}
+
 void deviceManager::InternalThreadEntry() {
 
-    vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
     queue<Mat> dispFrames;
     Mat prevFrame, currFrame, diffFrame;
     bool result = false;
@@ -518,7 +586,8 @@ void deviceManager::InternalThreadEntry() {
                 spdlog::error("[{}] Unable to cap.read() a new frame. "
                     "currFrame.empty(): {}, cap.isOpened(): {}. "
                     "Wait for {} frames than then re-open()...",
-                    deviceName, currFrame.empty(), cap.isOpened(), openRetryDelay);
+                    deviceName, currFrame.empty(), cap.isOpened(),
+                    openRetryDelay);
 entryPoint:
                 initializeDevice(cap, result, actualFrameSize);
                 if (retrievedFrameCount == 0) { continue; }
@@ -548,28 +617,15 @@ entryPoint:
             overlayContours(dispFrames.back(), diffFrame);
             // CPU-intensive! Use with care!
         }
-        overlayChangeRate(
-            dispFrames.back(), rateOfChange, cooldown, videoFrameCount);
-        overlayDatetime(dispFrames.back());    
-        overlayDeviceName(dispFrames.back());
+        if (textOverlayEnabled) {
+            overlayChangeRate(
+                dispFrames.back(), rateOfChange, cooldown, videoFrameCount);
+            overlayDatetime(dispFrames.back());    
+            overlayDeviceName(dispFrames.back());
+        }
         
         if (retrievedFrameCount % snapshotFrameInterval == 0) {
-            pthread_mutex_lock(&mutexLiveImage);            
-            imencode(".jpg", dispFrames.front(), encodedJpgImage, configs);
-            pthread_mutex_unlock(&mutexLiveImage);
-            // Profiling show that the above mutex section without actual
-            // waiting takes ~30 ms to complete, means that the CPU can only
-            // handle ~30 fps
-
-            // https://stackoverflow.com/questions/7054844/is-rename-atomic
-            // https://stackoverflow.com/questions/29261648/atomic-writing-to-file-on-linux            
-            ofstream fout(snapshotPath + ".tmp", ios::out | ios::binary);
-            fout.write((char*)encodedJpgImage.data(), encodedJpgImage.size());
-            fout.close();
-            rename((snapshotPath + ".tmp").c_str(), snapshotPath.c_str());
-            // profiling shows from ofstream fout()... to rename() takes
-            // less than 1 ms.
-
+            prepareDataForIpc(dispFrames);
         }
         
         if (motionDetectionMode == ALWAYS_RECORD ||
@@ -582,7 +638,8 @@ entryPoint:
 
         if (cooldown < 0) { continue; }
         if (cooldown == 0) { 
-            stopVideoRecording(extRawVideoPipePtr, vwriter, videoFrameCount, cooldown);
+            stopVideoRecording(extRawVideoPipePtr, vwriter,
+                videoFrameCount, cooldown);
             continue;
         } 
         if (!encoderUseExternal)  {

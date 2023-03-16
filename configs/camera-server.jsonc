@@ -18,10 +18,20 @@
 		"name": "Device-{{deviceIndex}}",
 		"uri": "/dev/video-{{deviceIndex}}.mp4",
 		"frame": {
-			// Setting this to a lower value to limit CPU usage
+			/* Setting this to a lower value to limit CPU usage. For example,
+			if the program can read 60 frames per sec from a deivce and
+			throttleFpsIfHigherThan is set to 10, the program roughly discards
+			5 in every 6 frames. Discarded frames are neither decompressed nor
+			decoded, saving a lot of CPU resource. */
 			"throttleFpsIfHigherThan": 30,
 			"rotation": -1,
-			"overlayTextFontScale": 1,
+			/* By default, Camera Server writes some basic information, such as
+			timestamp and device name, to each frame. Disable it if it is
+			undesired. */
+			"textOverlay": {
+				"enabled": true,
+				"fontScale": 1
+			},			
 			/* The below preferred values are directly sent to OpenCV. OpenCV (and
 			its back-end) may or may not hornor our request. Note that these
 			parameters do not control how videos are recorded, video recording
@@ -30,9 +40,33 @@
 			"preferredHeight": -1,
 			"preferredFps": 30
 		},
+		/* Apart from motion detection and video recording, Camera server
+		supports another important feature: It provides downsteam data 
+		uses (i.e., another program) with encoded JPEG image on a regular
+		basis. This function is called "snapshot". Camera server supports
+		a few common IPC method to share the JPEG image to other programs.*/
 		"snapshot": {
-			"path": "/tmp/snapshot-{{deviceIndex}}.jpg",
-			"frameInterval": 5
+			/* frameInterval is effective after frame.throttleFpsIfHigherThan is
+			applied. For example, if throttleFpsIfHigherThan is set to 30, and
+			frameInterval is set to 5, then the snapshot will be generated
+			every 150 frames read from the source device. */
+			"frameInterval": 5,
+			"ipc": {
+				"switch": {
+					"http": true,
+					"file": true
+				},
+				"file": {
+					"path": "/tmp/snapshot-{{deviceIndex}}.jpg"
+				},
+				"http": {
+					/* The path of HTTP request is not configurable, to access a
+					device, users should always use:
+					http(s)://interface:port/live_image/deviceId={{deviceIndex}} 
+					where interface, port, etc are configured in the httpService
+					section.*/
+				}
+			}
 		},
 		"motionDetection": {
 			/* Valid values are:

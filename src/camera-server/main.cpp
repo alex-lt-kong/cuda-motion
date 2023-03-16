@@ -31,10 +31,12 @@ string httpAuthenticate(const crow::request& req) {
     size_t found = d_mycreds.find(':');
     string username = d_mycreds.substr(0, found);
     string password = d_mycreds.substr(found+1);
-    if (!settings["httpService"]["httpAuthentication"]["accounts"].contains(username)) {
+    if (!settings["httpService"]["httpAuthentication"]["accounts"].contains(
+        username)) {
         return "";
     }
-    if (settings["httpService"]["httpAuthentication"]["accounts"][username] != password) {
+    if (settings["httpService"]["httpAuthentication"]["accounts"][username] !=
+        password) {
         return "";
     }
     return username;
@@ -126,29 +128,41 @@ void start_http_server() {
             "/live_image/?deviceId=0";
     });
 
-    CROW_ROUTE(app, "/live_image/").CROW_MIDDLEWARES(app, httpAuthMiddleware)([](
-        const crow::request& req, crow::response& res) {
-        if (req.url_params.get("deviceId") == nullptr) {
-            res.code = 400;
-            res.end(crow::json::wvalue({
-                {"status", "error"}, {"data", "deviceId not specified"}
-            }).dump());
-            return;
-        }
-        uint32_t deviceId = atoi(req.url_params.get("deviceId"));
-        if (deviceId > myDevices.size() - 1) {
-            res.code = 400;
-            res.end(crow::json::wvalue({
-                {"status", "error"},
-                {"data", "deviceId " + to_string(deviceId) + " is invalid"}
-            }).dump());
-            return;
-        }
-
-        res.set_header("Content-Type", "image/jpg");
-        vector<uint8_t> encodedImg;
-        myDevices[deviceId].getLiveImage(encodedImg);
-        res.end(string((char*)(encodedImg.data()), encodedImg.size()));
+    CROW_ROUTE(app, "/live_image/").CROW_MIDDLEWARES(app, httpAuthMiddleware)(
+        [](const crow::request& req, crow::response& res) {
+            if (req.url_params.get("deviceId") == nullptr) {
+                res.code = 400;
+                res.set_header("Content-Type", "application/json");
+                res.end(crow::json::wvalue({
+                    {"status", "error"}, {"data", "deviceId not specified"}
+                }).dump());
+                return;
+            }
+            uint32_t deviceId = atoi(req.url_params.get("deviceId"));
+            if (deviceId > myDevices.size() - 1) {
+                res.code = 400;
+                res.set_header("Content-Type", "application/json");
+                res.end(crow::json::wvalue({
+                    {"status", "error"},
+                    {"data", "deviceId " + to_string(deviceId) + " is invalid"}
+                }).dump());
+                return;
+            }            
+            vector<uint8_t> encodedImg;
+            myDevices[deviceId].getLiveImage(encodedImg);
+            if (encodedImg.size() > 0) {
+                res.set_header("Content-Type", "image/jpg");
+                res.end(string((char*)(encodedImg.data()), encodedImg.size()));
+            } else {
+                res.code = 404;
+                res.set_header("Content-Type", "application/json");
+                res.end(crow::json::wvalue({
+                    {"status", "error"},
+                    {"data", "Image data not found for deviceId " + 
+                        to_string(deviceId) +
+                        ". Perhaps http snapshot is disabled?"}
+                }).dump());
+            }
     });
 
     if (settings["httpService"]["ssl"]["enabled"]) {

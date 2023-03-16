@@ -95,7 +95,12 @@ private:
     njson conf;
     size_t deviceIndex = 0;
     string deviceName;
-    double fontScale = 1;
+
+    // frame variables
+    bool textOverlayEnabled;
+    double textOverlayFontSacle;
+    float throttleFpsIfHigherThan;
+    int frameIntervalInMs = 24;
 
     // motionDetection variables
     enum MotionDetectionMode motionDetectionMode;
@@ -111,12 +116,15 @@ private:
     uint32_t maxFramesPerVideo;
     size_t precaptureFrames;
 
-    int snapshotFrameInterval = 1;
-    float throttleFpsIfHigherThan;
-    int frameIntervalInMs = 24;
+    // snapshot variables
+    int snapshotFrameInterval;
+    bool snapshotIpcFileEnabled;
+    bool snapshotIpcHttpEnabled;
+    string snapshotIpcFilePath;
+    bool snapshotHttpFileEnabled;
+
     string timestampOnVideoStarts;
     string timestampOnDeviceOffline;
-    string snapshotPath;
     queue<long long int> frameTimestamps;
 
     volatile sig_atomic_t* done;
@@ -144,5 +152,7 @@ private:
     void deviceIsBackOnline(size_t& openRetryDelay, bool& isShowingBlankFrame);
     void initializeDevice(VideoCapture& cap, bool& result,
         const Size& actualFrameSize);
-    static void asyncExecCallback(void* This, string stdout, string stderr, int rc);
+    static void asyncExecCallback(void* This, string stdout, string stderr,
+        int rc);
+    void prepareDataForIpc(queue<cv::Mat>& dispFrames);
 };
