@@ -11,9 +11,9 @@
 using namespace std;
 
 enum MotionDetectionMode {
-  ALWAYS_RECORD = 2,
-  DETECT_MOTION = 1,  
-  DISABLED = 0
+  MODE_ALWAYS_RECORD = 2,
+  MODE_DETECT_MOTION = 1,  
+  MODE_DISABLED = 0
 };
 
 typedef void (*exec_cb)(void* This, string stdout, string stderr, int rc); // type for conciseness

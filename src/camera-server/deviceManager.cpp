@@ -65,8 +65,10 @@ void deviceManager::setParameters(const size_t deviceIndex,
     deviceName = conf["name"];
     // deviceName is duplicated as it is on the critical path.
 
+    // ===== frame =====
     if (!conf.contains("/frame/rotation"_json_pointer))
         conf["frame"]["rotation"] = defaultConf["frame"]["rotation"];
+    frameRotation = conf["frame"]["rotation"];
     if (!conf.contains("/frame/preferredWidth"_json_pointer))
         conf["frame"]["preferredWidth"] = defaultConf["frame"]["preferredWidth"];
     if (!conf.contains("/frame/preferredHeight"_json_pointer))
@@ -598,11 +600,11 @@ entryPoint:
             }
             actualFrameSize = currFrame.size();
         }
-        if (conf["frame"]["rotation"] != -1 && isShowingBlankFrame == false) {
-            rotate(currFrame, currFrame, conf["frame"]["rotation"]);
+        if (frameRotation != -1 && isShowingBlankFrame == false) {
+            rotate(currFrame, currFrame, frameRotation);
         }
 
-        if (motionDetectionMode == DETECT_MOTION &&
+        if (motionDetectionMode == MODE_DETECT_MOTION &&
             retrievedFrameCount % diffEveryNthFrame == 0) {
             // profiling shows this if() block takes around 1-2 ms
             rateOfChange = getFrameChanges(prevFrame, currFrame, &diffFrame);
@@ -613,7 +615,7 @@ entryPoint:
         if (dispFrames.size() > precaptureFrames) {
             dispFrames.pop();
         }
-        if (drawContours && motionDetectionMode == DETECT_MOTION) {
+        if (drawContours && motionDetectionMode == MODE_DETECT_MOTION) {
             overlayContours(dispFrames.back(), diffFrame);
             // CPU-intensive! Use with care!
         }
@@ -628,15 +630,18 @@ entryPoint:
             prepareDataForIpc(dispFrames);
         }
         
-        if (motionDetectionMode == ALWAYS_RECORD ||
+        if (motionDetectionMode == MODE_ALWAYS_RECORD ||
             (rateOfChange > frameDiffPercentageLowerLimit &&
-             rateOfChange < frameDiffPercentageUpperLimit)) {
+             rateOfChange < frameDiffPercentageUpperLimit &&
+             motionDetectionMode == MODE_DETECT_MOTION)) {
             startOrKeepVideoRecording(extRawVideoPipePtr, vwriter, cooldown);
         }
         
-        updateVideoCooldownAndVideoFrameCount(cooldown, videoFrameCount);
+        if (motionDetectionMode != MODE_DISABLED) {
+            updateVideoCooldownAndVideoFrameCount(cooldown, videoFrameCount);\
+        }
 
-        if (cooldown < 0) { continue; }
+        if (cooldown < 0 || motionDetectionMode == MODE_DISABLED) { continue; }
         if (cooldown == 0) { 
             stopVideoRecording(extRawVideoPipePtr, vwriter,
                 videoFrameCount, cooldown);

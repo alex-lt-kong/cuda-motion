@@ -31,7 +31,7 @@
 			"textOverlay": {
 				"enabled": true,
 				"fontScale": 1
-			},			
+			},
 			/* The below preferred values are directly sent to OpenCV. OpenCV (and
 			its back-end) may or may not hornor our request. Note that these
 			parameters do not control how videos are recorded, video recording

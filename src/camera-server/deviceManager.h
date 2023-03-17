@@ -101,6 +101,7 @@ private:
     double textOverlayFontSacle;
     float throttleFpsIfHigherThan;
     int frameIntervalInMs = 24;
+    int frameRotation;
 
     // motionDetection variables
     enum MotionDetectionMode motionDetectionMode;
