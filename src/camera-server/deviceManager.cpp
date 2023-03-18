@@ -513,7 +513,8 @@ void deviceManager::deviceIsBackOnline(size_t& openRetryDelay,
 
 void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     const Size& actualFrameSize) {
-    result = cap.open(conf["uri"].get<string>());
+    string uri = conf["uri"].get<string>();
+    result = cap.open(uri, cv::CAP_FFMPEG);
     spdlog::info("[{}] cap.open({}): {}", deviceName, conf["uri"].get<string>(),
         result);
     cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 
@@ -574,7 +575,10 @@ void deviceManager::InternalThreadEntry() {
        initializeDevice()...*/
     
     while (!_internalThreadShouldQuit) {
+        // profiling shows that cap.grab() can also be an expensive operation
+        // if the source uses HTTP protocol.
         result = cap.grab();
+        
         if (shouldFrameBeThrottled()) {continue; }
         if (result) {
             result = result && cap.retrieve(currFrame);
@@ -629,6 +633,10 @@ entryPoint:
         if (retrievedFrameCount % snapshotFrameInterval == 0) {
             prepareDataForIpc(dispFrames);
         }
+
+        if (motionDetectionMode == MODE_DISABLED) {
+            continue;
+        }
         
         if (motionDetectionMode == MODE_ALWAYS_RECORD ||
             (rateOfChange > frameDiffPercentageLowerLimit &&
@@ -637,11 +645,10 @@ entryPoint:
             startOrKeepVideoRecording(extRawVideoPipePtr, vwriter, cooldown);
         }
         
-        if (motionDetectionMode != MODE_DISABLED) {
-            updateVideoCooldownAndVideoFrameCount(cooldown, videoFrameCount);\
-        }
+        updateVideoCooldownAndVideoFrameCount(cooldown, videoFrameCount);
 
-        if (cooldown < 0 || motionDetectionMode == MODE_DISABLED) { continue; }
+
+        if (cooldown < 0) { continue; }
         if (cooldown == 0) { 
             stopVideoRecording(extRawVideoPipePtr, vwriter,
                 videoFrameCount, cooldown);
