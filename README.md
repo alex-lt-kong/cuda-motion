@@ -1,7 +1,16 @@
 # Camera server
 
 A C++17 project inspired by, similar to but simpler than
-[Motion](https://github.com/Motion-Project/motion) in C.
+[Motion](https://github.com/Motion-Project/motion).
+
+There are two main functions of this program:
+
+1. Detect image change (i.e., "motion") from a video feed and record videos
+during the periods when a motion event happens;
+1. Provide various inter-process communication methods for downstream
+programs to consume live images from different types of cameras easily,
+so that downstream programs don't have implement their own version of video
+feed handling repetitively.
 
 ## Dependencies
 
@@ -35,32 +44,3 @@ FFmpeg work with the GPU:
   performance to drop significantly, if two resolutions are needed, one
   should consider transcoding with scaling after the first and larger video
   is successfully encoded.
-
-## Useful Commands
-
-### 1. `v4l2-ctl`
-
-* List supported video devices: `v4l2-ctl --list-devices`
-* List supported resolutions of a video device: `v4l2-ctl --list-formats-ext --device <videoUri>`
-* Get pixel format from a video device: `v4l2-ctl --get-fmt-video --device <videoUri>`
-* Set pixel format to `MJPG` to a video device: `v4l2-ctl --set-fmt-video=pixelformat=MJPG --device <videoUri>`
-* Get all parameters `v4l2-ctl --get-parm --all --device <videoUri>`
-* Set a parameter: `v4l2-ctl --set-ctrl=<parameterName>=<parameterValue>`
-* Get framerate: `v4l2-ctl --get-parm --device <videoUri>`
-* Set framerate: `v4l2-ctl --set-parm=30 --device <videoUri>`
-
-### 2. `ffmpeg` and `ffprobe`
-
-#### Ascertain the `-pix_fmt` option is `ffmpeg` command
-
-* Seems that there isn't a credible way lol.
-* Issue `ffmpeg -pix_fmts` and try the results one by one.
-* Some options are more likely to be the right value than others, such as `yuv420p`, `yuyv422`, `bgr24`, `rgb24`.
-
-#### Ascertain the FPS of a video source
-```
-# ffprobe -v error -select_streams v -of default=noprint_wrappers=1:nokey=1 -show_entries stream=r_frame_rate <videoUri>
-25/1
-```
-* Note that this value may not be accurate for remote video sources.
-* A more accurate but less formal way is to simply observe the output from `ffmpeg` itself.
