@@ -30,6 +30,7 @@ deviceManager::deviceManager() {
         throw runtime_error("pthread_mutex_init() failed, errno: " +
             to_string(errno));
     }
+    spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
 }
 
 string deviceManager::evaluateVideoSpecficVariables(basic_string<char> originalString) {
@@ -513,8 +514,8 @@ void deviceManager::deviceIsBackOnline(size_t& openRetryDelay,
 
 void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     const Size& actualFrameSize) {
-    string uri = conf["uri"].get<string>();
-    result = cap.open(uri, cv::CAP_FFMPEG);
+    //result = cap.open(conf["uri"].get<string>(), cv::CAP_FFMPEG);
+    result = cap.open(conf["uri"].get<string>(), cv::CAP_FFMPEG);
     spdlog::info("[{}] cap.open({}): {}", deviceName, conf["uri"].get<string>(),
         result);
     cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 

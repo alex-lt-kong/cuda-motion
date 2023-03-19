@@ -177,10 +177,9 @@ void start_http_server() {
 }
 
 int main() {
-    app.stop();
+    // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
     spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
-    spdlog::info("Camera Server started");
-
+    spdlog::info("Camera Server started"); 
     register_signal_handlers();
     
     spdlog::info("cv::getBuildInformation(): {}", getBuildInformation());
@@ -203,7 +202,7 @@ int main() {
         myDevices[i].WaitForInternalEventLoopThreadToExit();
         spdlog::info("{}-th device thread exited gracefully", i);
     }
-    spdlog::info("All device threads exited gracefully");
+    spdlog::info("All device threads exited gracefully"); 
 
     return 0;  
 }

@@ -33,9 +33,13 @@
 				"fontScale": 1
 			},
 			/* The below preferred values are directly sent to OpenCV. OpenCV (and
-			its back-end) may or may not hornor our request. Note that these
-			parameters do not control how videos are recorded, video recording
-			are controlled by the motionDetection.videoRecording section below. */
+			its back-end) may or may not honor our request. Note that:
+			1. If OpenCV (or underlying video devices) don't honor our preference,
+			to avoid causing performance issue, Camera Server will not resize the
+			frame based on them;
+			2.  these parameters do not control how videos are recorded, video
+			recording are controlled by the motionDetection.videoRecording section
+			below. */
 			"preferredWidth": -1,
 			"preferredHeight": -1,
 			"preferredFps": 30

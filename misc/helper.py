@@ -1,7 +1,7 @@
 import cv2
 
 
-vid = cv2.VideoCapture('rtsp://localhost:8554/', cv2.CAP_FFMPEG)
+vid = cv2.VideoCapture('http://localhost:8554/', cv2.CAP_FFMPEG)
 
 while(True):
 
