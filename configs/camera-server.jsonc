@@ -61,7 +61,7 @@
 					"file": true
 				},
 				"file": {
-					"path": "/tmp/snapshot-{{timestamp}}.jpg"
+					"path": "/tmp/snapshot-{[deviceIndex}}at{{timestamp}}.jpg"
 				},
 				"http": {
 					/* The path of HTTP request is not configurable, to access a
