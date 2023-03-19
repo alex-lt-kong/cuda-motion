@@ -23,14 +23,14 @@
 			throttleFpsIfHigherThan is set to 10, the program roughly discards
 			5 in every 6 frames. Discarded frames are neither decompressed nor
 			decoded, saving a lot of CPU resource. */
-			"throttleFpsIfHigherThan": 1,
+			"throttleFpsIfHigherThan": 29.9,
 			"rotation": -1,
-			/* By default, Camera Server writes some basic information, such as
-			timestamp and device name, to each frame. Disable it if it is
-			undesired. */
 			"textOverlay": {
+				/* By default, Camera Server writes some basic information, such as
+				timestamp and device name, to each frame. Disable it if it is
+				undesired. */
 				"enabled": true,
-				"fontScale": 1
+				"fontScale": 1.0
 			},
 			/* The below preferred values are directly sent to OpenCV. OpenCV (and
 			its back-end) may or may not honor our request. Note that:

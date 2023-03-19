@@ -100,7 +100,6 @@ private:
     bool textOverlayEnabled;
     double textOverlayFontSacle;
     float throttleFpsIfHigherThan;
-    int frameIntervalInMs = 24;
     int frameRotation;
 
     // motionDetection variables
@@ -126,7 +125,7 @@ private:
 
     string timestampOnVideoStarts;
     string timestampOnDeviceOffline;
-    queue<long long int> frameTimestamps;
+    queue<int64_t> frameTimestamps;
 
     volatile sig_atomic_t* done;
     
@@ -144,7 +143,7 @@ private:
     void overlayDatetime(Mat& frame);
     void overlayDeviceName(Mat& frame);
     void overlayContours(Mat& dispFrame, Mat& diffFrame);
-    void overlayChangeRate(Mat& frame, float changeRate, int cooldown,
+    void overlayStats(Mat& frame, float changeRate, int cooldown,
         long long int videoFrameCount);
     float getFrameChanges(Mat& prevFrame, Mat& currFrame, Mat* diffFrame);
     void generateBlankFrameAt1Fps(Mat& currFrame, const Size& actualFrameSize);
@@ -156,4 +155,5 @@ private:
     static void asyncExecCallback(void* This, string stdout, string stderr,
         int rc);
     void prepareDataForIpc(queue<cv::Mat>& dispFrames);
+    float getCurrentFps(int64_t msSinceEpoch);
 };

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <errno.h>
 #include <fstream>
+#include <limits.h>
 #include <iomanip>
 #include <regex>
 #include <sstream>
@@ -57,7 +58,7 @@ void deviceManager::setParameters(const size_t deviceIndex,
 
     // Most config items will be directly used from njson object, however,
     // given performance concern, for items that are on the critical path,
-    //  we will duplicate them as class member variables
+    // we will duplicate them as class member variables
     this->deviceIndex = deviceIndex;
     conf = overrideConf;
     if (!conf.contains("/name"_json_pointer))
@@ -67,8 +68,6 @@ void deviceManager::setParameters(const size_t deviceIndex,
     if (!conf.contains("/uri"_json_pointer))
         conf["uri"] = defaultConf["uri"];
     conf["uri"] = evaluateStaticVariables(conf["uri"]);    
-
-    // deviceName is duplicated as it is on the critical path.
 
     // ===== frame =====
     if (!conf.contains("/frame/rotation"_json_pointer))
@@ -84,7 +83,6 @@ void deviceManager::setParameters(const size_t deviceIndex,
         conf["frame"]["throttleFpsIfHigherThan"] =
         defaultConf["frame"]["throttleFpsIfHigherThan"];
     throttleFpsIfHigherThan = conf["frame"]["throttleFpsIfHigherThan"];
-    // throttleFpsIfHigherThan is duplicated as it is on the critical path.
     if (!conf.contains("/frame/textOverlay/enabled"_json_pointer))
         conf["frame"]["textOverlay"]["enabled"] =
             defaultConf["frame"]["textOverlay"]["enabled"];
@@ -205,8 +203,6 @@ void deviceManager::setParameters(const size_t deviceIndex,
         conf["motionDetection"]["drawContours"] =
             defaultConf["motionDetection"]["drawContours"];
     drawContours = conf["motionDetection"]["drawContours"];
-
-    frameIntervalInMs = 1000 * (1.0 / throttleFpsIfHigherThan);
     
     spdlog::info("{}-th device to be used with the following configs:\n{}",
         deviceIndex, conf.dump(2));
@@ -276,18 +272,23 @@ void deviceManager::overlayDeviceName(Mat& frame) {
         2 * textOverlayFontSacle, LINE_AA, false);
 }
 
-void deviceManager::overlayChangeRate(Mat& frame, float changeRate,
+void deviceManager::overlayStats(Mat& frame, float changeRate,
     int cooldown, long long int videoFrameCount) {
-    int value = changeRate * 100;
-    stringstream ssChangeRate;
-    ssChangeRate << fixed << setprecision(2) << changeRate;
-    putText(frame, ssChangeRate.str() + "% (" +
-        to_string(cooldown) + ", " +
-        to_string(conf["motionDetection"]["videoRecording"]["maxFramesPerVideo"].get<int64_t>() - videoFrameCount) + ")", 
+    int64_t msSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
+        chrono::system_clock::now().time_since_epoch()).count();
+    ostringstream textToOverlay;
+    if (motionDetectionMode == MODE_DETECT_MOTION) {
+        textToOverlay << fixed << setprecision(2) << changeRate << "%, ";
+    }
+    textToOverlay << "fps: " << getCurrentFps(msSinceEpoch) << " ";
+    if (motionDetectionMode != MODE_DISABLED) {
+        textToOverlay << "(" << cooldown << ", "
+                      << maxFramesPerVideo - videoFrameCount << ")";
+    }
+    putText(frame, textToOverlay.str(), 
         Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, textOverlayFontSacle,
         Scalar(0,   0,   0  ), 8 * textOverlayFontSacle, LINE_AA, false);
-    putText(frame, ssChangeRate.str() + "% (" + to_string(cooldown) + ", " +
-        to_string(conf["motionDetection"]["videoRecording"]["maxFramesPerVideo"].get<int64_t>() - videoFrameCount) + ")",
+    putText(frame, textToOverlay.str(),
         Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, textOverlayFontSacle,
             Scalar(255, 255, 255), 2 * textOverlayFontSacle, LINE_AA, false);
 }
@@ -305,24 +306,38 @@ void deviceManager::overlayContours(Mat& dispFrame, Mat& diffFrame) {
     }
 }
 
+float deviceManager::getCurrentFps(int64_t msSinceEpoch) {
+    float fps = FLT_MAX;
+    if (msSinceEpoch - frameTimestamps.front() > 0) {
+        fps = 1000.0 * frameTimestamps.size() / (msSinceEpoch -
+            frameTimestamps.front());
+    }
+    return fps;
+}
+
 bool deviceManager::shouldFrameBeThrottled() {
+
     constexpr int sampleMsUpperLimit = 60 * 1000;
-    int currMsSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
+    int64_t msSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
         chrono::system_clock::now().time_since_epoch()).count();
     if (frameTimestamps.size() <= 1) { 
-        frameTimestamps.push(currMsSinceEpoch); 
+        frameTimestamps.push(msSinceEpoch); 
         return false;
     }
     
     // time complexity of frameTimestamps.size()/front()/back()/push()/pop()
     // are guaranteed to be O(1)
-    float fps = 1000.0 * frameTimestamps.size() / (1 + currMsSinceEpoch -
-        frameTimestamps.front());
-    if (currMsSinceEpoch - frameTimestamps.front() > sampleMsUpperLimit) {
+    if (msSinceEpoch - frameTimestamps.front() > sampleMsUpperLimit) {
         frameTimestamps.pop();
     }
-    if (fps > throttleFpsIfHigherThan) { return true; }
-    frameTimestamps.push(currMsSinceEpoch);  
+    // The logic is this:
+    // A timestamp is only added to the queue if it is not throttled.
+    // That is, if a frame is throttled, it will not be taking into account
+    // when we calculate Fps.
+    if (getCurrentFps(msSinceEpoch) > throttleFpsIfHigherThan) {
+        return true;
+    }
+    frameTimestamps.push(msSinceEpoch);  
     return false;
 }
 
@@ -628,13 +643,13 @@ entryPoint:
             // CPU-intensive! Use with care!
         }
         if (textOverlayEnabled) {
-            overlayChangeRate(
+            overlayStats(
                 dispFrames.back(), rateOfChange, cooldown, videoFrameCount);
             overlayDatetime(dispFrames.back());    
             overlayDeviceName(dispFrames.back());
         }
         
-        if (retrievedFrameCount % snapshotFrameInterval == 0) {
+        if ((retrievedFrameCount - 1) % snapshotFrameInterval == 0) {
             prepareDataForIpc(dispFrames);
         }
 
