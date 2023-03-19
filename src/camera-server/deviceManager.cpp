@@ -280,7 +280,8 @@ void deviceManager::overlayStats(Mat& frame, float changeRate,
     if (motionDetectionMode == MODE_DETECT_MOTION) {
         textToOverlay << fixed << setprecision(2) << changeRate << "%, ";
     }
-    textToOverlay << "fps: " << getCurrentFps(msSinceEpoch) << " ";
+    textToOverlay << "fps: " << fixed << setprecision(1)
+                  << getCurrentFps(msSinceEpoch) << " ";
     if (motionDetectionMode != MODE_DISABLED) {
         textToOverlay << "(" << cooldown << ", "
                       << maxFramesPerVideo - videoFrameCount << ")";
