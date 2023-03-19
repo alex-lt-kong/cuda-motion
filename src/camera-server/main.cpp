@@ -182,7 +182,7 @@ int main() {
     spdlog::info("Camera Server started"); 
     register_signal_handlers();
     
-    spdlog::info("cv::getBuildInformation(): {}", getBuildInformation());
+    spdlog::info("cv::getBuildInformation(): {}", string(getBuildInformation()));
 
     settings = load_settings();
 

@@ -16,14 +16,14 @@
 	},
 	"devicesDefault": {
 		"name": "Device-{{deviceIndex}}",
-		"uri": "/dev/video-{{deviceIndex}}.mp4",
+		"uri": "/dev/video{{deviceIndex}}",
 		"frame": {
 			/* Setting this to a lower value to limit CPU usage. For example,
 			if the program can read 60 frames per sec from a deivce and
 			throttleFpsIfHigherThan is set to 10, the program roughly discards
 			5 in every 6 frames. Discarded frames are neither decompressed nor
 			decoded, saving a lot of CPU resource. */
-			"throttleFpsIfHigherThan": 30,
+			"throttleFpsIfHigherThan": 1,
 			"rotation": -1,
 			/* By default, Camera Server writes some basic information, such as
 			timestamp and device name, to each frame. Disable it if it is
@@ -61,7 +61,7 @@
 					"file": true
 				},
 				"file": {
-					"path": "/tmp/snapshot-{{deviceIndex}}.jpg"
+					"path": "/tmp/snapshot-{{timestamp}}.jpg"
 				},
 				"http": {
 					/* The path of HTTP request is not configurable, to access a
@@ -126,5 +126,9 @@
 		}
 		
 	},
-	"devices": []
+	"devices": [
+		/* A pair of braces ({}) means we have one device, but we want
+		to leave all the settings to default. */
+		{} 
+	]
 }

@@ -33,12 +33,14 @@ deviceManager::deviceManager() {
     spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
 }
 
-string deviceManager::evaluateVideoSpecficVariables(basic_string<char> originalString) {
+string deviceManager::evaluateVideoSpecficVariables(
+    basic_string<char> originalString) {
     string filledString = regex_replace(originalString,
-        regex(R"(\{\{timestampOnVideoStarts\}\})"), timestampOnVideoStarts);
-    
+        regex(R"(\{\{timestampOnVideoStarts\}\})"), timestampOnVideoStarts);    
     filledString = regex_replace(filledString,
         regex(R"(\{\{timestampOnDeviceOffline\}\})"), timestampOnDeviceOffline);
+    filledString = regex_replace(filledString,
+        regex(R"(\{\{timestamp\}\})"), getCurrentTimestamp());
     return filledString;
 }
 
@@ -56,14 +58,16 @@ void deviceManager::setParameters(const size_t deviceIndex,
     // Most config items will be directly used from njson object, however,
     // given performance concern, for items that are on the critical path,
     //  we will duplicate them as class member variables
-    this->deviceIndex = deviceIndex;    
+    this->deviceIndex = deviceIndex;
     conf = overrideConf;
-    if (!conf.contains("uri")) conf["uri"] = defaultConf["uri"];
-    conf["uri"] = evaluateStaticVariables(conf["uri"]);    
-
-    if (!conf.contains("name")) conf["name"] = defaultConf["name"];
+    if (!conf.contains("/name"_json_pointer))
+        conf["name"] = defaultConf["name"];
     conf["name"] = evaluateStaticVariables(conf["name"]);  
     deviceName = conf["name"];
+    if (!conf.contains("/uri"_json_pointer))
+        conf["uri"] = defaultConf["uri"];
+    conf["uri"] = evaluateStaticVariables(conf["uri"]);    
+
     // deviceName is duplicated as it is on the critical path.
 
     // ===== frame =====
@@ -514,8 +518,7 @@ void deviceManager::deviceIsBackOnline(size_t& openRetryDelay,
 
 void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     const Size& actualFrameSize) {
-    //result = cap.open(conf["uri"].get<string>(), cv::CAP_FFMPEG);
-    result = cap.open(conf["uri"].get<string>(), cv::CAP_FFMPEG);
+    result = cap.open(conf["uri"].get<string>());
     spdlog::info("[{}] cap.open({}): {}", deviceName, conf["uri"].get<string>(),
         result);
     cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 
@@ -529,13 +532,13 @@ void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
 }
 
 void deviceManager::prepareDataForIpc(queue<cv::Mat>& dispFrames) {
-    if (snapshotIpcHttpEnabled) {
-        pthread_mutex_lock(&mutexLiveImage);            
-        //vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
-        vector<int> configs = {};
-        imencode(".jpg", dispFrames.front(), encodedJpgImage, configs);
-        pthread_mutex_unlock(&mutexLiveImage);
-    }
+
+    pthread_mutex_lock(&mutexLiveImage);            
+    //vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
+    vector<int> configs = {};
+    imencode(".jpg", dispFrames.front(), encodedJpgImage, configs);
+    pthread_mutex_unlock(&mutexLiveImage);
+
     // Profiling show that the above mutex section without actual
     // waiting takes ~30 ms to complete, means that the CPU can only
     // handle ~30 fps
@@ -543,11 +546,11 @@ void deviceManager::prepareDataForIpc(queue<cv::Mat>& dispFrames) {
     // https://stackoverflow.com/questions/7054844/is-rename-atomic
     // https://stackoverflow.com/questions/29261648/atomic-writing-to-file-on-linux            
     if (snapshotIpcFileEnabled) {
-        ofstream fout(snapshotIpcFilePath + ".tmp", ios::out | ios::binary);
+        string sp = evaluateVideoSpecficVariables(snapshotIpcFilePath);
+        ofstream fout(sp + ".tmp", ios::out | ios::binary);
         fout.write((char*)encodedJpgImage.data(), encodedJpgImage.size());
         fout.close();
-        rename((snapshotIpcFilePath + ".tmp").c_str(),
-            snapshotIpcFilePath.c_str());
+        rename((sp + ".tmp").c_str(), sp.c_str());
     }
     // profiling shows from ofstream fout()... to rename() takes
     // less than 1 ms.

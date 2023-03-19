@@ -4,6 +4,7 @@ project(CAMERA_SERVER)
 
 set (CMAKE_CXX_STANDARD 17)
 
+find_package(nlohmann_json CONFIG REQUIRED)
 
 find_library(SPDLOG_LIB spdlog)
 if(NOT SPDLOG_LIB)
