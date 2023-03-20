@@ -190,11 +190,13 @@ int main() {
     if (deviceCount == 0) {
         throw logic_error("No devices are defined.");
     }
-    myDevices = vector<deviceManager>(deviceCount, deviceManager());
+    myDevices = vector<deviceManager>();
+    myDevices.reserve(deviceCount);
     for (size_t i = 0; i < deviceCount; ++i) {
-        myDevices[i].setParameters(i, settings["devicesDefault"],
+        myDevices.emplace_back(i, settings["devicesDefault"],
             settings["devices"][i]);
-        myDevices[i].StartInternalEventLoopThread();
+        // variadic templates and perfect forwarding come to the rescue!
+        myDevices.back().StartInternalEventLoopThread();
     }
 
     start_http_server();

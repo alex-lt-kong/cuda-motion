@@ -43,6 +43,9 @@ feed handling repetitively.
     should consider transcoding with scaling after the first and larger video
     is successfully encoded.
 
-## Deployment
+## Build and Deployment
 
+* The program is tested on Debian and should work on other distributions
+or POSIX-compliant OSes. However, given that it uses quite a few POSIX APIs,
+it is unlikely that it could run on Windows without significant porting effort.
 * Copy `./configs/camera-server.jsonc` to `~/.configs/ak-studio`.

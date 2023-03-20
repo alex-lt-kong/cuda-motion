@@ -1,14 +1,15 @@
 #include <arpa/inet.h>
 #include <chrono>
 #include <ctime>
-#include <filesystem>
-#include <iostream>
 #include <errno.h>
 #include <fstream>
+#include <filesystem>
+#include <iostream>
 #include <limits.h>
 #include <iomanip>
 #include <regex>
 #include <sstream>
+#include <sys/mman.h>
 #include <sys/socket.h>
 
 #include <spdlog/spdlog.h>
@@ -19,17 +20,66 @@ using sysclock_t = std::chrono::system_clock;
 
 string deviceManager::getCurrentTimestamp() {
     time_t now = sysclock_t::to_time_t(sysclock_t::now());
-    //"19700101_000000"
-    char buf[16] = { 0 };
-    strftime(buf, sizeof(buf), "%Y%m%d-%H%M%S", localtime(&now));
+    string ts = "19700101-000000";
+    strftime(ts.data(), ts.size() + 1, "%Y%m%d-%H%M%S", localtime(&now));
     // https://www.cplusplus.com/reference/ctime/strftime/
-    return string(buf);
+    return ts;
+    // move constructor? No, most likely it is Copy elision/RVO
 }
 
-deviceManager::deviceManager() {
-    if (pthread_mutex_init(&mutexLiveImage, NULL) != 0) {
-        throw runtime_error("pthread_mutex_init() failed, errno: " +
-            to_string(errno));
+deviceManager::deviceManager(const size_t deviceIndex,
+    const njson& defaultConf, njson& overrideConf) {
+    setParameters(deviceIndex, defaultConf, overrideConf);
+    if (snapshotIpcHttpEnabled) {
+        if (pthread_mutex_init(&mutexLiveImage, NULL) != 0) {
+            throw runtime_error("pthread_mutex_init() failed, errno: " +
+                to_string(errno));
+        }
+    }
+    if (snapshotIpcSharedMemEnabled) {
+        // Should have used multiple RAII classes to handle this but...
+        sharedMemName = evaluateStaticVariables(
+            conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"]);
+        int shmFd = shm_open(sharedMemName.c_str(), O_RDWR | O_CREAT, PERMS);
+        if (shmFd < 0) {
+            if (snapshotIpcHttpEnabled)
+                pthread_mutex_destroy(&mutexLiveImage);
+            throw runtime_error("shm_open() failed, errno: " +
+                to_string(errno));
+        }
+        sharedMemSize = conf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"];
+        ftruncate(shmFd, sharedMemSize);  /* it means something similar to malloc() */
+        memPtr = mmap(NULL, sharedMemSize, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+        if (memPtr == MAP_FAILED) {
+            if (snapshotIpcHttpEnabled)
+                pthread_mutex_destroy(&mutexLiveImage);     
+            // seems we only need to shm_unlink(), but don't need to close();
+            if (shm_unlink(sharedMemName.c_str()) != 0)
+                spdlog::error("shm_unlink() failed: {}, "
+                    "but there is nothing we can do", errno);
+            throw runtime_error("mmap() failed, errno: " + to_string(errno));
+        }
+        semaphoreName = evaluateStaticVariables(
+                conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"]);
+        semPtr = sem_open(semaphoreName.c_str(),
+            O_CREAT, PERMS, SEM_INITIAL_VALUE);
+
+        
+        if (semPtr == SEM_FAILED) {
+            if (snapshotIpcHttpEnabled)
+                pthread_mutex_destroy(&mutexLiveImage);
+            
+            if (munmap(memPtr, sharedMemSize) != 0) {
+                spdlog::error("munmap() failed: {}, "
+                    "but there is nothing we can do", errno);
+            }
+            // seems we only need to shm_unlink(), but don't need to close();
+            if (shm_unlink(sharedMemName.c_str()) != 0) {
+                spdlog::error("shm_unlink() failed: {}, "
+                    "but there is nothing we can do", errno);
+            }
+            throw runtime_error("sem_open() failed, errno: " + to_string(errno));
+        }
     }
     spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
 }
@@ -94,7 +144,6 @@ void deviceManager::setParameters(const size_t deviceIndex,
     
 
     // =====  snapshot =====
-    cout << !conf.contains("/snapshot/frameInterval"_json_pointer) << endl;
     if (!conf.contains("/snapshot/frameInterval"_json_pointer)) {
         conf["snapshot"]["frameInterval"] =
             defaultConf["snapshot"]["frameInterval"];
@@ -109,6 +158,7 @@ void deviceManager::setParameters(const size_t deviceIndex,
         conf["snapshot"]["ipc"]["switch"]["file"] =
             defaultConf["snapshot"]["ipc"]["switch"]["file"];
     }
+
     snapshotIpcFileEnabled = conf["snapshot"]["ipc"]["switch"]["file"];
     if (snapshotIpcFileEnabled) {
         if (!conf.contains("/snapshot/ipc/file/path"_json_pointer)) {
@@ -118,7 +168,26 @@ void deviceManager::setParameters(const size_t deviceIndex,
         snapshotIpcFilePath = evaluateStaticVariables(
             conf["snapshot"]["ipc"]["file"]["path"]);
     }
-    
+
+    if (!conf.contains("/snapshot/ipc/switch/sharedMem"_json_pointer)) {
+        conf["snapshot"]["ipc"]["switch"]["sharedMem"] =
+            defaultConf["snapshot"]["ipc"]["switch"]["sharedMem"];
+    }
+    snapshotIpcSharedMemEnabled = conf["snapshot"]["ipc"]["switch"]["sharedMem"];
+    if (snapshotIpcSharedMemEnabled) {
+        if (!conf.contains("/snapshot/ipc/sharedMem/semaphoreName"_json_pointer)) {
+            conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"] =
+                defaultConf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"];
+        }
+        if (!conf.contains("/snapshot/ipc/sharedMem/sharedMemName"_json_pointer)) {
+            conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"] =
+                defaultConf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"];
+        }
+        if (!conf.contains("/snapshot/ipc/sharedMem/sharedMemSize"_json_pointer)) {
+            conf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"] =
+                defaultConf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"];
+        }
+    }
 
     // ===== events =====
     if (!conf.contains("/events/onVideoStarts"_json_pointer))
@@ -209,7 +278,38 @@ void deviceManager::setParameters(const size_t deviceIndex,
 }
 
 deviceManager::~deviceManager() {
-    pthread_mutex_destroy(&mutexLiveImage);
+    if (snapshotIpcHttpEnabled) {
+        pthread_mutex_destroy(&mutexLiveImage); 
+    }
+    if (snapshotIpcSharedMemEnabled) {
+        // unlink and close() are both needed: unlink only disassociates the
+        // name from the underlying semaphore object, but the semaphore object
+        // is not gone. It will only be gone when we close() it.
+        if (sem_unlink(semaphoreName.c_str()) != 0) {
+            spdlog::error("sem_unlink() failed: {}, "
+                "but there is nothing we can do", errno);
+        }
+        if (sem_close(semPtr) != 0) {
+            spdlog::error("sem_close() failed: {}, "
+                "but there is nothing we can do", errno);
+        }
+        if (sem_unlink(semaphoreName.c_str()) != 0) {
+            spdlog::error("sem_unlink() failed: {}, "
+                "but there is nothing we can do", errno);
+        }
+        if (munmap(memPtr, sharedMemSize) != 0) {
+            spdlog::error("munmap() failed: {}, "
+                "but there is nothing we can do", errno);
+        }
+        if (shm_unlink(sharedMemName.c_str()) != 0) {
+            spdlog::error("shm_unlink() failed: {}, "
+                "but there is nothing we can do", errno);
+        }
+        if (close(shmFd) != 0) {
+            spdlog::error("close() failed: {}, "
+                "but there is nothing we can do", errno);
+        }
+    }
 }
 
 void deviceManager::overlayDatetime(Mat& frame) {
@@ -548,12 +648,15 @@ void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
 }
 
 void deviceManager::prepareDataForIpc(queue<cv::Mat>& dispFrames) {
-
-    pthread_mutex_lock(&mutexLiveImage);            
     //vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
     vector<int> configs = {};
-    imencode(".jpg", dispFrames.front(), encodedJpgImage, configs);
-    pthread_mutex_unlock(&mutexLiveImage);
+    if (snapshotIpcHttpEnabled) {
+        pthread_mutex_lock(&mutexLiveImage);
+        imencode(".jpg", dispFrames.front(), encodedJpgImage, configs);
+        pthread_mutex_unlock(&mutexLiveImage);
+    } else {
+        imencode(".jpg", dispFrames.front(), encodedJpgImage, configs);
+    }
 
     // Profiling show that the above mutex section without actual
     // waiting takes ~30 ms to complete, means that the CPU can only
@@ -567,9 +670,22 @@ void deviceManager::prepareDataForIpc(queue<cv::Mat>& dispFrames) {
         fout.write((char*)encodedJpgImage.data(), encodedJpgImage.size());
         fout.close();
         rename((sp + ".tmp").c_str(), sp.c_str());
+        // profiling shows from ofstream fout()... to rename() takes
+        // less than 1 ms.
     }
-    // profiling shows from ofstream fout()... to rename() takes
-    // less than 1 ms.
+
+    if (snapshotIpcSharedMemEnabled) {
+        if (sem_wait(semPtr) != 0) {
+            spdlog::error("[{}] sem_wait() failed: {}", deviceName, errno);
+        } else {
+            size_t s = encodedJpgImage.size();
+            memcpy(memPtr, &s, sizeof(size_t));
+            memcpy((uint8_t*)memPtr + sizeof(size_t), encodedJpgImage.data(), encodedJpgImage.size());
+            if (sem_post(semPtr) != 0) {
+                spdlog::error("[{}] sem_post() failed: {}", deviceName, errno);
+            }
+        }
+    }
 }
 
 void deviceManager::InternalThreadEntry() {

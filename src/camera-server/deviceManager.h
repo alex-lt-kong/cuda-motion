@@ -1,8 +1,11 @@
+#include <linux/stat.h>
 #include <string>
+#include <pthread.h>
 #include <queue>
+#include <semaphore.h>
 #include <sys/time.h>
 #include <signal.h>
-#include <pthread.h>
+
 
 #include <nlohmann/json.hpp>
 #include <opencv2/core/core.hpp>
@@ -15,6 +18,8 @@ using namespace std;
 using namespace cv;
 using njson = nlohmann::json;
 
+#define PERMS (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)
+#define SEM_INITIAL_VALUE 1
 
 // This multithreading model is inspired by:
 // https://stackoverflow.com/questions/1151582/pthread-function-from-a-class
@@ -79,7 +84,7 @@ private:
 class deviceManager : public MyEventLoopThread {
 
 public:
-    deviceManager();
+    deviceManager(const size_t deviceIndex, const njson& defaultConf, njson& overrideConf);
     ~deviceManager();
     void setParameters(const size_t deviceIndex, const njson& defaultConf,
         njson& overrideConf);
@@ -122,6 +127,14 @@ private:
     bool snapshotIpcHttpEnabled;
     string snapshotIpcFilePath;
     bool snapshotHttpFileEnabled;
+    bool snapshotIpcSharedMemEnabled;
+    int shmFd;
+    size_t sharedMemSize;
+    string sharedMemName;
+    string semaphoreName;
+    void* memPtr;
+    sem_t* semPtr;
+
 
     string timestampOnVideoStarts;
     string timestampOnDeviceOffline;
