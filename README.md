@@ -18,7 +18,8 @@ feed handling repetitively.
   * `Asio`, an  asynchronous mode used by Crow:  `apt install libasio-dev`
   * `OpenSSL`, for SSL support: `apt-get install libssl-dev`
 * `nlohmann-json3 (>= 3.9)`, JSON support: `apt install nlohmann-json3-dev`
-* `opencv`, for frame manipulation: `apt install libopencv-dev`.
+* `opencv`, for frame manipulation: `apt install libopencv-dev`
+* `spdlog` for logging: `apt install libspdlog-dev`
 * `v4l-utils`: for manually examining and manipulating local video devices.
 * `FFmpeg`
   * FFmpeg is the back-end used by `OpenCV` to decode/encode videos.
