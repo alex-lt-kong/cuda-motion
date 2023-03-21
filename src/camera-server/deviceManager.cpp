@@ -48,14 +48,17 @@ deviceManager::deviceManager(const size_t deviceIndex,
                 to_string(errno));
         }
         sharedMemSize = conf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"];
-        ftruncate(shmFd, sharedMemSize);  /* it means something similar to malloc() */
-        memPtr = mmap(NULL, sharedMemSize, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
+        ftruncate(shmFd, sharedMemSize);  /* it means sth similar to malloc() */
+        memPtr = mmap(NULL, sharedMemSize, PROT_READ | PROT_WRITE,
+            MAP_SHARED, shmFd, 0);
         if (memPtr == MAP_FAILED) {
             if (snapshotIpcHttpEnabled)
-                pthread_mutex_destroy(&mutexLiveImage);     
-            // seems we only need to shm_unlink(), but don't need to close();
+                pthread_mutex_destroy(&mutexLiveImage);
             if (shm_unlink(sharedMemName.c_str()) != 0)
                 spdlog::error("shm_unlink() failed: {}, "
+                    "but there is nothing we can do", errno);
+            if (close(shmFd) != 0)
+                spdlog::error("close() failed: {}, "
                     "but there is nothing we can do", errno);
             throw runtime_error("mmap() failed, errno: " + to_string(errno));
         }
@@ -78,6 +81,9 @@ deviceManager::deviceManager(const size_t deviceIndex,
                 spdlog::error("shm_unlink() failed: {}, "
                     "but there is nothing we can do", errno);
             }
+            if (close(shmFd) != 0)
+                spdlog::error("close() failed: {}, "
+                    "but there is nothing we can do", errno);
             throw runtime_error("sem_open() failed, errno: " + to_string(errno));
         }
     }
@@ -667,22 +673,46 @@ void deviceManager::prepareDataForIpc(queue<cv::Mat>& dispFrames) {
     if (snapshotIpcFileEnabled) {
         string sp = evaluateVideoSpecficVariables(snapshotIpcFilePath);
         ofstream fout(sp + ".tmp", ios::out | ios::binary);
-        fout.write((char*)encodedJpgImage.data(), encodedJpgImage.size());
-        fout.close();
-        rename((sp + ".tmp").c_str(), sp.c_str());
+        if (!fout.good()) {
+            spdlog::error("[{}] Failed to open file [{}]: {}",
+                deviceName, sp + ".tmp", strerror(errno));
+        } else {            
+            fout.write((char*)encodedJpgImage.data(), encodedJpgImage.size());
+            if (!fout.good()) {
+                spdlog::error("[{}] Failed to write to file [{}]: {}",
+                    deviceName, sp + ".tmp", strerror(errno));
+            }
+            fout.close();
+            if (rename((sp + ".tmp").c_str(), sp.c_str()) != 0) {
+                spdlog::error("[{}] Failed to rename [{}] tp [{}]: {}",
+                    deviceName, sp + ".tmp", sp, strerror(errno));
+            }
+        }
         // profiling shows from ofstream fout()... to rename() takes
         // less than 1 ms.
     }
 
     if (snapshotIpcSharedMemEnabled) {
-        if (sem_wait(semPtr) != 0) {
-            spdlog::error("[{}] sem_wait() failed: {}", deviceName, errno);
+        size_t s = encodedJpgImage.size();
+        if (s > sharedMemSize - sizeof(size_t)) {
+            spdlog::error("[{}] encodedJpgImage({} bytes) too large for "
+            "sharedMemSize({} bytes)", deviceName, s, sharedMemSize);
+            s = 0;
         } else {
-            size_t s = encodedJpgImage.size();
-            memcpy(memPtr, &s, sizeof(size_t));
-            memcpy((uint8_t*)memPtr + sizeof(size_t), encodedJpgImage.data(), encodedJpgImage.size());
-            if (sem_post(semPtr) != 0) {
-                spdlog::error("[{}] sem_post() failed: {}", deviceName, errno);
+            if (sem_wait(semPtr) != 0) {
+                spdlog::error("[{}] sem_wait() failed: {}, the program will "
+                    "continue to run but the semaphore mechanism could be broken",
+                    deviceName, errno);
+            } else {
+                
+                memcpy(memPtr, &s, sizeof(size_t));
+                memcpy((uint8_t*)memPtr + sizeof(size_t), encodedJpgImage.data(),
+                    encodedJpgImage.size());
+                if (sem_post(semPtr) != 0) {
+                    spdlog::error("[{}] sem_post() failed: {}, the program will "
+                        "continue to run but the semaphore mechanism could be broken",
+                        deviceName, errno);
+                }
             }
         }
     }
