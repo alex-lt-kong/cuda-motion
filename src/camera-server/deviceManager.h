@@ -1,3 +1,6 @@
+#ifndef DEVICE_MANAGER_H
+#define DEVICE_MANAGER_H
+
 #include <linux/stat.h>
 #include <string>
 #include <pthread.h>
@@ -89,6 +92,7 @@ public:
     void setParameters(const size_t deviceIndex, const njson& defaultConf,
         njson& overrideConf);
     void getLiveImage(vector<uint8_t>& pl);
+    string getDeviceName() { return this->deviceName; }
 
 protected:
     void InternalThreadEntry();
@@ -171,3 +175,5 @@ private:
     void prepareDataForIpc(queue<cv::Mat>& dispFrames);
     float getCurrentFps(int64_t msSinceEpoch);
 };
+
+#endif

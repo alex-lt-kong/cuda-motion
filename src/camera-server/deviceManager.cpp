@@ -848,9 +848,9 @@ entryPoint:
             /* fwrite() is already a buffered method, adding an extra layer
             of manual buffer isn't likely to improve performance.
             */
-            if (fwrite(dispFrames.front().data, 1,
-                dispFrames.front().dataend - dispFrames.front().datastart,
-                extRawVideoPipePtr) !=
+            if ((long int)fwrite(dispFrames.front().data, 1,
+                    dispFrames.front().dataend - dispFrames.front().datastart,
+                    extRawVideoPipePtr) !=
                 dispFrames.front().dataend - dispFrames.front().datastart) {
                 spdlog::error("[{}] fwrite() failed: {}({})",
                     deviceName, errno, strerror(errno));
