@@ -19,7 +19,8 @@
 
 * Seems that there isn't a credible way lol.
 * Issue `ffmpeg -pix_fmts` and try the results one by one.
-* Some options are more likely to be the right value than others, such as `yuv420p`, `yuyv422`, `bgr24`, `rgb24`.
+* Some options are more likely to be the right value than others, such as
+`yuv420p`, `yuyv422`, `bgr24`, `rgb24`.
 
 ### Ascertain the FPS of a video source
 ```
@@ -27,5 +28,6 @@
 25/1
 ```
 * Note that this value may not be accurate for remote video sources.
-* A more accurate but less formal way is to simply observe the output from `ffmpeg` itself.
+* A more accurate but less formal way is to simply observe the output from
+`ffmpeg` itself.
 

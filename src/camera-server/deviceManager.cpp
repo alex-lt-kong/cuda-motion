@@ -29,11 +29,14 @@ string deviceManager::getCurrentTimestamp() {
 
 deviceManager::deviceManager(const size_t deviceIndex,
     const njson& defaultConf, njson& overrideConf) {
+
+    spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
     setParameters(deviceIndex, defaultConf, overrideConf);
     if (snapshotIpcHttpEnabled) {
         if (pthread_mutex_init(&mutexLiveImage, NULL) != 0) {
-            throw runtime_error("pthread_mutex_init() failed, errno: " +
-                to_string(errno));
+            spdlog::error("pthread_mutex_init() failed, {}({})",
+                errno, strerror(errno));
+            goto err_pthread_mutex_init;
         }
     }
     if (snapshotIpcSharedMemEnabled) {
@@ -42,52 +45,53 @@ deviceManager::deviceManager(const size_t deviceIndex,
             conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"]);
         int shmFd = shm_open(sharedMemName.c_str(), O_RDWR | O_CREAT, PERMS);
         if (shmFd < 0) {
-            if (snapshotIpcHttpEnabled)
-                pthread_mutex_destroy(&mutexLiveImage);
-            throw runtime_error("shm_open() failed, errno: " +
-                to_string(errno));
+            spdlog::error("shm_open() failed, {}({})", errno, strerror(errno));
+            goto err_shmFd;
         }
         sharedMemSize = conf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"];
-        ftruncate(shmFd, sharedMemSize);  /* it means sth similar to malloc() */
+        if (ftruncate(shmFd, sharedMemSize) != 0) {
+            spdlog::error("ftruncate() failed, {}({})", errno, strerror(errno));
+            goto err_ftruncate;
+        }
         memPtr = mmap(NULL, sharedMemSize, PROT_READ | PROT_WRITE,
             MAP_SHARED, shmFd, 0);
         if (memPtr == MAP_FAILED) {
-            if (snapshotIpcHttpEnabled)
-                pthread_mutex_destroy(&mutexLiveImage);
-            if (shm_unlink(sharedMemName.c_str()) != 0)
-                spdlog::error("shm_unlink() failed: {}, "
-                    "but there is nothing we can do", errno);
-            if (close(shmFd) != 0)
-                spdlog::error("close() failed: {}, "
-                    "but there is nothing we can do", errno);
-            throw runtime_error("mmap() failed, errno: " + to_string(errno));
+            spdlog::error("mmap() failed, {}({})", errno, strerror(errno));
+            goto err_mmap;
         }
         semaphoreName = evaluateStaticVariables(
                 conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"]);
         semPtr = sem_open(semaphoreName.c_str(),
             O_CREAT, PERMS, SEM_INITIAL_VALUE);
 
-        
         if (semPtr == SEM_FAILED) {
-            if (snapshotIpcHttpEnabled)
-                pthread_mutex_destroy(&mutexLiveImage);
-            
-            if (munmap(memPtr, sharedMemSize) != 0) {
-                spdlog::error("munmap() failed: {}, "
-                    "but there is nothing we can do", errno);
-            }
-            // seems we only need to shm_unlink(), but don't need to close();
-            if (shm_unlink(sharedMemName.c_str()) != 0) {
-                spdlog::error("shm_unlink() failed: {}, "
-                    "but there is nothing we can do", errno);
-            }
-            if (close(shmFd) != 0)
-                spdlog::error("close() failed: {}, "
-                    "but there is nothing we can do", errno);
-            throw runtime_error("sem_open() failed, errno: " + to_string(errno));
+            spdlog::error("sem_open() failed, {}({})", errno, strerror(errno));
+            goto err_sem_open;
         }
     }
-    spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
+    return;
+err_sem_open:
+    if (munmap(memPtr, sharedMemSize) != 0) {
+        spdlog::error("munmap() failed: {}({}), "
+            "but there is nothing we can do", errno, strerror(errno));
+    }
+err_mmap:
+err_ftruncate:
+    if (shm_unlink(sharedMemName.c_str()) != 0)
+        spdlog::error("shm_unlink() failed: {}({}), "
+            "but there is nothing we can do", errno, strerror(errno));
+    if (close(shmFd) != 0)
+        spdlog::error("close() failed: {}({}), "
+            "but there is nothing we can do", errno, strerror(errno));
+err_shmFd:
+err_pthread_mutex_init:
+    if (snapshotIpcHttpEnabled)
+        if (pthread_mutex_destroy(&mutexLiveImage) != 0) {
+            spdlog::error("pthread_mutex_destroy() failed:  {}({}), "
+            "but there is nothing we can do", errno, strerror(errno));
+        }
+    throw runtime_error("initializing deviceManager instance failed. "
+        "Check log for details");
 }
 
 string deviceManager::evaluateVideoSpecficVariables(
@@ -255,6 +259,8 @@ void deviceManager::setParameters(const size_t deviceIndex,
     if (!conf.contains("/motionDetection/videoRecording/minFramesPerVideo"_json_pointer))
         conf["motionDetection"]["videoRecording"]["minFramesPerVideo"] = 
             defaultConf["motionDetection"]["videoRecording"]["minFramesPerVideo"];
+    minFramesPerVideo =
+        conf["motionDetection"]["videoRecording"]["minFramesPerVideo"];
     if (!conf.contains("/motionDetection/videoRecording/maxFramesPerVideo"_json_pointer))
         conf["motionDetection"]["videoRecording"]["maxFramesPerVideo"] =
             defaultConf["motionDetection"]["videoRecording"]["maxFramesPerVideo"];
@@ -272,7 +278,8 @@ void deviceManager::setParameters(const size_t deviceIndex,
         conf["motionDetection"]["videoRecording"]["encoder"]["useExternal"];
     if (encoderUseExternal) {
         pipeRawVideoTo =
-            conf["motionDetection"]["videoRecording"]["encoder"]["external"]["pipeRawVideoTo"];
+            conf["motionDetection"]["videoRecording"]["encoder"][
+                "external"]["pipeRawVideoTo"];
     }
     if (!conf.contains("/motionDetection/drawContours"_json_pointer))
         conf["motionDetection"]["drawContours"] =
@@ -285,35 +292,34 @@ void deviceManager::setParameters(const size_t deviceIndex,
 
 deviceManager::~deviceManager() {
     if (snapshotIpcHttpEnabled) {
-        pthread_mutex_destroy(&mutexLiveImage); 
+        if (pthread_mutex_destroy(&mutexLiveImage) != 0) {
+            spdlog::error("pthread_mutex_destroy() failed: {}, "
+                "but there is nothing we can do", errno);
+        }
     }
     if (snapshotIpcSharedMemEnabled) {
         // unlink and close() are both needed: unlink only disassociates the
         // name from the underlying semaphore object, but the semaphore object
         // is not gone. It will only be gone when we close() it.
         if (sem_unlink(semaphoreName.c_str()) != 0) {
-            spdlog::error("sem_unlink() failed: {}, "
-                "but there is nothing we can do", errno);
+            spdlog::error("sem_unlink() failed: {}({}), "
+                "but there is nothing we can do", errno, strerror(errno));
         }
         if (sem_close(semPtr) != 0) {
-            spdlog::error("sem_close() failed: {}, "
-                "but there is nothing we can do", errno);
-        }
-        if (sem_unlink(semaphoreName.c_str()) != 0) {
-            spdlog::error("sem_unlink() failed: {}, "
-                "but there is nothing we can do", errno);
+            spdlog::error("sem_close() failed: {}({}), "
+                "but there is nothing we can do", errno, strerror(errno));
         }
         if (munmap(memPtr, sharedMemSize) != 0) {
-            spdlog::error("munmap() failed: {}, "
-                "but there is nothing we can do", errno);
+            spdlog::error("munmap() failed: {}({}), "
+                "but there is nothing we can do", errno, strerror(errno));
         }
         if (shm_unlink(sharedMemName.c_str()) != 0) {
-            spdlog::error("shm_unlink() failed: {}, "
-                "but there is nothing we can do", errno);
+            spdlog::error("shm_unlink() failed: {}({}), "
+                "but there is nothing we can do", errno, strerror(errno));
         }
         if (close(shmFd) != 0) {
-            spdlog::error("close() failed: {}, "
-                "but there is nothing we can do", errno);
+            spdlog::error("close() failed: {}({}), "
+                "but there is nothing we can do", errno, strerror(errno));
         }
     }
 }
@@ -526,10 +532,12 @@ void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
         }
     };
 
-    cooldown = conf["motionDetection"]["videoRecording"]["minFramesPerVideo"];
+    cooldown = minFramesPerVideo;
 
+    // These two if's: video recording is in progress already.
     if (!encoderUseExternal && vwriter.isOpened()) return;
     if (encoderUseExternal && extRawVideoPipePtr != nullptr) return;
+
     string command = encoderUseExternal ?
         conf["motionDetection"]["videoRecording"]["encoder"]["external"]["pipeRawVideoTo"] :
         conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"];
@@ -547,10 +555,11 @@ void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
             ));
     } else {
         // Use external encoder to encode video
-        extRawVideoPipePtr = popen((command).c_str(), "w");
+        extRawVideoPipePtr = popen(command.c_str(), "w");
         if (extRawVideoPipePtr == nullptr) {
             // most likely due to invalid command or lack of memory
-            throw runtime_error("popen() failed, errno: " + to_string(errno));
+            spdlog::error("[{}] popen() failed, recording won't start: {}({})",
+                deviceName, errno, strerror(errno));
         }
     }
     handleOnVideoStarts();
@@ -558,9 +567,17 @@ void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
 
 void deviceManager::getLiveImage(vector<uint8_t>& pl) {
     if (encodedJpgImage.size() > 0) {
-        pthread_mutex_lock(&mutexLiveImage);
+        if (pthread_mutex_lock(&mutexLiveImage) != 0) {
+            spdlog::error("[{}] pthread_mutex_lock() failed, "
+            "will skip live image data copy, errno: {}", deviceName, errno);
+            return;
+        }
         pl = encodedJpgImage;
-        pthread_mutex_unlock(&mutexLiveImage);
+        if (pthread_mutex_unlock(&mutexLiveImage) != 0) {
+            spdlog::error("[{}] pthread_mutex_unlock() failed, errno: {}",
+                deviceName, errno);
+            return;
+        }
     } else {
         pl = vector<uint8_t>();
     }
@@ -569,16 +586,21 @@ void deviceManager::getLiveImage(vector<uint8_t>& pl) {
 void deviceManager::generateBlankFrameAt1Fps(Mat& currFrame,
     const Size& actualFrameSize) {
     this_thread::sleep_for(999ms); // Throttle the generation at 1 fps.
+
+    /* Even if we generate nothing but a blank screen, we cant just use some
+    hardcoded values and skip framePreferredWidth/actualFrameSize.width and
+    framePreferredHeight/actualFrameSize.height.
+    The problem will occur when piping frames to ffmpeg: In ffmpeg, we
+    pre-define the frame size, which is mostly framePreferredWidth x
+    framePreferredHeight. If the video device is down and we supply a
+    smaller frame, ffmpeg will wait until there are enough pixels filling
+    the original resolution to write one frame, causing screen tearing
+    */
     if (actualFrameSize.width > 0 && actualFrameSize.height > 0) {
         currFrame = Mat(actualFrameSize.height, actualFrameSize.width,
             CV_8UC3, Scalar(128, 128, 128));
     }
     else {
-        // We cant just do this and skip framePreferredWidth and framePreferredHeight
-        // problem will occur when piping frames to ffmpeg: In ffmpeg, we pre-define the frame size, which is mostly
-        // framePreferredWidth x framePreferredHeight. If the video device is down and we supply a smaller frame, 
-        // ffmpeg will wait until there are enough pixels filling the original resolution to write one frame, 
-        // causing screen tearing
         currFrame = Mat(540, 960, CV_8UC3, Scalar(128, 128, 128));
         // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
     }
@@ -823,14 +845,21 @@ entryPoint:
         if (!encoderUseExternal)  {
             vwriter.write(dispFrames.front());
         } else {
-            fwrite(dispFrames.front().data, 1,
+            /* fwrite() is already a buffered method, adding an extra layer
+            of manual buffer isn't likely to improve performance.
+            */
+            if (fwrite(dispFrames.front().data, 1,
                 dispFrames.front().dataend - dispFrames.front().datastart,
-                extRawVideoPipePtr);
+                extRawVideoPipePtr) !=
+                dispFrames.front().dataend - dispFrames.front().datastart) {
+                spdlog::error("[{}] fwrite() failed: {}({})",
+                    deviceName, errno, strerror(errno));
+            }
             // formula of dispFrame.dataend - dispFrame.datastart height x width x channel bytes.
             // For example, for conventional 1920x1080x3 videos, one frame occupies 1920*1080*3 = 6,220,800 bytes or 6,075 KB
             // profiling shows that:
-            // fwrite() takes around 10ms for piping raw video to 1080p@30fps.
-            // fwirte() takes around 20ms for piping raw video to 1080p@30fps + 360p@30fps concurrently
+            // fwrite() takes around ~10ms for piping raw video to 1080p@30fps.
+            // fwirte() takes around ~20ms for piping raw video to 1080p@30fps + 360p@30fps concurrently
             if (ferror(extRawVideoPipePtr)) {
                 spdlog::error("[{}] ferror(extRawVideoPipePtr) is true, "
                     "unable to fwrite() more frames to the pipe (cooldown: {})",

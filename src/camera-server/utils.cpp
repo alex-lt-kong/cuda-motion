@@ -25,43 +25,44 @@ void exec(const vector<string>& args, string& stdoutStr, string& stderrStr,
     char buffer[4096];
 
     if (pipe(pipefd_out) == -1) {      
-        spdlog::error("pipe(pipefd_out) failed, errno: {}", errno);
+        spdlog::error("pipe(pipefd_out) failed, {}({})", errno, strerror(errno));
     }
     if (pipe(pipefd_err) == -1) {
-        spdlog::error("pipe(pipefd_err) failed, errno: {}", errno);
+        spdlog::error("pipe(pipefd_err) failed, {}({})", errno, strerror(errno));
         if (close(pipefd_out[0]) == -1 || close(pipefd_out[1] == -1)) {
-            spdlog::error("close(), errno: {}", errno);
+            spdlog::error("close(): {}({})", errno, strerror(errno));
         }
     }
     
     pid_t child_pid = fork(); //span a child process
 
     if (child_pid == -1) { // fork() failed, no child process created
-        spdlog::error("fork() failed, errno: {}", errno);
+        spdlog::error("fork() failed, {}({})", errno, strerror(errno));
         if (close(pipefd_err[0]) == -1 || close(pipefd_err[1]) == -1 ||
             close(pipefd_out[0]) == -1 || close(pipefd_out[1]) == -1) {
-            spdlog::error("close(), errno: {}", errno);
+            spdlog::error("close(): {}({})", errno, strerror(errno));
         }
     }
 
     if (child_pid == 0) { // fork() succeeded, we are in the child process
         if (close(pipefd_out[0]) == -1) {
-            spdlog::error("close(pipefd_stdout[0]) in child failed, errno: {}",
-                errno);
+            spdlog::error("close(pipefd_stdout[0]) in child failed: {}({})",
+            errno, strerror(errno));
         }
         if (close(pipefd_err[0]) == -1) {
-            spdlog::error("close(pipefd_err[0]) in child failed, errno: {}",
-                errno);
+            spdlog::error("close(pipefd_err[0]) in child failed: {}({})",
+            errno, strerror(errno));
         }
         // man dup2
         if (dup2(pipefd_out[1], STDOUT_FILENO) == -1 ||
             dup2(pipefd_err[1], STDERR_FILENO) == -1) {
-            spdlog::error("dup2() in child failed, some output may be missing, "
-                "errno: {}", errno);
+            spdlog::error("dup2() in child failed, some output may be missing: "
+                "{}({})", errno, strerror(errno));
         }
 
         execv(cargs[0], cargs.data());
-        spdlog::error("execv() in child failed, errno: {}", errno);
+        spdlog::error("execv() in child failed, {}({})",
+            errno, strerror(errno));
         // The exec() functions return only if an error has occurred.
         // The return value is -1, and errno is set to indicate the error.
         return;
@@ -69,7 +70,8 @@ void exec(const vector<string>& args, string& stdoutStr, string& stderrStr,
     
     //Only parent gets here
     if (close(pipefd_out[1]) == -1 || close(pipefd_err[1]) == -1) {
-        spdlog::error("close() in parent failed, errno: {}", errno);
+        spdlog::error("close() in parent failed: {}({})",
+            errno, strerror(errno));
     }
 
     struct pollfd pfds[] = {
@@ -81,8 +83,8 @@ void exec(const vector<string>& args, string& stdoutStr, string& stderrStr,
 
     while (open_fds > 0) {
         if (poll(pfds, nfds, -1) == -1) {
-            spdlog::error("poll() failed, some output may be missing, "
-                "errno: {}", errno);
+            spdlog::error("poll() failed, some output may be missing: {}({})",
+                errno, strerror(errno));
         }
 
         for (int j = 0; j < nfds; j++) {            
@@ -91,8 +93,8 @@ void exec(const vector<string>& args, string& stdoutStr, string& stderrStr,
                     memset(buffer, 0, sizeof buffer);
                     ssize_t s = read(pfds[j].fd, buffer, sizeof buffer -1);
                     if (s == -1) {
-                        spdlog::error("read() failed, "
-                            "some output may be missing, errno: {}", errno);
+                        spdlog::error("read() failed, some output may be "
+                            "missing: {}({})", errno, strerror(errno));
                     }
                     if (j == 0) { stdoutStr += buffer; }
                     else { stderrStr += buffer; }
@@ -111,7 +113,7 @@ void exec(const vector<string>& args, string& stdoutStr, string& stderrStr,
     int status;
     // wait for the child process to terminate
     if (waitpid(child_pid, &status, 0) == -1) {
-        spdlog::error("waitpid() failed, errno: {}", errno);
+        spdlog::error("waitpid() failed: {}({})", errno, strerror(errno));
         return;
     }
     if (WIFEXITED(status)) {

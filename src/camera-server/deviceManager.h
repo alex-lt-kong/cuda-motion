@@ -119,6 +119,7 @@ private:
     bool encoderUseExternal; 
     string pipeRawVideoTo;
     uint32_t maxFramesPerVideo;
+    uint32_t minFramesPerVideo;
     size_t precaptureFrames;
 
     // snapshot variables
