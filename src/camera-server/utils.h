@@ -7,11 +7,13 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <array>
+#include <string>
 
 #include <spdlog/spdlog.h>
 
 using namespace std;
+
+const string logFormat = "%Y-%m-%dT%T.%e%z|%5t|%8l| %v";
 
 enum MotionDetectionMode {
   MODE_ALWAYS_RECORD = 2,

@@ -30,7 +30,7 @@ string deviceManager::getCurrentTimestamp() {
 deviceManager::deviceManager(const size_t deviceIndex,
     const njson& defaultConf, njson& overrideConf) {
 
-    spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
+    spdlog::set_pattern(logFormat);
     setParameters(deviceIndex, defaultConf, overrideConf);
     if (snapshotIpcHttpEnabled) {
         if (pthread_mutex_init(&mutexLiveImage, NULL) != 0) {
@@ -413,9 +413,9 @@ void deviceManager::overlayContours(Mat& dispFrame, Mat& diffFrame) {
 
     findContours(diffFrame, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE );
     int idx = 0;
-    for( ; idx >= 0; idx = hierarchy[idx][0] ) {
+    for( ; idx >= 0; idx = hierarchy[idx][0] ) { 
         cv::drawContours(dispFrame, contours, idx,
-            Scalar(255, 255, 255), 0.25, 8, hierarchy);
+            Scalar(255, 255, 255), 1, LINE_8, hierarchy);
     }
 }
 

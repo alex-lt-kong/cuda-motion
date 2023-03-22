@@ -52,7 +52,7 @@ else()
 endif()
 
 
-add_compile_options(-Wall -Wextra -pedantic -O3)
+add_compile_options(-Wall -Wextra -pedantic -O3 -Wno-c11-extensions)
 
 
 add_subdirectory(src/camera-server)

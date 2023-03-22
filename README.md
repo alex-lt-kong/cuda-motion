@@ -8,8 +8,8 @@ There are two main functions of this program:
 1. Detect image change (i.e., "motion") from a video feed and record videos
 during the periods when a motion event happens;
 1. Provide various inter-process communication methods for downstream
-programs to consume live images from different types of cameras easily,
-so that downstream programs don't have implement their own version of video
+programs to consume live images from different types of cameras easily
+so that downstream programs don't have to implement their own version of video
 feed handling repetitively.
 
 ## Dependencies
@@ -44,9 +44,24 @@ feed handling repetitively.
     should consider transcoding with scaling after the first and larger video
     is successfully encoded.
 
-## Build and Deployment
+## Build and deployment
 
+
+* 
+```bash
+mkdir ./build
+cmake ../
+make -j2
+```
+* Copy `./configs/camera-server.jsonc` to `~/.configs/ak-studio`.
 * The program is tested on Debian and should work on other distributions
 or POSIX-compliant OSes. However, given that it uses quite a few POSIX APIs,
 it is unlikely that it could run on Windows without significant porting effort.
-* Copy `./configs/camera-server.jsonc` to `~/.configs/ak-studio`.
+
+## Quality assurance
+
+* Instead of `cmake ../`, run `cmake .. -DBUILD_ASAN=ON` /
+`cmake .. -DBUILD_UBSAN=ON ` to test memory/undefiend behavior error with
+AddressSanitizer / UndefinedBehaviorSanitizer.
+* The repo is also tested with `Valgrind` from time to time:
+`valgrind --leak-check=yes --log-file=valgrind.rpt ./build/cs`.

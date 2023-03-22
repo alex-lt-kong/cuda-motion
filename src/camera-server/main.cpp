@@ -9,6 +9,7 @@
 #include <crow.h>
 
 #include "deviceManager.h"
+#include "utils.h"
 
 using namespace std;
 using json = nlohmann::json;
@@ -178,7 +179,7 @@ void start_http_server() {
 
 int main() {
     // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
-    spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
+    spdlog::set_pattern(logFormat);
     spdlog::info("Camera Server started"); 
     register_signal_handlers();
     

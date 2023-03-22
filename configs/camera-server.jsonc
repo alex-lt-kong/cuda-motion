@@ -139,7 +139,9 @@
 	},
 	"devices": [
 		/* A pair of braces ({}) means we have one device, but we want
-		to leave all the settings to default. */
+		to leave all the settings to default. To use custom settings,
+		duplicate the corresponding devicesDefault section and assgin
+		new values*/
 		{} 
 	]
 }
