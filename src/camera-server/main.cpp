@@ -70,11 +70,11 @@ void signal_handler(int signum) {
     if (signum == SIGPIPE) {    
         return;
     }
-    spdlog::warn("Signal: {} caught, all threads will quit gracefully", signum);
+    //spdlog::warn("Signal: {} caught, all threads will quit gracefully", signum);
     app.stop();
     for (size_t i = 0; i < myDevices.size(); ++i) {
         myDevices[i].StopInternalEventLoopThread();
-        spdlog::info("{}-th device: StopInternalEventLoopThread() called", i);
+        //spdlog::info("{}-th device: StopInternalEventLoopThread() called", i);
     }
 }
 

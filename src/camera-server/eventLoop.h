@@ -12,7 +12,6 @@ public:
     MyEventLoopThread() {}
     virtual ~MyEventLoopThread() {}
 
-    /** Returns true if the thread was successfully started, false if there was an error starting the thread */
     void StartInternalEventLoopThread() {
         if (_internalThreadShouldQuit == false) {
             throw runtime_error("StartInternalEventLoopThread() is called "
