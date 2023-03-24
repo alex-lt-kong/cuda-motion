@@ -15,7 +15,7 @@ void exec(void* This, const vector<string>& args, string& stdoutStr,
 
     struct timespec start, now;
     long elapsed_usecs = 0;
-    long timeout_usecs = 60 * 1000000;// 10 sec
+    long timeout_usecs = 3600 * 1000000L;// 3600 sec
     vector<char*> cargs;
     cargs.reserve(args.size() + 1);
 
