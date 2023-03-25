@@ -27,7 +27,7 @@ feed handling repetitively.
     be enough--we will use FFmpeg's default configuration and use the CPU to do
     all the heavy-lifting things.
 
-  * ** GPU route**
+  * **GPU route**
 
     * With a GPU, it is going to be much more complicated as we need to make
   FFmpeg work with the it:
