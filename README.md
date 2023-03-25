@@ -21,14 +21,16 @@ feed handling repetitively.
 * `opencv`, for frame manipulation: `apt install libopencv-dev`
 * `spdlog` for logging: `apt install libspdlog-dev`
 * `v4l-utils`: for manually examining and manipulating local video devices.
-* `FFmpeg`
-  * FFmpeg is the back-end used by `OpenCV` to decode/encode videos.
-  * If you don't have an Nvidia GPU, simply issue `apt install ffmpeg` should
-  be enough--we will use FFmpeg's default configuration and use the CPU to do
-  all the heavy-lifting things.
+* `FFmpeg`: the back-end used by `OpenCV` to decode/encode videos
+  * **No GPU route**  
+    * If you don't have an Nvidia GPU, simply issue `apt install ffmpeg` should
+    be enough--we will use FFmpeg's default configuration and use the CPU to do
+    all the heavy-lifting things.
 
-  * Otherwise, it is going to be much more complicated as we need to make
-  FFmpeg work with the GPU:
+  * ** GPU route**
+
+    * With a GPU, it is going to be much more complicated as we need to make
+  FFmpeg work with the it:
     * If there is an `FFmpeg` installed by `apt`, remove it first.
     * Install an Nvidia GPU driver and make sure everything works with
     `nvidia-smi`.
@@ -43,6 +45,24 @@ feed handling repetitively.
     performance to drop significantly, if two resolutions are needed, one
     should consider transcoding with scaling after the first and larger video
     is successfully encoded.
+
+  * **A third route**: With GPU, it is possible to use it directly by OpenCV
+  with the help of
+  [Nvidia video codec sdk](https://developer.nvidia.com/nvidia-video-codec-sdk/download),
+  so that we could avoid piping frames to FFmpeg, hopefully improving the
+  performance a bit more.
+    * Nvidia's own introduction makes this clear:
+      > If you are looking to make use of the dedicated decoding/encoding
+      > hardware on your GPU in an existing application you can leverage
+      > the integration already available in FFmpeg. FFmpeg should be used for
+      > evaluation or quick integration...
+      > NVDECODE and NVENCODE APIs should be used for low-level granular
+      > control over various encode/decode parameters and if you want to
+      > directly tap into the hardware decoder/encoder.
+      > This access is available through the Video Codec SDK.
+    * Unfortunately, neither Nvidia nor OpenCV seems to provide a complete
+    guideline on how this can be done and various attempts fail to make it work.
+    Therefore, this route is currently not explored.
 
 ## Build and deployment
 
