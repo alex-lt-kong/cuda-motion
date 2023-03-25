@@ -30,7 +30,6 @@ string deviceManager::getCurrentTimestamp() {
 deviceManager::deviceManager(const size_t deviceIndex,
     const njson& defaultConf, njson& overrideConf) {
 
-    spdlog::set_pattern(logFormat);
     setParameters(deviceIndex, defaultConf, overrideConf);
     if (snapshotIpcHttpEnabled) {
         if (pthread_mutex_init(&mutexLiveImage, NULL) != 0) {
@@ -502,7 +501,10 @@ void deviceManager::stopVideoRecording(FILE*& extRawVideoPipePtr,
     if (!encoderUseExternal) {
         vwriter.release();
     } else {
-        pclose(extRawVideoPipePtr); 
+        if (pclose(extRawVideoPipePtr) != 0) {
+            spdlog::error("pclose(encoderUseExternal) error: {}({}), "
+                "but there is nothing else we can do", errno, strerror(errno));
+        }
         extRawVideoPipePtr = nullptr;
     }
     handleOnVideoEnds();
@@ -556,7 +558,7 @@ void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
     } else {
         // Use external encoder to encode video
         extRawVideoPipePtr = popen(command.c_str(), "w");
-        if (extRawVideoPipePtr == nullptr) {
+        if (extRawVideoPipePtr == NULL) {
             // most likely due to invalid command or lack of memory
             spdlog::error("[{}] popen() failed, recording won't start: {}({})",
                 deviceName, errno, strerror(errno));
@@ -852,19 +854,18 @@ entryPoint:
                     dispFrames.front().dataend - dispFrames.front().datastart,
                     extRawVideoPipePtr) !=
                 dispFrames.front().dataend - dispFrames.front().datastart) {
-                spdlog::error("[{}] fwrite() failed: {}({})",
+                spdlog::error("[{}] fwrite() to external pipe failed: {}({})",
                     deviceName, errno, strerror(errno));
+                stopVideoRecording(extRawVideoPipePtr, vwriter,
+                    videoFrameCount, cooldown);
+
             }
             // formula of dispFrame.dataend - dispFrame.datastart height x width x channel bytes.
             // For example, for conventional 1920x1080x3 videos, one frame occupies 1920*1080*3 = 6,220,800 bytes or 6,075 KB
             // profiling shows that:
             // fwrite() takes around ~10ms for piping raw video to 1080p@30fps.
             // fwirte() takes around ~20ms for piping raw video to 1080p@30fps + 360p@30fps concurrently
-            if (ferror(extRawVideoPipePtr)) {
-                spdlog::error("[{}] ferror(extRawVideoPipePtr) is true, "
-                    "unable to fwrite() more frames to the pipe (cooldown: {})",
-                    deviceName, cooldown);
-            }
+
         }
     }
     if (cooldown > 0) {

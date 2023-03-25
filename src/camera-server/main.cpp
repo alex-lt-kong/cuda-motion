@@ -84,9 +84,10 @@ void register_signal_handlers() {
     sigemptyset(&act.sa_mask);
     act.sa_flags = SA_RESETHAND;
     if (sigaction(SIGINT, &act, 0) + sigaction(SIGABRT, &act, 0) +
-        sigaction(SIGTERM, &act, 0) + sigaction(SIGPIPE, &act, 0) < 0) {
-        throw runtime_error("sigaction() called failed, errno: " +
-            to_string(errno));
+        sigaction(SIGQUIT, &act, 0) + sigaction(SIGTERM, &act, 0) +
+        sigaction(SIGPIPE, &act, 0) < 0) {
+        throw runtime_error("sigaction() called failed: " +
+            to_string(errno) + "(" + strerror(errno) + ")");
     }
 }
 
@@ -179,7 +180,7 @@ void start_http_server() {
 
 int main() {
     // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
-    spdlog::set_pattern(logFormat);
+    spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
     spdlog::info("Camera Server started"); 
     register_signal_handlers();
     

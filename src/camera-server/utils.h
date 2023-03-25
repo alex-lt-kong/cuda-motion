@@ -13,8 +13,6 @@
 
 using namespace std;
 
-const string logFormat = "%Y-%m-%dT%T.%e%z|%5t|%8l| %v";
-
 enum MotionDetectionMode {
   MODE_ALWAYS_RECORD = 2,
   MODE_DETECT_MOTION = 1,  
