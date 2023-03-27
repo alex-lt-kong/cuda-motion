@@ -91,7 +91,7 @@ void install_signal_handlers() {
         signal(SIGQUIT, signal_handler) == SIG_ERR ||
         signal(SIGTERM, signal_handler) == SIG_ERR ||
         signal(SIGPIPE, signal_handler) == SIG_ERR) {
-        throw runtime_error("sigaction() called failed: " +
+        throw runtime_error("signal() failed: " +
             to_string(errno) + "(" + strerror(errno) + ")");
     }
 }
