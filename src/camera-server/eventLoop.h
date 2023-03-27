@@ -13,25 +13,12 @@ public:
     virtual ~MyEventLoopThread() {}
 
     void StartInternalEventLoopThread() {
-        if (_internalThreadShouldQuit == false) {
-            throw runtime_error("StartInternalEventLoopThread() is called "
-                "when the internal thread is still running");
-        }
-        _internalThreadShouldQuit = false;
         int errNum;
         if ((errNum = pthread_create(&_thread, NULL,
             InternalThreadEntryFunc, this)) != 0) {
             throw runtime_error("pthread_create() failed: " +
                 to_string(errNum) + " (" + strerror(errNum) + ")");
         }
-    }
-
-    /**
-     * @brief set the _internalThreadShouldQuit. Users should check this
-     * signal periodically and quit the event loop timely based on the signal.
-    */
-    void StopInternalEventLoopThread() {
-        _internalThreadShouldQuit = true;
     }
 
     void WaitForInternalEventLoopThreadToExit() {
@@ -59,7 +46,6 @@ public:
 protected:
     /** Implement this method in your subclass with the code you want your thread to run. */
     virtual void InternalThreadEntry() = 0;
-    bool _internalThreadShouldQuit = true;
 
 private:
     static void * InternalThreadEntryFunc(void * This) {

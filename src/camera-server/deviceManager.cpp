@@ -764,7 +764,7 @@ void deviceManager::InternalThreadEntry() {
     /* We use the evil goto so that we can avoid the duplication of
        initializeDevice()...*/
     
-    while (!_internalThreadShouldQuit) {
+    while (ev_flag == 0) {
         // profiling shows that cap.grab() can also be an expensive operation
         // if the source uses HTTP protocol.
         result = cap.grab();

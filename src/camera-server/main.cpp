@@ -1,6 +1,5 @@
 #include <iostream>
 #include <fstream>
-#include <signal.h>
 #include <thread>
 #include <vector>
 
@@ -14,6 +13,7 @@
 using namespace std;
 using json = nlohmann::json;
 json settings;
+volatile sig_atomic_t ev_flag = 0;
 
 void askForCred(crow::response& res) {
     res.set_header("WWW-Authenticate", "Basic realm=On-demand CCTV server");
@@ -75,14 +75,12 @@ static void signal_handler(int signum) {
     char msg[] = "Signal [ ] caught\n";
     msg[8] = signum + '0';
     write(STDIN_FILENO, msg, strlen(msg));
-    /* Internally, Crow appears to be using io_context, is io_context.stop()
-    reentrant? The document does not make it very clear:
+    /* Internally, Crow appears to be using io_context. Is io_context.stop()
+    reentrant then? The document does not directly answer this:
     https://www.boost.org/doc/libs/1_76_0/doc/html/boost_asio/reference/io_context/stop.html
     but the wording appears to imply yes. */
     app.stop();
-    for (size_t i = 0; i < myDevices.size(); ++i) {
-        myDevices[i].StopInternalEventLoopThread();
-    }
+    ev_flag = 1;
 }
 
 void install_signal_handlers() {
