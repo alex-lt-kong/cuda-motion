@@ -14,6 +14,14 @@ public:
 
     void StartInternalEventLoopThread() {
         int errNum;
+        /* What happens if InternalThreadEntryFunc() throws an exception?
+        Would you trigger undefined behavior as pthread_create() has no idea
+        wtf is a C++ exception? The answer is no:
+        Case I: if we catch it in the same thread, then it's fine, as always;
+        Case II: if we don't catch it, then the thread will be. Unfortunately,
+        the entire program will be terminated as well. But this is the same
+        behavior as if we don't catch an exception in the main thread.
+        */
         if ((errNum = pthread_create(&_thread, NULL,
             InternalThreadEntryFunc, this)) != 0) {
             throw runtime_error("pthread_create() failed: " +

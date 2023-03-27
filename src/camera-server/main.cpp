@@ -198,9 +198,9 @@ int main() {
     myDevices = vector<deviceManager>();
     myDevices.reserve(deviceCount);
     for (size_t i = 0; i < deviceCount; ++i) {
+        // variadic templates and perfect forwarding come to the rescue!
         myDevices.emplace_back(i, settings["devicesDefault"],
             settings["devices"][i]);
-        // variadic templates and perfect forwarding come to the rescue!
         myDevices.back().StartInternalEventLoopThread();
     }
 

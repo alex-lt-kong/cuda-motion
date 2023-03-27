@@ -1,12 +1,11 @@
 # Camera server
 
-A C++17 project inspired by, similar to but simpler than
-[Motion](https://github.com/Motion-Project/motion).
+A C++17 project inspired by [Motion](https://github.com/Motion-Project/motion).
 
 There are two main functions of this program:
 
 1. Detect image change (i.e., "motion") from a video feed and record videos
-during the periods when a motion event happens;
+during the periods when a motion event occurs;
 1. Provide various inter-process communication methods for downstream
 programs to consume live images from different types of cameras easily
 so that downstream programs don't have to implement their own version of video
@@ -34,10 +33,8 @@ feed handling repetitively.
     * If there is an `FFmpeg` installed by `apt`, remove it first.
     * Install an Nvidia GPU driver and make sure everything works with
     `nvidia-smi`.
-    * Install `FFmpeg` 4.4 with Nvidia Cuda support following Nvidia's
+    * Install `FFmpeg` with Nvidia Cuda support following Nvidia's
     [official guide](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/).
-    Note that as of February 2022, `FFmpeg` 4.5 does not seem to work since
-    it appears to be incompatible with `OpenCV`.
     * There are tons of parameters to tweak while using FFmpeg with Nvidia GPUs,
     [this doc](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/) is a good starting point.
     * Important observation: Even with a GPU enabled, directly encoding
@@ -62,7 +59,7 @@ feed handling repetitively.
       > This access is available through the Video Codec SDK.
     * Unfortunately, neither Nvidia nor OpenCV seems to provide a complete
     guideline on how this can be done and various attempts fail to make it work.
-    Therefore, this route is currently not explored.
+    Therefore, this route is currently not included.
 
 ## Build and deployment
 
