@@ -18,10 +18,11 @@ public:
                 "when the internal thread is still running");
         }
         _internalThreadShouldQuit = false;
-        if (pthread_create(&_thread, NULL,
-            InternalThreadEntryFunc, this) != 0) {
-            throw runtime_error("pthread_create() failed, errno: " +
-                to_string(errno));
+        int errNum;
+        if ((errNum = pthread_create(&_thread, NULL,
+            InternalThreadEntryFunc, this)) != 0) {
+            throw runtime_error("pthread_create() failed: " +
+                to_string(errNum) + " (" + strerror(errNum) + ")");
         }
     }
 
@@ -34,17 +35,22 @@ public:
     }
 
     void WaitForInternalEventLoopThreadToExit() {
-        pthread_join(_thread, NULL);
+        int errNum;
+        if ((errNum = pthread_join(_thread, NULL)) != 0) {
+            throw runtime_error("pthread_join() failed: " +
+                to_string(errNum) + " (" + strerror(errNum) + ")");
+        }
     }
 
     /**
      * @brief One should either WaitForInternalEventLoopThreadToExit() or
      * DetachInternalEventLoopThread()
     */
-    void DetachInternalEventLoopThread() {
-        if (pthread_detach(_thread) == 0) {
-            throw runtime_error("failed to pthread_detach() a thread, errno: " +
-                to_string(errno));
+    void DetachInternalEventLoopThread() {        
+        int errNum;
+        if ((errNum = pthread_detach(_thread)) != 0) {
+            throw runtime_error("pthread_detach() failed: " +
+                to_string(errNum) + " (" + strerror(errNum) + ")");
         }
     }
 
@@ -60,7 +66,7 @@ private:
         ((MyEventLoopThread *)This)->InternalThreadEntry();
         return NULL;
     }
-    pthread_t _thread = 0;
+    pthread_t _thread;
 };
 
 #endif

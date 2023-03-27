@@ -66,26 +66,31 @@ struct httpAuthMiddleware: crow::ILocalMiddleware {
 crow::App<httpAuthMiddleware> app;
 static vector<deviceManager> myDevices;
 
-void signal_handler(int signum) {
+static void signal_handler(int signum) {
     if (signum == SIGPIPE) {    
         return;
     }
-    //spdlog::warn("Signal: {} caught, all threads will quit gracefully", signum);
+    
+    // Is the below code fully reentrant? I believe so.
+    char msg[] = "Signal [ ] caught\n";
+    msg[8] = signum + '0';
+    write(STDIN_FILENO, msg, strlen(msg));
+    /* Internally, Crow appears to be using io_context, is io_context.stop()
+    reentrant? The document does not make it very clear:
+    https://www.boost.org/doc/libs/1_76_0/doc/html/boost_asio/reference/io_context/stop.html
+    but the wording appears to imply yes. */
     app.stop();
     for (size_t i = 0; i < myDevices.size(); ++i) {
         myDevices[i].StopInternalEventLoopThread();
-        //spdlog::info("{}-th device: StopInternalEventLoopThread() called", i);
     }
 }
 
-void register_signal_handlers() {
-    struct sigaction act;
-    act.sa_handler = signal_handler;
-    sigemptyset(&act.sa_mask);
-    act.sa_flags = SA_RESETHAND;
-    if (sigaction(SIGINT, &act, 0) + sigaction(SIGABRT, &act, 0) +
-        sigaction(SIGQUIT, &act, 0) + sigaction(SIGTERM, &act, 0) +
-        sigaction(SIGPIPE, &act, 0) < 0) {
+void install_signal_handlers() {
+    if (signal(SIGINT, signal_handler) == SIG_ERR ||
+        signal(SIGABRT, signal_handler) == SIG_ERR ||
+        signal(SIGQUIT, signal_handler) == SIG_ERR ||
+        signal(SIGTERM, signal_handler) == SIG_ERR ||
+        signal(SIGPIPE, signal_handler) == SIG_ERR) {
         throw runtime_error("sigaction() called failed: " +
             to_string(errno) + "(" + strerror(errno) + ")");
     }
@@ -182,7 +187,7 @@ int main() {
     // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
     spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
     spdlog::info("Camera Server started"); 
-    register_signal_handlers();
+    install_signal_handlers();
     
     spdlog::info("cv::getBuildInformation(): {}", string(getBuildInformation()));
 
