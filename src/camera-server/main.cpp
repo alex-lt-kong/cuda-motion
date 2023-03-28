@@ -66,13 +66,22 @@ struct httpAuthMiddleware: crow::ILocalMiddleware {
 crow::App<httpAuthMiddleware> app;
 static vector<deviceManager> myDevices;
 
+
 static void signal_handler(int signum) {
     ev_flag = 1;
-    // Is the below code fully reentrant? I believe so.
     char msg[] = "Signal [  ] caught\n";
     msg[8] = '0' + signum / 10;
-    msg[9] = '0' + signum % 10;  
-    write(STDIN_FILENO, msg, strlen(msg));
+    msg[9] = '0' + signum % 10;
+    size_t len = sizeof(msg) - 1;
+    size_t written = 0;
+    while (written < len) {
+        ssize_t ret = write(STDOUT_FILENO, msg + written, len - written);
+        if (ret == -1) {
+            perror("write()");
+            break;
+        }
+        written += ret;
+    }
     /* Internally, Crow appears to be using io_context. Is io_context.stop()
     reentrant then? The document does not directly answer this:
     https://www.boost.org/doc/libs/1_76_0/doc/html/boost_asio/reference/io_context/stop.html
@@ -81,10 +90,9 @@ static void signal_handler(int signum) {
 }
 
 void install_signal_handler() {
-    if (_NSIG > 99) {
-        fprintf(stderr, "signal_handler() can't handle more than 99 signals\n");
-        abort();
-    }
+    static_assert(_NSIG < 99,
+        "signal_handler() can't handle more than 99 signals");
+
     struct sigaction act;
     // Initialize the signal set to empty, similar to memset(0)
     if (sigemptyset(&act.sa_mask) == -1) {

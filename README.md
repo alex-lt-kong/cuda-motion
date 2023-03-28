@@ -7,7 +7,7 @@ There are two main functions of this program:
 1. Detect image change (i.e., "motion") from a video feed and record videos
 during the periods when a motion event occurs;
 1. Provide various inter-process communication methods for downstream
-programs to consume live images from different types of cameras easily
+programs to consume live images from different types of cameras
 so that downstream programs don't have to implement their own version of video
 feed handling repetitively.
 
