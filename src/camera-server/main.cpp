@@ -67,32 +67,47 @@ crow::App<httpAuthMiddleware> app;
 static vector<deviceManager> myDevices;
 
 static void signal_handler(int signum) {
-    if (signum == SIGPIPE) {    
-        return;
-    }
-    
+    ev_flag = 1;
     // Is the below code fully reentrant? I believe so.
-    char msg[] = "Signal [ ] caught\n";
-    msg[8] = signum + '0';
+    char msg[] = "Signal [  ] caught\n";
+    msg[8] = '0' + signum / 10;
+    msg[9] = '0' + signum % 10;  
     write(STDIN_FILENO, msg, strlen(msg));
     /* Internally, Crow appears to be using io_context. Is io_context.stop()
     reentrant then? The document does not directly answer this:
     https://www.boost.org/doc/libs/1_76_0/doc/html/boost_asio/reference/io_context/stop.html
     but the wording appears to imply yes. */
     app.stop();
-    ev_flag = 1;
 }
 
-void install_signal_handlers() {
-    if (signal(SIGINT, signal_handler) == SIG_ERR ||
-        signal(SIGABRT, signal_handler) == SIG_ERR ||
-        signal(SIGQUIT, signal_handler) == SIG_ERR ||
-        signal(SIGTERM, signal_handler) == SIG_ERR ||
-        signal(SIGPIPE, signal_handler) == SIG_ERR) {
-        throw runtime_error("signal() failed: " +
+void install_signal_handler() {
+    if (_NSIG > 99) {
+        fprintf(stderr, "signal_handler() can't handle more than 99 signals\n");
+        abort();
+    }
+    struct sigaction act;
+    // Initialize the signal set to empty, similar to memset(0)
+    if (sigemptyset(&act.sa_mask) == -1) {
+        perror("sigemptyset()");
+        abort();
+    }
+    act.sa_handler = signal_handler;
+    /* SA_RESETHAND means we want our signal_handler() to intercept the signal
+    once. If a signal is sent twice, the default signal handler will be used
+    again. `man sigaction` describes more possible sa_flags. */
+    /* In this particular case, we should not enable SA_RESETHAND, mainly
+    due to the issue that if a child process is kill, multiple SIGPIPE will
+    be invoked consecutively, breaking the program.  */
+    // act.sa_flags = SA_RESETHAND;
+    if (sigaction(SIGINT, &act, 0) + sigaction(SIGABRT, &act, 0) +
+        sigaction(SIGQUIT, &act, 0) + sigaction(SIGTERM, &act, 0) +
+        sigaction(SIGPIPE, &act, 0) + sigaction(SIGCHLD, &act, 0) +
+        sigaction(SIGSEGV, &act, 0) + sigaction(SIGTRAP, &act, 0) < 0) {
+        throw runtime_error("sigaction() called failed: " +
             to_string(errno) + "(" + strerror(errno) + ")");
     }
 }
+
 
 json load_settings() {
     string settingsPath = string(getenv("HOME")) + 
@@ -185,7 +200,7 @@ int main() {
     // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
     spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
     spdlog::info("Camera Server started"); 
-    install_signal_handlers();
+    install_signal_handler();
     
     spdlog::info("cv::getBuildInformation(): {}", string(getBuildInformation()));
 

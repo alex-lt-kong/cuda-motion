@@ -850,10 +850,10 @@ entryPoint:
             /* fwrite() is already a buffered method, adding an extra layer
             of manual buffer isn't likely to improve performance.
             */
-            if ((long int)fwrite(dispFrames.front().data, 1,
-                    dispFrames.front().dataend - dispFrames.front().datastart,
-                    extRawVideoPipePtr) !=
-                dispFrames.front().dataend - dispFrames.front().datastart) {
+            size_t frameSize = dispFrames.front().dataend -
+                dispFrames.front().datastart;
+            if (fwrite(dispFrames.front().data, 1, frameSize,
+                    extRawVideoPipePtr) != frameSize) {
                 spdlog::error("[{}] fwrite() to external pipe failed: {}({})",
                     deviceName, errno, strerror(errno));
                 stopVideoRecording(extRawVideoPipePtr, vwriter,
