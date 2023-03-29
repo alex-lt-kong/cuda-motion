@@ -113,7 +113,7 @@ void install_signal_handler() {
     if (sigaction(SIGINT, &act, 0) + sigaction(SIGABRT, &act, 0) +
         sigaction(SIGQUIT, &act, 0) + sigaction(SIGTERM, &act, 0) +
         sigaction(SIGPIPE, &act, 0) + sigaction(SIGCHLD, &act, 0) +
-        sigaction(SIGSEGV, &act, 0) + sigaction(SIGTRAP, &act, 0) < 0) {
+        sigaction(SIGTRAP, &act, 0) < 0) {
         throw runtime_error("sigaction() called failed: " +
             to_string(errno) + "(" + strerror(errno) + ")");
     }
