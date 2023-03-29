@@ -273,12 +273,32 @@ void deviceManager::setParameters(const size_t deviceIndex,
     if (!conf.contains("/motionDetection/videoRecording/encoder"_json_pointer))
         conf["motionDetection"]["videoRecording"]["encoder"] =
             defaultConf["motionDetection"]["videoRecording"]["encoder"];
+    if (!conf.contains("/motionDetection/videoRecording/encoder/useExternal"_json_pointer))
+        conf["motionDetection"]["videoRecording"]["encoder"]["useExternal"] =
+            defaultConf["motionDetection"]["videoRecording"]["encoder"]["useExternal"];
     encoderUseExternal =
         conf["motionDetection"]["videoRecording"]["encoder"]["useExternal"];
     if (encoderUseExternal) {
-        pipeRawVideoTo =
+        if (!conf.contains("/motionDetection/videoRecording/encoder/external"_json_pointer))
             conf["motionDetection"]["videoRecording"]["encoder"][
+                "external"]["pipeRawVideoTo"] =
+                defaultConf["motionDetection"]["videoRecording"]["encoder"][
                 "external"]["pipeRawVideoTo"];
+        pipeRawVideoTo = conf["motionDetection"]["videoRecording"]["encoder"][
+                "external"]["pipeRawVideoTo"];
+    } else {
+        if (!conf.contains("/motionDetection/videoRecording/encoder/internal/videoPath"_json_pointer))
+            conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"] =
+                defaultConf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"];
+        if (!conf.contains("/motionDetection/videoRecording/encoder/internal/fps"_json_pointer))
+            conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["fps"] =
+                defaultConf["motionDetection"]["videoRecording"]["encoder"]["internal"]["fps"];
+        if (!conf.contains("/motionDetection/videoRecording/encoder/internal/width"_json_pointer))
+            conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["width"] =
+                defaultConf["motionDetection"]["videoRecording"]["encoder"]["internal"]["width"];
+        if (!conf.contains("/motionDetection/videoRecording/encoder/internal/height"_json_pointer))
+            conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["height"] =
+                defaultConf["motionDetection"]["videoRecording"]["encoder"]["internal"]["height"];
     }
     if (!conf.contains("/motionDetection/drawContours"_json_pointer))
         conf["motionDetection"]["drawContours"] =
