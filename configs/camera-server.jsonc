@@ -62,7 +62,7 @@
 					"sharedMem": true
 				},
 				"file": {
-					"path": "/tmp/snapshot-device{{deviceIndex}}-{{timestamp}}.jpg"
+					"path": "/tmp/snapshot-{{deviceIndex}}-{{deviceName}}-{{timestamp}}.jpg"
 				},
 				"http": {
 					/* The path of HTTP request is not configurable, to access a
@@ -86,7 +86,7 @@
 		"motionDetection": {
 			/* Valid values are:
 			* 0, meaning "disabled": motion detection will NOT run and no video
-			will be saved.
+			will be saved. The program will continue to provide snapshot function.
 			* 1, meaning "detectMotion": motion detection will run and video will
 			only be recorded if the following conditions are met. Events will be
 			triggered.
@@ -121,7 +121,7 @@
 						"width": 1920,
 						"height": 1080,
 						"fps": 30,
-						"videoPath": "/tmp/{{timestampOnVideoStarts}}.mp4"
+						"videoPath": "/tmp/{{deviceIndex}}-{{deviceName}}-{{timestampOnVideoStarts}}.mp4"
 					},
 					"external": {
 						"pipeRawVideoTo": "/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 -framerate 30 -video_size 1920x1080 -i pipe:0 -vcodec libx264 -pix_fmt yuv420p /tmp/{{timestamp}}.mp4 >> /tmp/ffmpeg-vid1.log 2>&1"

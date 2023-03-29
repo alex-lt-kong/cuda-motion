@@ -32,7 +32,8 @@ feed handling repetitively.
   FFmpeg work with the it:
     * If there is an `FFmpeg` installed by `apt`, remove it first.
     * Install an Nvidia GPU driver and make sure everything works with
-    `nvidia-smi`.
+    `nvidia-smi`. On Debian/Ubuntu, Nvidia prepared `apt` package
+    [here](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html)
     * Install `FFmpeg` with Nvidia Cuda support following Nvidia's
     [official guide](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/).
     * There are tons of parameters to tweak while using FFmpeg with Nvidia GPUs,
@@ -43,23 +44,6 @@ feed handling repetitively.
     should consider transcoding with scaling after the first and larger video
     is successfully encoded.
 
-  * **A third route**: With GPU, it is possible to use it directly by OpenCV
-  with the help of
-  [Nvidia video codec sdk](https://developer.nvidia.com/nvidia-video-codec-sdk/download),
-  so that we could avoid piping frames to FFmpeg, hopefully improving the
-  performance a bit more.
-    * Nvidia's own introduction makes this clear:
-      > If you are looking to make use of the dedicated decoding/encoding
-      > hardware on your GPU in an existing application you can leverage
-      > the integration already available in FFmpeg. FFmpeg should be used for
-      > evaluation or quick integration...
-      > NVDECODE and NVENCODE APIs should be used for low-level granular
-      > control over various encode/decode parameters and if you want to
-      > directly tap into the hardware decoder/encoder.
-      > This access is available through the Video Codec SDK.
-    * Unfortunately, neither Nvidia nor OpenCV seems to provide a complete
-    guideline on how this can be done and various attempts fail to make it work.
-    Therefore, this route is currently not included.
 
 ## Build and deployment
 

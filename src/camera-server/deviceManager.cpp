@@ -290,6 +290,8 @@ void deviceManager::setParameters(const size_t deviceIndex,
         if (!conf.contains("/motionDetection/videoRecording/encoder/internal/videoPath"_json_pointer))
             conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"] =
                 defaultConf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"];
+        conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"] =
+            evaluateStaticVariables(conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"]);
         if (!conf.contains("/motionDetection/videoRecording/encoder/internal/fps"_json_pointer))
             conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["fps"] =
                 defaultConf["motionDetection"]["videoRecording"]["encoder"]["internal"]["fps"];
@@ -687,8 +689,9 @@ void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     result = cap.open(conf["uri"].get<string>());
     spdlog::info("[{}] cap.open({}): {}", deviceName, conf["uri"].get<string>(),
         result);
-    cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 
-    // Thought about moving CAP_PROP_FOURCC to config file. But seems they are good just to be hard-coded?
+    // Seems CAP_PROP_FOURCC is for VideoWriter only
+    //cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 
+    
     if (actualFrameSize.width > 0)
         cap.set(CAP_PROP_FRAME_WIDTH, actualFrameSize.width);
     if (actualFrameSize.height > 0)
