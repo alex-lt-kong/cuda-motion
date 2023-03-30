@@ -117,10 +117,14 @@
 				"maxFramesPerVideo": 108000,
 				/* Use to control the OpenCV's VideoWriter object*/
 				"videoWriter": {
-						/* Decides the format of the video, fourcc should be compatible
-						with the extension in videoPath; otherwise it is left to OpenCV
-						to decide how to reconcile them. */
-						"fourcc": "mp4v",
+						/*
+						* Set the format of the video being encoded, fourcc should be
+						compatible with the extension in videoPath; otherwise it is up
+						to OpenCV to decide how to reconcile them.
+						* If a GPU is used, one needs to check if a given fourcc is
+						supported by the GPU--it is possible that some formats are
+						supported by OpenCV/FFmpeg but not supported by the GPU*/
+						"fourcc": "hvc1",
 						"width": 1920,
 						"height": 1080,
 						"fps": 30,
