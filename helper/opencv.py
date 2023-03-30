@@ -1,15 +1,22 @@
 import cv2
 
 
-vid = cv2.VideoCapture('/dev/video0', cv2.CAP_FFMPEG)
+def print_fourcc(cap) -> None:
+    fourcc_code = cap.get(cv2.CAP_PROP_FOURCC)
+    fourcc_int = int(fourcc_code)
+    fourcc_str = chr(fourcc_int&0xff) + chr((fourcc_int>>8)&0xff) + chr((fourcc_int>>16)&0xff) + chr((fourcc_int>>24)&0xff) 
+    print(f'fourcc: {fourcc_str}')
+
+cap = cv2.VideoCapture('/dev/video0')
+
+print_fourcc(cap)
 
 while(True):
 
-    ret, frame = vid.read()
+    ret, frame = cap.read()
     if ret is False:
         print('failed')
-        break
-
+        break 
     cv2.imshow('frame', frame)
 
     # the 'q' button is set as the
@@ -18,5 +25,5 @@ while(True):
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-vid.release()
+cap.release()
 cv2.destroyAllWindows()

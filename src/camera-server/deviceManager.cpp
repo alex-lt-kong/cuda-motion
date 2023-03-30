@@ -124,9 +124,11 @@ void deviceManager::setParameters(const size_t deviceIndex,
         conf["name"] = defaultConf["name"];
     conf["name"] = evaluateStaticVariables(conf["name"]);  
     deviceName = conf["name"];
-    if (!conf.contains("/uri"_json_pointer))
-        conf["uri"] = defaultConf["uri"];
-    conf["uri"] = evaluateStaticVariables(conf["uri"]);    
+    if (!conf.contains("/videoFeed/uri"_json_pointer))
+        conf["videoFeed"]["uri"] = defaultConf["videoFeed"]["uri"];
+    conf["videoFeed"]["uri"] = evaluateStaticVariables(conf["videoFeed"]["uri"]);
+    if (!conf.contains("/videoFeed/fourcc"_json_pointer))
+        conf["videoFeed"]["fourcc"] = defaultConf["videoFeed"]["fourcc"];
 
     // ===== frame =====
     if (!conf.contains("/frame/rotation"_json_pointer))
@@ -280,13 +282,13 @@ void deviceManager::setParameters(const size_t deviceIndex,
             defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"];
     conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"] =
         evaluateStaticVariables(conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"]);
-    if (!conf.contains("/motionDetection/videoRecording/videoWriter/internal/fps"_json_pointer))
+    if (!conf.contains("/motionDetection/videoRecording/videoWriter/fps"_json_pointer))
         conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"] =
             defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["fps"];
-    if (!conf.contains("/motionDetection/videoRecording/videoWriter/internal/width"_json_pointer))
+    if (!conf.contains("/motionDetection/videoRecording/videoWriter/width"_json_pointer))
         conf["motionDetection"]["videoRecording"]["videoWriter"]["width"] =
             defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["width"];
-    if (!conf.contains("/motionDetection/videoRecording/videoWriter/internal/height"_json_pointer))
+    if (!conf.contains("/motionDetection/videoRecording/videoWriter/height"_json_pointer))
         conf["motionDetection"]["videoRecording"]["videoWriter"]["height"] =
             defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["height"];
 
@@ -543,8 +545,8 @@ void deviceManager::startOrKeepVideoRecording(VideoWriter& vwriter,
         conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"]);
 
     // Use OpenCV to encode video
-    const char* fourcc = conf["motionDetection"]["videoRecording"]["videoWriter"][
-        "fourcc"].get<string>().c_str();
+    string fourcc = conf["motionDetection"]["videoRecording"]["videoWriter"][
+        "fourcc"].get<string>();
     vwriter = VideoWriter(command,
         VideoWriter::fourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3]),
         conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"],
@@ -652,11 +654,14 @@ void deviceManager::deviceIsBackOnline(size_t& openRetryDelay,
 
 void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     const Size& actualFrameSize) {
-    result = cap.open(conf["uri"].get<string>());
-    spdlog::info("[{}] cap.open({}): {}", deviceName, conf["uri"].get<string>(),
-        result);
-    // Seems CAP_PROP_FOURCC is for VideoWriter only
-    //cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc('M', 'J', 'P', 'G')); 
+    result = cap.open(conf["videoFeed"]["uri"].get<string>());
+    spdlog::info("[{}] cap.open({}): {}", deviceName,
+        conf["videoFeed"]["uri"].get<string>(), result);
+    if (!result) {
+        return;
+    }
+    string fcc = conf["videoFeed"]["fourcc"];
+    cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc(fcc[0], fcc[1], fcc[2], fcc[3])); 
     
     if (actualFrameSize.width > 0)
         cap.set(CAP_PROP_FRAME_WIDTH, actualFrameSize.width);
