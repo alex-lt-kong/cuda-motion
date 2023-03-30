@@ -71,9 +71,7 @@ private:
     uint64_t diffEveryNthFrame = 1;
     bool drawContours;
 
-    // videoRecording variables   
-    bool encoderUseExternal; 
-    string pipeRawVideoTo;
+    // videoRecording variables
     uint32_t maxFramesPerVideo;
     uint32_t minFramesPerVideo;
     size_t precaptureFrames;
@@ -106,10 +104,9 @@ private:
     string evaluateVideoSpecficVariables(basic_string<char> originalString);
     string convertToString(char* a, int size);
     string getCurrentTimestamp();
-    void startOrKeepVideoRecording(FILE*& ffmpegPipe, VideoWriter& vwriter,
-        int64_t& cooldown);
-    void stopVideoRecording(FILE*& ffmpegPipe, VideoWriter& vwriter,
-        uint32_t& videoFrameCount, int cooldown);
+    void startOrKeepVideoRecording(VideoWriter& vwriter, int64_t& cooldown);
+    void stopVideoRecording(VideoWriter& vwriter, uint32_t& videoFrameCount,
+        int cooldown);
     void overlayDatetime(Mat& frame);
     void overlayDeviceName(Mat& frame);
     void overlayContours(Mat& dispFrame, Mat& diffFrame);

@@ -21,28 +21,23 @@ feed handling repetitively.
 * `spdlog` for logging: `apt install libspdlog-dev`
 * `v4l-utils`: for manually examining and manipulating local video devices.
 * `FFmpeg`: the back-end used by `OpenCV` to decode/encode videos
+
   * **No GPU route**  
     * If you don't have an Nvidia GPU, simply issue `apt install ffmpeg` should
     be enough--we will use FFmpeg's default configuration and use the CPU to do
     all the heavy-lifting things.
 
-  * **GPU route**
+  * **Nvidia GPU route**
 
-    * With a GPU, it is going to be much more complicated as we need to make
-  FFmpeg work with the it:
+    * With an Nvidia GPU, it is going to be much more complicated as we need
+    to build FFmpeg with Nvidia's CUDA, so that OpenCV can leverage the GPU
+    through FFmpeg's libraries.
     * If there is an `FFmpeg` installed by `apt`, remove it first.
-    * Install an Nvidia GPU driver and make sure everything works with
-    `nvidia-smi`. On Debian/Ubuntu, Nvidia prepared `apt` package
-    [here](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html)
+    * Install an Nvidia GPU driver. On Debian/Ubuntu, Nvidia prepared `apt`
+    package  [here](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html)
+      *make sure everything works by `nvidia-smi` before proceeding.
     * Install `FFmpeg` with Nvidia Cuda support following Nvidia's
     [official guide](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/).
-    * There are tons of parameters to tweak while using FFmpeg with Nvidia GPUs,
-    [this doc](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/) is a good starting point.
-    * Important observation: Even with a GPU enabled, directly encoding
-    incoming frames from cameras to two destination video files causes
-    performance to drop significantly, if two resolutions are needed, one
-    should consider transcoding with scaling after the first and larger video
-    is successfully encoded.
 
 
 ## Build and deployment

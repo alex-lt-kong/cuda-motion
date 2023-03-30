@@ -115,17 +115,16 @@
 				"precaptureFrames": 5,
 				"minFramesPerVideo": 240,
 				"maxFramesPerVideo": 108000,
-				"encoder": {
-					"useExternal": false,
-					"internal": {
+				/* Use to control the OpenCV's VideoWriter object*/
+				"videoWriter": {
+						/* Decides the format of the video, fourcc should be compatible
+						with the extension in videoPath; otherwise it is left to OpenCV
+						to decide how to reconcile them. */
+						"fourcc": "mp4v",
 						"width": 1920,
 						"height": 1080,
 						"fps": 30,
 						"videoPath": "/tmp/{{deviceIndex}}-{{deviceName}}-{{timestampOnVideoStarts}}.mp4"
-					},
-					"external": {
-						"pipeRawVideoTo": "/usr/bin/ffmpeg -y -f rawvideo -pixel_format bgr24 -framerate 30 -video_size 1920x1080 -i pipe:0 -vcodec libx264 -pix_fmt yuv420p /tmp/{{timestamp}}.mp4 >> /tmp/ffmpeg-vid1.log 2>&1"
-					}
 				}
 			}
 		},
@@ -134,8 +133,7 @@
 			"onVideoEnds": ["/usr/bin/echo", "onVideoEnds echoed from device [{{deviceIndex}}]"],
 			"onDeviceOffline": ["/usr/bin/echo", "Device [{{deviceIndex}}] is offline at [{{timestampOnDeviceOffline}}]"],
 			"onDeviceBackOnline": ["/usr/bin/echo", "Device [{{deviceName}}] is back online"]
-		}
-		
+		}		
 	},
 	"devices": [
 		/* A pair of braces ({}) means we have one device, but we want

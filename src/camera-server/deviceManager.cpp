@@ -173,9 +173,10 @@ void deviceManager::setParameters(const size_t deviceIndex,
         if (!conf.contains("/snapshot/ipc/file/path"_json_pointer)) {
             conf["snapshot"]["ipc"]["file"]["path"] =
                 defaultConf["snapshot"]["ipc"]["file"]["path"];
-        }      
-        snapshotIpcFilePath = evaluateStaticVariables(
+        }
+        conf["snapshot"]["ipc"]["file"]["path"] = evaluateStaticVariables(
             conf["snapshot"]["ipc"]["file"]["path"]);
+        snapshotIpcFilePath = conf["snapshot"]["ipc"]["file"]["path"];
     }
 
     if (!conf.contains("/snapshot/ipc/switch/sharedMem"_json_pointer)) {
@@ -270,38 +271,25 @@ void deviceManager::setParameters(const size_t deviceIndex,
             defaultConf["motionDetection"]["videoRecording"]["precaptureFrames"];
     precaptureFrames = conf["motionDetection"]["videoRecording"]["precaptureFrames"];
 
-    if (!conf.contains("/motionDetection/videoRecording/encoder"_json_pointer))
-        conf["motionDetection"]["videoRecording"]["encoder"] =
-            defaultConf["motionDetection"]["videoRecording"]["encoder"];
-    if (!conf.contains("/motionDetection/videoRecording/encoder/useExternal"_json_pointer))
-        conf["motionDetection"]["videoRecording"]["encoder"]["useExternal"] =
-            defaultConf["motionDetection"]["videoRecording"]["encoder"]["useExternal"];
-    encoderUseExternal =
-        conf["motionDetection"]["videoRecording"]["encoder"]["useExternal"];
-    if (encoderUseExternal) {
-        if (!conf.contains("/motionDetection/videoRecording/encoder/external"_json_pointer))
-            conf["motionDetection"]["videoRecording"]["encoder"][
-                "external"]["pipeRawVideoTo"] =
-                defaultConf["motionDetection"]["videoRecording"]["encoder"][
-                "external"]["pipeRawVideoTo"];
-        pipeRawVideoTo = conf["motionDetection"]["videoRecording"]["encoder"][
-                "external"]["pipeRawVideoTo"];
-    } else {
-        if (!conf.contains("/motionDetection/videoRecording/encoder/internal/videoPath"_json_pointer))
-            conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"] =
-                defaultConf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"];
-        conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"] =
-            evaluateStaticVariables(conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"]);
-        if (!conf.contains("/motionDetection/videoRecording/encoder/internal/fps"_json_pointer))
-            conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["fps"] =
-                defaultConf["motionDetection"]["videoRecording"]["encoder"]["internal"]["fps"];
-        if (!conf.contains("/motionDetection/videoRecording/encoder/internal/width"_json_pointer))
-            conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["width"] =
-                defaultConf["motionDetection"]["videoRecording"]["encoder"]["internal"]["width"];
-        if (!conf.contains("/motionDetection/videoRecording/encoder/internal/height"_json_pointer))
-            conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["height"] =
-                defaultConf["motionDetection"]["videoRecording"]["encoder"]["internal"]["height"];
-    }
+
+    if (!conf.contains("/motionDetection/videoRecording/videoWriter/fourcc"_json_pointer))
+        conf["motionDetection"]["videoRecording"]["videoWriter"]["fourcc"] =
+            defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["fourcc"];
+    if (!conf.contains("/motionDetection/videoRecording/videoWriter/videoPath"_json_pointer))
+        conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"] =
+            defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"];
+    conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"] =
+        evaluateStaticVariables(conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"]);
+    if (!conf.contains("/motionDetection/videoRecording/videoWriter/internal/fps"_json_pointer))
+        conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"] =
+            defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["fps"];
+    if (!conf.contains("/motionDetection/videoRecording/videoWriter/internal/width"_json_pointer))
+        conf["motionDetection"]["videoRecording"]["videoWriter"]["width"] =
+            defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["width"];
+    if (!conf.contains("/motionDetection/videoRecording/videoWriter/internal/height"_json_pointer))
+        conf["motionDetection"]["videoRecording"]["videoWriter"]["height"] =
+            defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["height"];
+
     if (!conf.contains("/motionDetection/drawContours"_json_pointer))
         conf["motionDetection"]["drawContours"] =
             defaultConf["motionDetection"]["drawContours"];
@@ -492,50 +480,39 @@ void deviceManager::asyncExecCallback(void* This, string stdout, string stderr,
     
 }
 
-void deviceManager::stopVideoRecording(FILE*& extRawVideoPipePtr,
-    VideoWriter& vwriter, uint32_t& videoFrameCount, int cooldown) {
+void deviceManager::stopVideoRecording(VideoWriter& vwriter,
+    uint32_t& videoFrameCount, int cooldown) {
 
-    auto handleOnVideoEnds = [&] () {
-        if (cooldown > 0) {
-            spdlog::warn("[{}] video recording stopped before cooldown "
-                "reaches 0", deviceName);
-        }
-        
-        if (conf["events"]["onVideoEnds"].size() > 0 && cooldown == 0) {
-            vector<string> args;
-            args.reserve(conf["events"]["onVideoEnds"].size());
-            spdlog::info("[{}] video recording ends", deviceName);
-            for (size_t i = 0; i < conf["events"]["onVideoEnds"].size(); ++i) {
-                args.push_back(evaluateVideoSpecficVariables(
-                    conf["events"]["onVideoEnds"][i]));
-            }
-            execAsync((void*)this, args, asyncExecCallback);
-            spdlog::info("[{}] onVideoEnds triggered, command [{}] executed",
-                deviceName, args[0]);
-        } else if (conf["events"]["onVideoEnds"].size() > 0 && cooldown > 0) {
-            spdlog::warn("[{}] onVideoEnds event defined but it won't be "
-                "triggered", deviceName);
-        } else {
-            spdlog::info("[{}] onVideoEnds, no command to execute", deviceName);
-        }
-    };
+    vwriter.release();
 
-    if (!encoderUseExternal) {
-        vwriter.release();
-    } else {
-        if (pclose(extRawVideoPipePtr) != 0) {
-            spdlog::error("pclose(encoderUseExternal) error: {}({}), "
-                "but there is nothing else we can do", errno, strerror(errno));
-        }
-        extRawVideoPipePtr = nullptr;
+    if (cooldown > 0) {
+        spdlog::warn("[{}] video recording stopped before cooldown "
+            "reaches 0", deviceName);
     }
-    handleOnVideoEnds();
+    
+    if (conf["events"]["onVideoEnds"].size() > 0 && cooldown == 0) {
+        vector<string> args;
+        args.reserve(conf["events"]["onVideoEnds"].size());
+        spdlog::info("[{}] video recording ends", deviceName);
+        for (size_t i = 0; i < conf["events"]["onVideoEnds"].size(); ++i) {
+            args.push_back(evaluateVideoSpecficVariables(
+                conf["events"]["onVideoEnds"][i]));
+        }
+        execAsync((void*)this, args, asyncExecCallback);
+        spdlog::info("[{}] onVideoEnds triggered, command [{}] executed",
+            deviceName, args[0]);
+    } else if (conf["events"]["onVideoEnds"].size() > 0 && cooldown > 0) {
+        spdlog::warn("[{}] onVideoEnds event defined but it won't be "
+            "triggered", deviceName);
+    } else {
+        spdlog::info("[{}] onVideoEnds, no command to execute", deviceName);
+    }
     videoFrameCount = 0;
 }
 
 
-void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
-    VideoWriter& vwriter, int64_t& cooldown) {
+void deviceManager::startOrKeepVideoRecording(VideoWriter& vwriter,
+    int64_t& cooldown) {
 
     auto handleOnVideoStarts = [&] () {
         if (conf["events"]["onVideoStarts"].size() > 0) {
@@ -559,33 +536,22 @@ void deviceManager::startOrKeepVideoRecording(FILE*& extRawVideoPipePtr,
     cooldown = minFramesPerVideo;
 
     // These two if's: video recording is in progress already.
-    if (!encoderUseExternal && vwriter.isOpened()) return;
-    if (encoderUseExternal && extRawVideoPipePtr != nullptr) return;
+    if (vwriter.isOpened()) return;
 
-    string command = encoderUseExternal ?
-        conf["motionDetection"]["videoRecording"]["encoder"]["external"]["pipeRawVideoTo"] :
-        conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["videoPath"];
     timestampOnVideoStarts = getCurrentTimestamp();
-    command = evaluateVideoSpecficVariables(command);
-    if (!encoderUseExternal) {
-        // Use OpenCV to encode video
-        vwriter = VideoWriter(
-            command,
-            VideoWriter::fourcc('a','v','c','1'),
-            conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["fps"],
-            Size(
-                conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["width"],
-                conf["motionDetection"]["videoRecording"]["encoder"]["internal"]["height"]
-            ));
-    } else {
-        // Use external encoder to encode video
-        extRawVideoPipePtr = popen(command.c_str(), "w");
-        if (extRawVideoPipePtr == NULL) {
-            // most likely due to invalid command or lack of memory
-            spdlog::error("[{}] popen() failed, recording won't start: {}({})",
-                deviceName, errno, strerror(errno));
-        }
-    }
+    string command = evaluateVideoSpecficVariables(
+        conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"]);
+
+    // Use OpenCV to encode video
+    const char* fourcc = conf["motionDetection"]["videoRecording"]["videoWriter"][
+        "fourcc"].get<string>().c_str();
+    vwriter = VideoWriter(command,
+        VideoWriter::fourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3]),
+        conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"],
+        Size(conf["motionDetection"]["videoRecording"]["videoWriter"]["width"],
+             conf["motionDetection"]["videoRecording"]["videoWriter"]["height"])
+    );
+
     handleOnVideoStarts();
 }
 
@@ -778,7 +744,6 @@ void deviceManager::InternalThreadEntry() {
     uint32_t videoFrameCount = 0;
     Size actualFrameSize = Size(conf["frame"]["preferredWidth"],
         conf["frame"]["preferredHeight"]);
-    FILE *extRawVideoPipePtr = nullptr;
     VideoWriter vwriter;
     int64_t cooldown = 0;
     size_t openRetryDelay = 1;
@@ -855,7 +820,7 @@ entryPoint:
             (rateOfChange > frameDiffPercentageLowerLimit &&
              rateOfChange < frameDiffPercentageUpperLimit &&
              motionDetectionMode == MODE_DETECT_MOTION)) {
-            startOrKeepVideoRecording(extRawVideoPipePtr, vwriter, cooldown);
+            startOrKeepVideoRecording(vwriter, cooldown);
         }
         
         updateVideoCooldownAndVideoFrameCount(cooldown, videoFrameCount);
@@ -863,36 +828,14 @@ entryPoint:
 
         if (cooldown < 0) { continue; }
         if (cooldown == 0) { 
-            stopVideoRecording(extRawVideoPipePtr, vwriter,
-                videoFrameCount, cooldown);
+            stopVideoRecording(vwriter, videoFrameCount, cooldown);
             continue;
-        } 
-        if (!encoderUseExternal)  {
-            vwriter.write(dispFrames.front());
-        } else {
-            /* fwrite() is already a buffered method, adding an extra layer
-            of manual buffer isn't likely to improve performance.
-            */
-            size_t frameSize = dispFrames.front().dataend -
-                dispFrames.front().datastart;
-            if (fwrite(dispFrames.front().data, 1, frameSize,
-                    extRawVideoPipePtr) != frameSize) {
-                spdlog::error("[{}] fwrite() to external pipe failed: {}({})",
-                    deviceName, errno, strerror(errno));
-                stopVideoRecording(extRawVideoPipePtr, vwriter,
-                    videoFrameCount, cooldown);
-
-            }
-            // formula of dispFrame.dataend - dispFrame.datastart height x width x channel bytes.
-            // For example, for conventional 1920x1080x3 videos, one frame occupies 1920*1080*3 = 6,220,800 bytes or 6,075 KB
-            // profiling shows that:
-            // fwrite() takes around ~10ms for piping raw video to 1080p@30fps.
-            // fwirte() takes around ~20ms for piping raw video to 1080p@30fps + 360p@30fps concurrently
-
         }
+
+        vwriter.write(dispFrames.front());
     }
     if (cooldown > 0) {
-        stopVideoRecording(extRawVideoPipePtr, vwriter, videoFrameCount, cooldown);
+        stopVideoRecording(vwriter, videoFrameCount, cooldown);
     }
     cap.release();
     spdlog::info("[{}] thread quits gracefully", deviceName);
