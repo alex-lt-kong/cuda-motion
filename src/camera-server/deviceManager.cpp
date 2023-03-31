@@ -151,8 +151,10 @@ void deviceManager::setParameters(const size_t deviceIndex,
     if (!conf.contains("/frame/textOverlay/fontScale"_json_pointer))
         conf["frame"]["textOverlay"]["fontScale"] =
             defaultConf["frame"]["textOverlay"]["fontScale"];
-    textOverlayFontSacle = conf["frame"]["textOverlay"]["fontScale"];
-    
+    textOverlayFontSacle = conf["frame"]["textOverlay"]["fontScale"];    
+    if (!conf.contains("/frame/queueSize"_json_pointer))
+        conf["frame"]["queueSize"] = defaultConf["frame"]["queueSize"];
+    queueSize = conf["frame"]["queueSize"];
 
     // =====  snapshot =====
     if (!conf.contains("/snapshot/frameInterval"_json_pointer)) {
@@ -268,10 +270,6 @@ void deviceManager::setParameters(const size_t deviceIndex,
             defaultConf["motionDetection"]["videoRecording"]["maxFramesPerVideo"];
     maxFramesPerVideo =
         conf["motionDetection"]["videoRecording"]["maxFramesPerVideo"];
-    if (!conf.contains("/motionDetection/videoRecording/precaptureFrames"_json_pointer))
-        conf["motionDetection"]["videoRecording"]["precaptureFrames"] =
-            defaultConf["motionDetection"]["videoRecording"]["precaptureFrames"];
-    precaptureFrames = conf["motionDetection"]["videoRecording"]["precaptureFrames"];
 
 
     if (!conf.contains("/motionDetection/videoRecording/videoWriter/fourcc"_json_pointer))
@@ -544,6 +542,7 @@ void deviceManager::startOrKeepVideoRecording(VideoWriter& vwriter,
     string command = evaluateVideoSpecficVariables(
         conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"]);
 
+    handleOnVideoStarts();
     // Use OpenCV to encode video
     string fourcc = conf["motionDetection"]["videoRecording"]["videoWriter"][
         "fourcc"].get<string>();
@@ -553,8 +552,6 @@ void deviceManager::startOrKeepVideoRecording(VideoWriter& vwriter,
         Size(conf["motionDetection"]["videoRecording"]["videoWriter"]["width"],
              conf["motionDetection"]["videoRecording"]["videoWriter"]["height"])
     );
-
-    handleOnVideoStarts();
 }
 
 void deviceManager::getLiveImage(vector<uint8_t>& pl) {
@@ -671,15 +668,15 @@ void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
         cap.set(CAP_PROP_FPS, conf["frame"]["preferredFps"]);
 }
 
-void deviceManager::prepareDataForIpc(queue<cv::Mat>& dispFrames) {
+void deviceManager::prepareDataForIpc(Mat& dispFrame) {
     //vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
     vector<int> configs = {};
     if (snapshotIpcHttpEnabled) {
         pthread_mutex_lock(&mutexLiveImage);
-        imencode(".jpg", dispFrames.front(), encodedJpgImage, configs);
+        imencode(".jpg", dispFrame, encodedJpgImage, configs);
         pthread_mutex_unlock(&mutexLiveImage);
     } else {
-        imencode(".jpg", dispFrames.front(), encodedJpgImage, configs);
+        imencode(".jpg", dispFrame, encodedJpgImage, configs);
     }
 
     // Profiling show that the above mutex section without actual
@@ -799,7 +796,7 @@ entryPoint:
         }
         
         dispFrames.push(currFrame.clone()); //rvalue ref!
-        if (dispFrames.size() > precaptureFrames) {
+        if (dispFrames.size() > queueSize) {
             dispFrames.pop();
         }
         if (drawContours && motionDetectionMode == MODE_DETECT_MOTION) {
@@ -814,7 +811,7 @@ entryPoint:
         }
         
         if ((retrievedFrameCount - 1) % snapshotFrameInterval == 0) {
-            prepareDataForIpc(dispFrames);
+            prepareDataForIpc(dispFrames.front());
         }
 
         if (motionDetectionMode == MODE_DISABLED) {

@@ -55,7 +55,14 @@
 			below. */
 			"preferredWidth": -1,
 			"preferredHeight": -1,
-			"preferredFps": 30
+			"preferredFps": 30,
+			/* Internally, frames are buffered in a FIFO queue. When performing motion
+			detection, we use the last frame in the queue. When recording videos /
+			preparing snapshots, we use the first frame in the queue. The idea
+			is that we can "precapture" or notify the downstream program on
+			an upcoming motion detection event, providing the video or the
+			downstream program with some response time or some context. */
+			"queueSize": 5
 		},
 		/* Apart from motion detection and video recording, Camera server
 		supports another important feature: It provides downsteam data 

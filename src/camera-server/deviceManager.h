@@ -74,7 +74,7 @@ private:
     // videoRecording variables
     uint32_t maxFramesPerVideo;
     uint32_t minFramesPerVideo;
-    size_t precaptureFrames;
+    size_t queueSize;
 
     // snapshot variables
     int snapshotFrameInterval;
@@ -121,7 +121,7 @@ private:
         const Size& actualFrameSize);
     static void asyncExecCallback(void* This, string stdout, string stderr,
         int rc);
-    void prepareDataForIpc(queue<cv::Mat>& dispFrames);
+    void prepareDataForIpc(Mat& dispFrames);
     float getCurrentFps(int64_t msSinceEpoch);
 };
 
