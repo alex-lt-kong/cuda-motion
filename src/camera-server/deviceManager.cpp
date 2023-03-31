@@ -798,6 +798,8 @@ entryPoint:
             retrievedFrameCount % diffEveryNthFrame == 0) {
             // profiling shows this if() block takes around 1-2 ms
             rateOfChange = getFrameChanges(prevFrame, currFrame, &diffFrame);
+            /* Can't just assign like prevFrame = currFrame, otherwise two
+            objects will share the same copy of underlying image data */
             prevFrame = currFrame.clone();
         }
         
