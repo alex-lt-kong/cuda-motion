@@ -659,7 +659,7 @@ void deviceManager::deviceIsBackOnline(size_t& openRetryDelay,
 
 void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     const Size& actualFrameSize) {
-    result = cap.open(conf["videoFeed"]["uri"].get<string>(), cv::CAP_FFMPEG);
+    result = cap.open(conf["videoFeed"]["uri"].get<string>());
     spdlog::info("[{}] cap.open({}): {}", deviceName,
         conf["videoFeed"]["uri"].get<string>(), result);
     if (!result) {
