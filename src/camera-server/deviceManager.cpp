@@ -759,9 +759,15 @@ void deviceManager::InternalThreadEntry() {
         // if the source uses HTTP protocol.
         result = cap.grab();
         
-        if (shouldFrameBeThrottled()) {continue; }
+        if (shouldFrameBeThrottled()) {
+            /* Seems that sometimes OpenCV could grab() the same frame time
+            and time again, maxing out the CPU, so we make it sleep_for() a 
+            little bit of time. */
+            this_thread::sleep_for(1ms);
+            continue;
+        }
         if (result) {
-            result = result && cap.retrieve(currFrame);
+            result = cap.retrieve(currFrame);
         }
         ++retrievedFrameCount;
 
@@ -795,7 +801,7 @@ entryPoint:
             prevFrame = currFrame.clone();
         }
         
-        dispFrames.push(currFrame.clone()); //rvalue ref!
+        dispFrames.push(currFrame);
         if (dispFrames.size() > frameQueueSize) {
             dispFrames.pop();
         }
