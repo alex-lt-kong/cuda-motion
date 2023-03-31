@@ -154,7 +154,7 @@ void deviceManager::setParameters(const size_t deviceIndex,
     textOverlayFontSacle = conf["frame"]["textOverlay"]["fontScale"];    
     if (!conf.contains("/frame/queueSize"_json_pointer))
         conf["frame"]["queueSize"] = defaultConf["frame"]["queueSize"];
-    queueSize = conf["frame"]["queueSize"];
+    frameQueueSize = conf["frame"]["queueSize"];
 
     // =====  snapshot =====
     if (!conf.contains("/snapshot/frameInterval"_json_pointer)) {
@@ -796,7 +796,7 @@ entryPoint:
         }
         
         dispFrames.push(currFrame.clone()); //rvalue ref!
-        if (dispFrames.size() > queueSize) {
+        if (dispFrames.size() > frameQueueSize) {
             dispFrames.pop();
         }
         if (drawContours && motionDetectionMode == MODE_DETECT_MOTION) {

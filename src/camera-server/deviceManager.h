@@ -74,7 +74,7 @@ private:
     // videoRecording variables
     uint32_t maxFramesPerVideo;
     uint32_t minFramesPerVideo;
-    size_t queueSize;
+    size_t frameQueueSize;
 
     // snapshot variables
     int snapshotFrameInterval;
