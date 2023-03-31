@@ -31,8 +31,7 @@ of ev_flag in one .c/.cpp file. In this particular case, this is done
 in main.cpp. */
 extern volatile sig_atomic_t ev_flag;
 
-
-#define PERMS (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)
+#define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
 #define SEM_INITIAL_VALUE 1
 
 

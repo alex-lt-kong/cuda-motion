@@ -31,3 +31,6 @@
 * A more accurate but less formal way is to simply observe the output from
 `ffmpeg` itself.
 
+## POSIX-related
+
+* Check the status of shared memory/semaphore: `ls -alh /dev/shm`

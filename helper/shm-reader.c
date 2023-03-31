@@ -10,22 +10,22 @@
 #include <time.h>
 
 #define SEM_INITIAL_VALUE 1
-#define SEM_NAME "semaphore-device0"
+#define SEM_NAME "/my.sem"
 
 #define SHM_SIZE (8192 * 1024UL)
-#define SHM_NAME "/sharedMem-device0"
+#define SHM_NAME "/my.shm"
 
-#define PERMS (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)
+#define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
 
 int main() {
     int rc = 0;
-    int fd = shm_open(SHM_NAME, O_RDWR, PERMS);  /* empty to begin */
+    int fd = shm_open(SHM_NAME, O_RDONLY, PERMS);  /* empty to begin */
     if (fd < 0) {
         perror("shm_open()");
         goto err_shm_open;
     }
 
-    char* memptr = (char*)mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    char* memptr = (char*)mmap(NULL, SHM_SIZE, PROT_READ, MAP_SHARED, fd, 0);
     if (memptr == MAP_FAILED) {
         perror("mmap()");
         goto err_memptr;

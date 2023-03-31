@@ -40,9 +40,9 @@ deviceManager::deviceManager(const size_t deviceIndex,
     }
     if (snapshotIpcSharedMemEnabled) {
         // Should have used multiple RAII classes to handle this but...
-        sharedMemName = evaluateStaticVariables(
-            conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"]);
-        int shmFd = shm_open(sharedMemName.c_str(), O_RDWR | O_CREAT, PERMS);
+        int shmFd = shm_open(
+            conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"].get<string>().c_str(),
+            O_RDWR | O_CREAT, PERMS);
         if (shmFd < 0) {
             spdlog::error("shm_open() failed, {}({})", errno, strerror(errno));
             goto err_shmFd;
@@ -58,10 +58,12 @@ deviceManager::deviceManager(const size_t deviceIndex,
             spdlog::error("mmap() failed, {}({})", errno, strerror(errno));
             goto err_mmap;
         }
-        semaphoreName = evaluateStaticVariables(
-                conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"]);
-        semPtr = sem_open(semaphoreName.c_str(),
-            O_CREAT, PERMS, SEM_INITIAL_VALUE);
+        // umask() is needed to set the correct permissions.
+        mode_t old_umask = umask(0);
+        semPtr = sem_open(conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"].get<string>().c_str(),
+            O_CREAT | O_RDWR, PERMS, SEM_INITIAL_VALUE);
+        umask(old_umask);
+
 
         if (semPtr == SEM_FAILED) {
             spdlog::error("sem_open() failed, {}({})", errno, strerror(errno));
@@ -193,10 +195,16 @@ void deviceManager::setParameters(const size_t deviceIndex,
             conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"] =
                 defaultConf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"];
         }
+        conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"] =
+            evaluateStaticVariables(
+                conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"]);
         if (!conf.contains("/snapshot/ipc/sharedMem/sharedMemName"_json_pointer)) {
             conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"] =
                 defaultConf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"];
         }
+        conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"] =
+            evaluateStaticVariables(
+                conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"]);
         if (!conf.contains("/snapshot/ipc/sharedMem/sharedMemSize"_json_pointer)) {
             conf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"] =
                 defaultConf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"];
@@ -651,7 +659,7 @@ void deviceManager::deviceIsBackOnline(size_t& openRetryDelay,
 
 void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     const Size& actualFrameSize) {
-    result = cap.open(conf["videoFeed"]["uri"].get<string>());
+    result = cap.open(conf["videoFeed"]["uri"].get<string>(), cv::CAP_FFMPEG);
     spdlog::info("[{}] cap.open({}): {}", deviceName,
         conf["videoFeed"]["uri"].get<string>(), result);
     if (!result) {
