@@ -70,6 +70,11 @@ static vector<deviceManager> myDevices;
 static void signal_handler(int signum) {
     if (signum != SIGCHLD) {
         ev_flag = 1;
+        /* Internally, Crow appears to be using io_context. Is io_context.stop()
+        reentrant then? The document does not directly answer this:
+        https://www.boost.org/doc/libs/1_76_0/doc/html/boost_asio/reference/io_context/stop.html
+        but the wording appears to imply yes. */
+        app.stop();
     }
     char msg[] = "Signal [  ] caught\n";
     msg[8] = '0' + signum / 10;
@@ -84,12 +89,6 @@ static void signal_handler(int signum) {
         }
         written += ret;
     }
-    
-    /* Internally, Crow appears to be using io_context. Is io_context.stop()
-    reentrant then? The document does not directly answer this:
-    https://www.boost.org/doc/libs/1_76_0/doc/html/boost_asio/reference/io_context/stop.html
-    but the wording appears to imply yes. */
-    app.stop();
 }
 
 void install_signal_handler() {
@@ -150,7 +149,7 @@ void start_http_server() {
 
     CustomLogger logger;
     crow::logger::setHandler(&logger);
-    app.loglevel(crow::LogLevel::Warning);
+    app.loglevel(crow::LogLevel::Info);
 
     CROW_ROUTE(app, "/").CROW_MIDDLEWARES(app, httpAuthMiddleware)([](){
         return string("HTTP service running\nTry: ") +
@@ -200,10 +199,12 @@ void start_http_server() {
         app.bindaddr(settings["httpService"]["interface"])
             .ssl_file(settings["httpService"]["ssl"]["crtPath"],
                     settings["httpService"]["ssl"]["keyPath"])
-            .port(settings["httpService"]["port"]).signal_clear().run_async();
+            .port(settings["httpService"]["port"]).signal_clear()
+            .multithreaded().run();
     } else {
         app.bindaddr(settings["httpService"]["interface"])
-            .port(settings["httpService"]["port"]).signal_clear().run_async();
+            .port(settings["httpService"]["port"]).signal_clear()
+            .multithreaded().run();
     }
 }
 
