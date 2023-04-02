@@ -76,11 +76,18 @@
       every 150 frames read from the source device. */
       "frameInterval": 600,
       "ipc": {
-        "switch": {
+
+				"switch": {
           "http": true,
+          /* Save the snapshot to filesystem. To achieve better performance,
+          one may also enable RAM disk. */
           "file": true,
-          "sharedMem": true
-        },
+          /* Save the snapshot in POSIX shared memory with semaphore
+          mechanism enabled */
+          "sharedMem": true,
+          /* Publush the snapshot with zeroMQ. */
+          "zeroMQ": true
+				},
         "file": {
           "path": "/tmp/snapshot-{{deviceIndex}}-{{deviceName}}-{{timestamp}}.jpg"
         },
@@ -100,6 +107,9 @@
           are slashes.*/
           "sharedMemName": "/sharedMem-device{{deviceIndex}}",
           "sharedMemSize": 8388608 // 1024 * 8 * 1024 = 8MB
+        }, 
+        "zeroMQ": {
+          "endpoint": "tcp://127.0.0.1:4242"
         }
       }
     },
@@ -144,7 +154,7 @@
             * If a GPU is used, one needs to check if a given fourcc is
             supported by the GPU--it is possible that some formats are
             supported by OpenCV/FFmpeg but not supported by the GPU*/
-            "fourcc": "avc1",
+            "fourcc": "x264",
             /* It is very important to keep width / height below consistent with
             the size of the original video or videoWriter may stop working
             without much error information. Setting preferredWidth /

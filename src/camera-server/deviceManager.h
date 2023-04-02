@@ -14,6 +14,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <zmq.hpp>
 
 #include "eventLoop.h"
 #include "utils.h"
@@ -38,7 +39,8 @@ extern volatile sig_atomic_t ev_flag;
 class deviceManager : public MyEventLoopThread {
 
 public:
-    deviceManager(const size_t deviceIndex, const njson& defaultConf, njson& overrideConf);
+    deviceManager(const size_t deviceIndex, const njson& defaultConf,
+        njson& overrideConf);
     ~deviceManager();
     void setParameters(const size_t deviceIndex, const njson& defaultConf,
         njson& overrideConf);
@@ -88,7 +90,10 @@ private:
     string semaphoreName;
     void* memPtr;
     sem_t* semPtr;
-
+    bool snapshotIpcZeroMQEnabled;
+    string zeroMQEndpoint;
+    zmq::context_t zmqContext;
+    zmq::socket_t zmqSocket;
 
     string timestampOnVideoStarts;
     string timestampOnDeviceOffline;

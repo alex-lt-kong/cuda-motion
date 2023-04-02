@@ -9,7 +9,11 @@ during the periods when a motion event occurs;
 1. Provide various inter-process communication methods for downstream
 programs to consume live images from different types of cameras
 so that downstream programs don't have to implement their own version of video
-feed handling repetitively.
+feed handling repetitively. The following methods are currently supported:
+  1. File;
+  1. HTTP;
+  1. POSIX Shared Memory;
+  1. ZeroMQ Pub/Sub mode.
 
 ## Dependencies
 
@@ -20,6 +24,10 @@ feed handling repetitively.
 * `opencv`, for frame manipulation: `apt install libopencv-dev`
 * `spdlog` for logging: `apt install libspdlog-dev`
 * `v4l-utils`: for manually examining and manipulating local video devices.
+* `ZeroMQ` for message queue. This includes two parts:
+  1. `libzmq`, the underlying ZeroMQ library: `apt install libzmq3-dev`
+  1. [cppzmq](https://github.com/zeromq/cppzmq), a C++ binding for libzmq.
+
 * `FFmpeg`: the back-end used by `OpenCV` to decode/encode videos
 
   * **No GPU route**  

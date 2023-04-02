@@ -3,6 +3,7 @@ include_directories(/usr/local/include/opencv4)
 
 find_package(OpenCV REQUIRED)
 find_package(Crow REQUIRED)
+find_package(cppzmq REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_definitions(-DCROW_ENABLE_SSL)
@@ -11,7 +12,7 @@ add_library(deviceManager deviceManager.cpp)
 add_library(utils utils.cpp)
 
 
-target_link_libraries(cs deviceManager utils ${OpenCV_LIBS} pthread rt ssl crypto spdlog fmt)
+target_link_libraries(cs deviceManager utils ${OpenCV_LIBS} pthread rt ssl crypto spdlog fmt cppzmq)
 
 add_custom_command(
   TARGET cs POST_BUILD

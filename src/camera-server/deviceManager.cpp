@@ -28,9 +28,23 @@ string deviceManager::getCurrentTimestamp() {
 }
 
 deviceManager::deviceManager(const size_t deviceIndex,
-    const njson& defaultConf, njson& overrideConf) {
+    const njson& defaultConf, njson& overrideConf) :
+    zmqContext(1),
+    zmqSocket(zmqContext, zmq::socket_type::pub) {
 
     setParameters(deviceIndex, defaultConf, overrideConf);
+
+    if (snapshotIpcZeroMQEnabled) {
+        /* zmqSocket.bind() throws exception, so we want it to be called
+        before other POSIX APIs. */
+        try {
+            zmqSocket.bind(zeroMQEndpoint);
+        } catch (const std::exception& e) {
+            spdlog::error("zmqSocket.bind(zeroMQEndpoint): {}", e.what());
+            abort();
+        }
+    }
+
     if (snapshotIpcHttpEnabled) {
         if (pthread_mutex_init(&mutexLiveImage, NULL) != 0) {
             spdlog::error("pthread_mutex_init() failed, {}({})",
@@ -64,12 +78,13 @@ deviceManager::deviceManager(const size_t deviceIndex,
             O_CREAT | O_RDWR, PERMS, SEM_INITIAL_VALUE);
         umask(old_umask);
 
-
         if (semPtr == SEM_FAILED) {
             spdlog::error("sem_open() failed, {}({})", errno, strerror(errno));
             goto err_sem_open;
         }
     }
+
+    
     return;
 err_sem_open:
     if (munmap(memPtr, sharedMemSize) != 0) {
@@ -210,6 +225,22 @@ void deviceManager::setParameters(const size_t deviceIndex,
                 defaultConf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"];
         }
     }
+
+    if (!conf.contains("/snapshot/ipc/switch/zeroMQ"_json_pointer)) {
+        conf["snapshot"]["ipc"]["switch"]["zeroMQ"] =
+            defaultConf["snapshot"]["ipc"]["switch"]["zeroMQ"];
+    }
+    snapshotIpcZeroMQEnabled = conf["snapshot"]["ipc"]["switch"]["zeroMQ"];
+    if (snapshotIpcZeroMQEnabled) {
+        if (!conf.contains("/snapshot/ipc/zeroMQ/endpoint"_json_pointer)) {
+            conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"] =
+                defaultConf["snapshot"]["ipc"]["zeroMQ"]["endpoint"];
+        }
+        conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"] = evaluateStaticVariables(
+            conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"]);
+        zeroMQEndpoint = conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"];
+    }
+
 
     // ===== events =====
     if (!conf.contains("/events/onVideoStarts"_json_pointer))
@@ -554,7 +585,9 @@ void deviceManager::startOrKeepVideoRecording(VideoWriter& vwriter,
     // Use OpenCV to encode video
     string fourcc = conf["motionDetection"]["videoRecording"]["videoWriter"][
         "fourcc"].get<string>();
-    vwriter = VideoWriter(command,
+    /* For VideoWriter, we have to use FFmpeg as we compiled FFmpeg with
+    Nvidia GPU*/
+    vwriter = VideoWriter(command, cv::CAP_FFMPEG,
         VideoWriter::fourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3]),
         conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"],
         Size(conf["motionDetection"]["videoRecording"]["videoWriter"]["width"],
@@ -738,6 +771,10 @@ void deviceManager::prepareDataForIpc(Mat& dispFrame) {
                 }
             }
         }
+    }
+
+    if (snapshotIpcZeroMQEnabled) {
+        zmqSocket.send(encodedJpgImage.data(), encodedJpgImage.size());
     }
 }
 

@@ -64,7 +64,7 @@ struct httpAuthMiddleware: crow::ILocalMiddleware {
 };
 
 crow::App<httpAuthMiddleware> app;
-static vector<deviceManager> myDevices;
+static vector<deviceManager*> myDevices;
 
 
 static void signal_handler(int signum) {
@@ -179,7 +179,7 @@ void start_http_server() {
                 return;
             }            
             vector<uint8_t> encodedImg;
-            myDevices[deviceId].getLiveImage(encodedImg);
+            myDevices[deviceId]->getLiveImage(encodedImg);
             if (encodedImg.size() > 0) {
                 res.set_header("Content-Type", "image/jpg");
                 res.end(string((char*)(encodedImg.data()), encodedImg.size()));
@@ -222,19 +222,21 @@ int main() {
     if (deviceCount == 0) {
         throw logic_error("No devices are defined.");
     }
-    myDevices = vector<deviceManager>();
-    myDevices.reserve(deviceCount);
+    myDevices = vector<deviceManager*>(deviceCount);
+    //myDevices.reserve(deviceCount);
     for (size_t i = 0; i < deviceCount; ++i) {
-        // variadic templates and perfect forwarding come to the rescue!
-        myDevices.emplace_back(i, settings["devicesDefault"],
+        /* Seems ZeroMQ objects are neither copyable nor movable, using
+        pointer is a relatively easy way to circumvent these operations. */
+        myDevices[i] = new deviceManager(i, settings["devicesDefault"],
             settings["devices"][i]);
-        myDevices.back().StartInternalEventLoopThread();
+        myDevices[i]->StartInternalEventLoopThread();
     }
 
     start_http_server();
     for (size_t i = 0; i < myDevices.size(); ++i) {
-        myDevices[i].WaitForInternalEventLoopThreadToExit();
+        myDevices[i]->WaitForInternalEventLoopThreadToExit();
         spdlog::info("{}-th device thread exited gracefully", i);
+        delete myDevices[i];
     }
     spdlog::info("All device threads exited gracefully"); 
 
