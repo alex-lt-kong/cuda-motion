@@ -10,10 +10,11 @@ during the periods when a motion event occurs;
 programs to consume live images from different types of cameras
 so that downstream programs don't have to implement their own version of video
 feed handling repetitively. The following methods are currently supported:
-  1. File;
-  1. HTTP;
-  1. POSIX Shared Memory;
-  1. ZeroMQ Pub/Sub mode.
+
+    1. File;
+    1. HTTP;
+    1. POSIX Shared Memory;
+    1. ZeroMQ Pub/Sub mode.
 
 ## Dependencies
 
