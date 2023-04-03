@@ -25,9 +25,7 @@ feed handling repetitively. The following methods are currently supported:
 * `opencv`, for frame manipulation: `apt install libopencv-dev`
 * `spdlog` for logging: `apt install libspdlog-dev`
 * `v4l-utils`: for manually examining and manipulating local video devices.
-* `ZeroMQ` for message queue. This includes two parts:
-  1. `libzmq`, the underlying ZeroMQ library: `apt install libzmq3-dev`
-  1. [cppzmq](https://github.com/zeromq/cppzmq), a C++ binding for libzmq.
+* `ZeroMQ` for message queue, `apt install libzmq3-dev`
 
 * `FFmpeg`: the back-end used by `OpenCV` to decode/encode videos
 

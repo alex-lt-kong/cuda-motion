@@ -99,7 +99,7 @@
           section.*/
         },
         "sharedMem": {
-          "semaphoreName": "semaphore-device{{deviceIndex}}",
+          "semaphoreName": "/semaphore-device{{deviceIndex}}",
           /* man shm_open recommends that the name of a shared memory
           object should be , a null-terminated string of up to
           NAME_MAX (i.e., 255) characters consisting of an initial

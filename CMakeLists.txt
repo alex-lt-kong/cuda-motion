@@ -13,6 +13,13 @@ if(NOT SPDLOG_LIB)
         "spdlog library not found, install it with 'apt install libspdlog-dev'"
     )
 endif()
+find_library(ZMQ_LIB zmq)
+if(NOT ZMQ_LIB)
+    message(
+        FATAL_ERROR
+        "libzmp library not found, install it with 'apt install libzmq3-dev'"
+    )
+endif()
 
 option(BUILD_ASAN "Build with AddressSanitizer to detect memory error" OFF)
 option(BUILD_UBSAN "Build with UndefinedBehaviorSanitizer to detect undefined behavior" OFF)
