@@ -77,7 +77,7 @@
       "frameInterval": 600,
       "ipc": {
 
-				"switch": {
+        "switch": {
           "http": true,
           /* Save the snapshot to filesystem. To achieve better performance,
           one may also enable RAM disk. */
@@ -87,7 +87,7 @@
           "sharedMem": true,
           /* Publush the snapshot with zeroMQ. */
           "zeroMQ": true
-				},
+        },
         "file": {
           "path": "/tmp/snapshot-{{deviceIndex}}-{{deviceName}}-{{timestamp}}.jpg"
         },
@@ -139,10 +139,6 @@
       // Useful for debug but CPU intensive
       "drawContours": false,
       "videoRecording": {
-        /* If a motion is detected on the N-th frame, the video shall start from
-        (N - precaptureFrames)-th frame, so that we can get a bit of context
-        about the motion being recorded */
-        "precaptureFrames": 5,
         "minFramesPerVideo": 240,
         "maxFramesPerVideo": 108000,
         /* Use to control the OpenCV's VideoWriter object*/
