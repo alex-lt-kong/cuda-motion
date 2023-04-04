@@ -146,6 +146,8 @@ void deviceManager::setParameters(const size_t deviceIndex,
     conf["videoFeed"]["uri"] = evaluateStaticVariables(conf["videoFeed"]["uri"]);
     if (!conf.contains("/videoFeed/fourcc"_json_pointer))
         conf["videoFeed"]["fourcc"] = defaultConf["videoFeed"]["fourcc"];
+    if (!conf.contains("/videoFeed/videoCaptureApi"_json_pointer))
+        conf["videoFeed"]["videoCaptureApi"] = defaultConf["videoFeed"]["videoCaptureApi"];
 
     // ===== frame =====
     if (!conf.contains("/frame/rotation"_json_pointer))
@@ -692,7 +694,8 @@ void deviceManager::deviceIsBackOnline(size_t& openRetryDelay,
 
 void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     const Size& actualFrameSize) {
-    result = cap.open(conf["videoFeed"]["uri"].get<string>());
+    result = cap.open(conf["videoFeed"]["uri"].get<string>(),
+        conf["videoFeed"]["videoCaptureApi"]);
     spdlog::info("[{}] cap.open({}): {}", deviceName,
         conf["videoFeed"]["uri"].get<string>(), result);
     if (!result) {
@@ -808,7 +811,7 @@ void deviceManager::InternalThreadEntry() {
             /* Seems that sometimes OpenCV could grab() the same frame time
             and time again, maxing out the CPU, so we make it sleep_for() a 
             little bit of time. */
-            this_thread::sleep_for(1ms);
+            this_thread::sleep_for(2ms);
             continue;
         }
         if (result) {
