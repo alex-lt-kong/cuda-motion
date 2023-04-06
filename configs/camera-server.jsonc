@@ -18,7 +18,8 @@
     "name": "Device-{{deviceIndex}}",
     "videoFeed": {
       "uri": "/dev/video{{deviceIndex}}",
-      /* This will be directly passed to OpenCV. It is users responsibility
+      /* This will be directly passed to OpenCV. OpenCV will make it guess
+      if left empty; otherwise, it is users responsibility
       to make sure the supplied parameter is correct/compatible with the
       video feed. Some methods to query supported fourcc:
 
@@ -28,7 +29,7 @@
       ./helper/opencv.py accompanied by the project can provide OpenCV's
       best guess, but this is not guaranteed to be the most accurate one.
       */
-      "fourcc": "MJPG",
+      "fourcc": "",
       /* an enum value of cv::VideoCaptureAPIs from here:
       https://docs.opencv.org/4.5.4/d4/d15/group__videoio__flags__base.html
       Typically one may try:

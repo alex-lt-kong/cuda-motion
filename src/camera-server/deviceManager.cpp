@@ -701,11 +701,18 @@ void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     if (!result) {
         return;
     }
-    spdlog::info("[{}] cap.getBackendName(): {}",
-        deviceName, cap.getBackendName());
+
+    int fourcc = cap.get(CAP_PROP_FOURCC);
+    string fourcc_str = format("%c%c%c%c", fourcc & 255, (fourcc >> 8) & 255,
+        (fourcc >> 16) & 255, (fourcc >> 24) & 255);
+
+    spdlog::info("[{}] cap.getBackendName(): {}, CAP_PROP_FOURCC: {}",
+        deviceName, cap.getBackendName(), fourcc_str);
     string fcc = conf["videoFeed"]["fourcc"];
-    cap.set(CAP_PROP_FOURCC,
-        VideoWriter::fourcc(fcc[0], fcc[1], fcc[2], fcc[3]));
+    if (fcc.size() == 4) {
+        cap.set(CAP_PROP_FOURCC,
+            VideoWriter::fourcc(fcc[0], fcc[1], fcc[2], fcc[3]));
+    }
     if (actualFrameSize.width > 0)
         cap.set(CAP_PROP_FRAME_WIDTH, actualFrameSize.width);
     if (actualFrameSize.height > 0)

@@ -49,7 +49,6 @@ feed handling repetitively. The following methods are currently supported:
 
 ## Build and deployment
 
-
 * 
 ```bash
 mkdir ./build
