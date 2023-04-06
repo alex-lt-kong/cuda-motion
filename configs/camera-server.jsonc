@@ -30,7 +30,7 @@
       */
       "fourcc": "MJPG",
       /* an enum value of cv::VideoCaptureAPIs from here:
-      https://docs.opencv.org/3.4/d4/d15/group__videoio__flags__base.html
+      https://docs.opencv.org/4.5.4/d4/d15/group__videoio__flags__base.html
       Typically one may try:
         cv::CAP_ANY = 0,
         cv::CAP_V4L = 200,

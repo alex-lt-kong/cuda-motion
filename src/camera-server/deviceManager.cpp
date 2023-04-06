@@ -701,9 +701,11 @@ void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     if (!result) {
         return;
     }
+    spdlog::info("[{}] cap.getBackendName(): {}",
+        deviceName, cap.getBackendName());
     string fcc = conf["videoFeed"]["fourcc"];
-    cap.set(CAP_PROP_FOURCC, VideoWriter::fourcc(fcc[0], fcc[1], fcc[2], fcc[3])); 
-    
+    cap.set(CAP_PROP_FOURCC,
+        VideoWriter::fourcc(fcc[0], fcc[1], fcc[2], fcc[3]));
     if (actualFrameSize.width > 0)
         cap.set(CAP_PROP_FRAME_WIDTH, actualFrameSize.width);
     if (actualFrameSize.height > 0)

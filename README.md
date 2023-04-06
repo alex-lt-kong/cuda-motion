@@ -57,6 +57,7 @@ cmake ../
 make -j2
 ```
 * Copy `./configs/camera-server.jsonc` to `~/.configs/ak-studio`.
+
 * The program is tested on Debian and should work on other distributions
 or POSIX-compliant OSes. However, given that it uses quite a few POSIX APIs,
 it is unlikely that it could run on Windows without significant porting effort.
