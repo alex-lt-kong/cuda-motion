@@ -706,8 +706,12 @@ void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     string fourcc_str = format("%c%c%c%c", fourcc & 255, (fourcc >> 8) & 255,
         (fourcc >> 16) & 255, (fourcc >> 24) & 255);
 
-    spdlog::info("[{}] cap.getBackendName(): {}, CAP_PROP_FOURCC: {}",
-        deviceName, cap.getBackendName(), fourcc_str);
+    if (all_of(fourcc_str.begin(), fourcc_str.end(),
+        [](char c) { return !isgraph(c); })) {
+        fourcc_str = "<non-printable>";
+    }
+    spdlog::info("[{}] cap.getBackendName(): {}, CAP_PROP_FOURCC: {:x}({})",
+        deviceName, cap.getBackendName(), fourcc, fourcc_str);
     string fcc = conf["videoFeed"]["fourcc"];
     if (fcc.size() == 4) {
         cap.set(CAP_PROP_FOURCC,
