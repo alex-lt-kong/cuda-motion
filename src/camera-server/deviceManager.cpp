@@ -153,12 +153,20 @@ void deviceManager::setParameters(const size_t deviceIndex,
     if (!conf.contains("/frame/rotation"_json_pointer))
         conf["frame"]["rotation"] = defaultConf["frame"]["rotation"];
     frameRotation = conf["frame"]["rotation"];
-    if (!conf.contains("/frame/preferredWidth"_json_pointer))
-        conf["frame"]["preferredWidth"] = defaultConf["frame"]["preferredWidth"];
-    if (!conf.contains("/frame/preferredHeight"_json_pointer))
-        conf["frame"]["preferredHeight"] = defaultConf["frame"]["preferredHeight"];
+    if (!conf.contains("/frame/preferredInputWidth"_json_pointer))
+        conf["frame"]["preferredInputWidth"] = defaultConf["frame"]["preferredInputWidth"];
+    if (!conf.contains("/frame/preferredInputHeight"_json_pointer))
+        conf["frame"]["preferredInputHeight"] = defaultConf["frame"]["preferredInputHeight"];
     if (!conf.contains("/frame/preferredFps"_json_pointer))
         conf["frame"]["preferredFps"] = defaultConf["frame"]["preferredFps"];
+
+    if (!conf.contains("/frame/outputWidth"_json_pointer))
+        conf["frame"]["outputWidth"] = defaultConf["frame"]["outputWidth"];
+    outputWidth = conf["frame"]["outputWidth"];
+    if (!conf.contains("/frame/outputHeight"_json_pointer))
+        conf["frame"]["outputHeight"] = defaultConf["frame"]["outputHeight"];
+    outputHeight = conf["frame"]["outputHeight"];
+
     if (!conf.contains("/frame/throttleFpsIfHigherThan"_json_pointer))
         conf["frame"]["throttleFpsIfHigherThan"] =
         defaultConf["frame"]["throttleFpsIfHigherThan"];
@@ -324,12 +332,6 @@ void deviceManager::setParameters(const size_t deviceIndex,
     if (!conf.contains("/motionDetection/videoRecording/videoWriter/fps"_json_pointer))
         conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"] =
             defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["fps"];
-    if (!conf.contains("/motionDetection/videoRecording/videoWriter/width"_json_pointer))
-        conf["motionDetection"]["videoRecording"]["videoWriter"]["width"] =
-            defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["width"];
-    if (!conf.contains("/motionDetection/videoRecording/videoWriter/height"_json_pointer))
-        conf["motionDetection"]["videoRecording"]["videoWriter"]["height"] =
-            defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["height"];
 
     if (!conf.contains("/motionDetection/drawContours"_json_pointer))
         conf["motionDetection"]["drawContours"] =
@@ -553,7 +555,7 @@ void deviceManager::stopVideoRecording(VideoWriter& vwriter,
 
 
 void deviceManager::startOrKeepVideoRecording(VideoWriter& vwriter,
-    int64_t& cooldown) {
+    const Size& actualFrameSize, int64_t& cooldown) {
 
     auto handleOnVideoStarts = [&] () {
         if (conf["events"]["onVideoStarts"].size() > 0) {
@@ -592,9 +594,11 @@ void deviceManager::startOrKeepVideoRecording(VideoWriter& vwriter,
     vwriter = VideoWriter(command, cv::CAP_FFMPEG,
         VideoWriter::fourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3]),
         conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"],
-        Size(conf["motionDetection"]["videoRecording"]["videoWriter"]["width"],
-             conf["motionDetection"]["videoRecording"]["videoWriter"]["height"])
+        Size(outputWidth == -1 ? actualFrameSize.width : outputWidth,
+             outputHeight == -1 ? actualFrameSize.height : outputHeight)
     );
+    spdlog::info("[{}] VIDEOWRITER_PROP_HW_ACCELERATION: {}",
+        deviceName, vwriter.get(cv::VIDEOWRITER_PROP_HW_ACCELERATION));
 }
 
 void deviceManager::getLiveImage(vector<uint8_t>& pl) {
@@ -620,11 +624,11 @@ void deviceManager::generateBlankFrameAt1Fps(Mat& currFrame,
     this_thread::sleep_for(999ms); // Throttle the generation at 1 fps.
 
     /* Even if we generate nothing but a blank screen, we cant just use some
-    hardcoded values and skip framePreferredWidth/actualFrameSize.width and
-    framePreferredHeight/actualFrameSize.height.
+    hardcoded values and skip framepreferredInputWidth/actualFrameSize.width and
+    framepreferredInputHeight/actualFrameSize.height.
     The problem will occur when piping frames to ffmpeg: In ffmpeg, we
-    pre-define the frame size, which is mostly framePreferredWidth x
-    framePreferredHeight. If the video device is down and we supply a
+    pre-define the frame size, which is mostly framepreferredInputWidth x
+    framepreferredInputHeight. If the video device is down and we supply a
     smaller frame, ffmpeg will wait until there are enough pixels filling
     the original resolution to write one frame, causing screen tearing
     */
@@ -710,8 +714,10 @@ void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
         [](char c) { return !isgraph(c); })) {
         fourcc_str = "<non-printable>";
     }
-    spdlog::info("[{}] cap.getBackendName(): {}, CAP_PROP_FOURCC: {:x}({})",
-        deviceName, cap.getBackendName(), fourcc, fourcc_str);
+    //cap.set(CAP_PROP_HW_ACCELERATION, VIDEO_ACCELERATION_ANY);
+    spdlog::info("[{}] cap.getBackendName(): {}, CAP_PROP_FOURCC: 0x{:x}({}), "
+        "CAP_PROP_HW_ACCELERATION: {}", deviceName, cap.getBackendName(),
+        fourcc, fourcc_str, cap.get(CAP_PROP_HW_ACCELERATION));
     string fcc = conf["videoFeed"]["fourcc"];
     if (fcc.size() == 4) {
         cap.set(CAP_PROP_FOURCC,
@@ -805,8 +811,8 @@ void deviceManager::InternalThreadEntry() {
     
     uint64_t retrievedFrameCount = 0;
     uint32_t videoFrameCount = 0;
-    Size actualFrameSize = Size(conf["frame"]["preferredWidth"],
-        conf["frame"]["preferredHeight"]);
+    Size actualFrameSize = Size(conf["frame"]["preferredInputWidth"],
+        conf["frame"]["preferredInputHeight"]);
     VideoWriter vwriter;
     int64_t cooldown = 0;
     size_t openRetryDelay = 1;
@@ -863,7 +869,10 @@ entryPoint:
             objects will share the same copy of underlying image data */
             prevFrame = currFrame.clone();
         }
-        
+        if ((outputWidth != -1 && actualFrameSize.width != outputWidth) ||
+             (outputHeight != -1 && actualFrameSize.height != outputHeight)) {
+            resize(currFrame, currFrame, cv::Size(outputWidth, outputHeight));
+        }
         dispFrames.push(currFrame);
         if (dispFrames.size() > frameQueueSize) {
             dispFrames.pop();
@@ -891,7 +900,7 @@ entryPoint:
             (rateOfChange > frameDiffPercentageLowerLimit &&
              rateOfChange < frameDiffPercentageUpperLimit &&
              motionDetectionMode == MODE_DETECT_MOTION)) {
-            startOrKeepVideoRecording(vwriter, cooldown);
+            startOrKeepVideoRecording(vwriter, actualFrameSize, cooldown);
         }
         
         updateVideoCooldownAndVideoFrameCount(cooldown, videoFrameCount);

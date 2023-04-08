@@ -63,6 +63,8 @@ private:
     double textOverlayFontSacle;
     float throttleFpsIfHigherThan;
     int frameRotation;
+    ssize_t outputWidth;
+    ssize_t outputHeight;
 
     // motionDetection variables
     enum MotionDetectionMode motionDetectionMode;
@@ -108,7 +110,8 @@ private:
     string evaluateVideoSpecficVariables(basic_string<char> originalString);
     string convertToString(char* a, int size);
     string getCurrentTimestamp();
-    void startOrKeepVideoRecording(VideoWriter& vwriter, int64_t& cooldown);
+    void startOrKeepVideoRecording(VideoWriter& vwriter,
+        const Size& actualFrameSize, int64_t& cooldown);
     void stopVideoRecording(VideoWriter& vwriter, uint32_t& videoFrameCount,
         int cooldown);
     void overlayDatetime(Mat& frame);

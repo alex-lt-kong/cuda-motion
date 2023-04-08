@@ -57,17 +57,20 @@
         "enabled": true,
         "fontScale": 1.0
       },
-      /* The below preferred values are directly sent to OpenCV. OpenCV (and
-      its back-end) may or may not honor our request. Note that:
-      1. If OpenCV (or underlying video devices) don't honor our preference,
-      to avoid causing performance issue, Camera Server will not resize the
-      frame based on them;
-      2.  these parameters do not control how videos are recorded, video
-      recording are controlled by the motionDetection.videoRecording section
-      below. */
-      "preferredWidth": -1,
-      "preferredHeight": -1,
-      "preferredFps": 30,
+			/* The below preferred values are directly sent to OpenCV. OpenCV (and
+			its back-end) may or may not hornor our request. Note that these
+			parameters do not control how frames are written to snapshot and saved
+      to videos.*/
+			"preferredInputWidth": -1,
+			"preferredInputHeight": -1,
+			"preferredFps": 30,
+      /* The output frame dimensions are configured separately below. Leaving
+      them to -1 means we output the frames in their original sizes. If input
+      frame size (regardless the same as preferred size or not) and output
+      frame settings are not consistent, frames will be resized, which
+      could drag down performance a little bit. */
+      "outputWidth": -1,
+      "outputHeight": -1,
       /* Internally, frames are buffered in a FIFO queue. When performing motion
       detection, we use the last frame in the queue. When recording videos /
       preparing snapshots, we use the first frame in the queue. The idea
@@ -165,8 +168,8 @@
             "fourcc": "x264",
             /* It is very important to keep width / height below consistent with
             the size of the original video or videoWriter may stop working
-            without much error information. Setting preferredWidth /
-            preferredHeight might not be enough as OpenCV does not necessarily
+            without much error information. Setting preferredInputWidth /
+            preferredInputHeight might not be enough as OpenCV does not necessarily
             have the capability to change the video feed's settings. */
             "width": 1920,
             "height": 1080,
