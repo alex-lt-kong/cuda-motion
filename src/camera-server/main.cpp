@@ -203,7 +203,7 @@ int main(int argc, char* argv[]) {
     } else if (argc == 2) {
         settingsPath = string(argv[1]);
     } else {
-        string settingsPath = string(getenv("HOME")) + 
+        settingsPath = string(getenv("HOME")) + 
         "/.config/ak-studio/camera-server.jsonc";
     }
     // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
