@@ -118,19 +118,6 @@ void install_signal_handler() {
     }
 }
 
-
-json load_settings() {
-    string settingsPath = string(getenv("HOME")) + 
-        "/.config/ak-studio/camera-server.jsonc";
-    spdlog::info("Loading json settings from {}", settingsPath);
-
-    ifstream is(settingsPath);
-    return json::parse(is,
-        /* callback */ nullptr,
-        /* allow exceptions */ true,
-        /* ignore_comments */ true);
-}
-
 class CustomLogger : public crow::ILogHandler {
 public:
     CustomLogger() {}
@@ -208,7 +195,17 @@ void start_http_server() {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    string settingsPath;
+    if (argc > 2) {
+        cerr << "Usage: ./cd.out [config-file.jsonc]" << endl;
+        return EXIT_FAILURE;
+    } else if (argc == 2) {
+        settingsPath = string(argv[1]);
+    } else {
+        string settingsPath = string(getenv("HOME")) + 
+        "/.config/ak-studio/camera-server.jsonc";
+    }
     // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
     spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
     spdlog::info("Camera Server started"); 
@@ -216,7 +213,13 @@ int main() {
     
     spdlog::info("cv::getBuildInformation(): {}", string(getBuildInformation()));
 
-    settings = load_settings();
+    
+    spdlog::info("Loading json settings from {}", settingsPath);
+    ifstream is(settingsPath);
+    settings = json::parse(is,
+        /* callback */ nullptr,
+        /* allow exceptions */ true,
+        /* ignore_comments */ true);
 
     size_t deviceCount = settings["devices"].size();
     if (deviceCount == 0) {

@@ -26,7 +26,6 @@ feed handling repetitively. The following methods are currently supported:
 * `spdlog` for logging: `apt install libspdlog-dev`
 * `v4l-utils`: for manually examining and manipulating local video devices.
 * `ZeroMQ` for message queue, `apt install libzmq3-dev`
-
 * `FFmpeg`: the back-end used by `OpenCV` to decode/encode videos
 
   * **No GPU route**  
@@ -36,16 +35,8 @@ feed handling repetitively. The following methods are currently supported:
 
   * **Nvidia GPU route**
 
-    * With an Nvidia GPU, it is going to be much more complicated as we need
-    to build FFmpeg with Nvidia's CUDA, so that OpenCV can leverage the GPU
-    through FFmpeg's libraries.
-    * If there is an `FFmpeg` installed by `apt`, remove it first.
-    * Install an Nvidia GPU driver. On Debian/Ubuntu, Nvidia prepared `apt`
-    package  [here](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html)
-      *make sure everything works by `nvidia-smi` before proceeding.
-    * Install `FFmpeg` with Nvidia Cuda support following Nvidia's
-    [official guide](https://docs.nvidia.com/video-technologies/video-codec-sdk/ffmpeg-with-nvidia-gpu/).
-
+    * With an Nvidia GPU, it is going to be much more complicated. Check
+    build notes [here](./helper/build-notes.md).
 
 ## Build and deployment
 

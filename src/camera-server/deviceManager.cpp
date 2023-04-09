@@ -595,10 +595,9 @@ void deviceManager::startOrKeepVideoRecording(VideoWriter& vwriter,
         VideoWriter::fourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3]),
         conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"],
         Size(outputWidth == -1 ? actualFrameSize.width : outputWidth,
-             outputHeight == -1 ? actualFrameSize.height : outputHeight)
+             outputHeight == -1 ? actualFrameSize.height : outputHeight),
+        { VIDEOWRITER_PROP_HW_ACCELERATION, cv::VIDEO_ACCELERATION_ANY }
     );
-    spdlog::info("[{}] VIDEOWRITER_PROP_HW_ACCELERATION: {}",
-        deviceName, vwriter.get(cv::VIDEOWRITER_PROP_HW_ACCELERATION));
 }
 
 void deviceManager::getLiveImage(vector<uint8_t>& pl) {
@@ -699,7 +698,8 @@ void deviceManager::deviceIsBackOnline(size_t& openRetryDelay,
 void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
     const Size& actualFrameSize) {
     result = cap.open(conf["videoFeed"]["uri"].get<string>(),
-        conf["videoFeed"]["videoCaptureApi"]);
+        conf["videoFeed"]["videoCaptureApi"],
+        { CAP_PROP_HW_ACCELERATION, cv::VIDEO_ACCELERATION_ANY });
     spdlog::info("[{}] cap.open({}): {}", deviceName,
         conf["videoFeed"]["uri"].get<string>(), result);
     if (!result) {
@@ -714,10 +714,8 @@ void deviceManager::initializeDevice(VideoCapture& cap, bool&result,
         [](char c) { return !isgraph(c); })) {
         fourcc_str = "<non-printable>";
     }
-    //cap.set(CAP_PROP_HW_ACCELERATION, VIDEO_ACCELERATION_ANY);
-    spdlog::info("[{}] cap.getBackendName(): {}, CAP_PROP_FOURCC: 0x{:x}({}), "
-        "CAP_PROP_HW_ACCELERATION: {}", deviceName, cap.getBackendName(),
-        fourcc, fourcc_str, cap.get(CAP_PROP_HW_ACCELERATION));
+    spdlog::info("[{}] cap.getBackendName(): {}, CAP_PROP_FOURCC: 0x{:x}({})",
+        deviceName, cap.getBackendName(), fourcc, fourcc_str);
     string fcc = conf["videoFeed"]["fourcc"];
     if (fcc.size() == 4) {
         cap.set(CAP_PROP_FOURCC,
