@@ -389,10 +389,10 @@ void deviceManager::overlayDatetime(Mat& frame) {
         textOverlayFontSacle, 8 * textOverlayFontSacle, nullptr);
     putText(frame, ts, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
         textOverlayFontSacle, Scalar(0,  0,  0  ), 8 * textOverlayFontSacle,
-        LINE_AA, false);
+        LINE_8, false);
     putText(frame, ts, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
         textOverlayFontSacle, Scalar(255,255,255), 2 * textOverlayFontSacle,
-        LINE_AA, false);
+        LINE_8, false);
     /*
     void cv::putText 	(InputOutputArray  	img,
                         const String &  	text,
@@ -429,11 +429,11 @@ void deviceManager::overlayDeviceName(Mat& frame) {
     putText(frame, deviceName,
         Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
         FONT_HERSHEY_DUPLEX, textOverlayFontSacle,
-        Scalar(0,  0,  0  ), 8 * textOverlayFontSacle, LINE_AA, false);
+        Scalar(0,  0,  0  ), 8 * textOverlayFontSacle, LINE_8, false);
     putText(frame, deviceName,
         Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
         FONT_HERSHEY_DUPLEX, textOverlayFontSacle, Scalar(255,255,255),
-        2 * textOverlayFontSacle, LINE_AA, false);
+        2 * textOverlayFontSacle, LINE_8, false);
 }
 
 void deviceManager::overlayStats(Mat& frame, float changeRate,
@@ -452,10 +452,10 @@ void deviceManager::overlayStats(Mat& frame, float changeRate,
     }
     putText(frame, textToOverlay.str(), 
         Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, textOverlayFontSacle,
-        Scalar(0,   0,   0  ), 8 * textOverlayFontSacle, LINE_AA, false);
+        Scalar(0,   0,   0  ), 8 * textOverlayFontSacle, LINE_8, false);
     putText(frame, textToOverlay.str(),
         Point(5, frame.rows-5), FONT_HERSHEY_DUPLEX, textOverlayFontSacle,
-            Scalar(255, 255, 255), 2 * textOverlayFontSacle, LINE_AA, false);
+            Scalar(255, 255, 255), 2 * textOverlayFontSacle, LINE_8, false);
 }
 
 void deviceManager::overlayContours(Mat& dispFrame, Mat& diffFrame) {
@@ -820,19 +820,13 @@ void deviceManager::InternalThreadEntry() {
        initializeDevice()...*/
     
     while (ev_flag == 0) {
-        // profiling shows that cap.grab() can also be an expensive operation
-        // if the source uses HTTP protocol.
-        result = cap.grab();
-        
+        result = cap.read(currFrame);
         if (shouldFrameBeThrottled()) {
             /* Seems that sometimes OpenCV could grab() the same frame time
             and time again, maxing out the CPU, so we make it sleep_for() a 
             little bit of time. */
             this_thread::sleep_for(2ms);
             continue;
-        }
-        if (result) {
-            result = cap.retrieve(currFrame);
         }
         ++retrievedFrameCount;
 

@@ -49,11 +49,18 @@
       5 in every 6 frames. Discarded frames are neither decompressed nor
       decoded, saving a lot of CPU resource. */
       "throttleFpsIfHigherThan": 10.0,
+      /*
+        cv::ROTATE_90_CLOCKWISE = 0,
+        cv::ROTATE_180 = 1,
+        cv::ROTATE_90_COUNTERCLOCKWISE = 2 
+      Profiling shows that rotation is a pretty CPU intensive task,
+      use with care! */
       "rotation": -1,
       "textOverlay": {
         /* By default, Camera Server writes some basic information, such as
         timestamp and device name, to each frame. Disable it if it is
-        undesired. */
+        undesired. Profiling shows that putting text on frames is a
+        CPU-intensive operation. */
         "enabled": true,
         "fontScale": 1.0
       },
@@ -67,8 +74,8 @@
       /* The output frame dimensions are configured separately below. Leaving
       them to -1 means we output the frames in their original sizes. If input
       frame size (regardless the same as preferred size or not) and output
-      frame settings are not consistent, frames will be resized, which
-      could drag down performance a little bit. */
+      frame settings are not consistent, frames will be resized. Profiling
+      shows that frame resizing is a CPU-intensive task */
       "outputWidth": -1,
       "outputHeight": -1,
       /* Internally, frames are buffered in a FIFO queue. When performing motion
