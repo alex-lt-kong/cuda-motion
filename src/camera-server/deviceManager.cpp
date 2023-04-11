@@ -855,8 +855,12 @@ entryPoint:
 
         if (motionDetectionMode == MODE_DETECT_MOTION &&
             retrievedFrameCount % diffEveryNthFrame == 0) {
-            // profiling shows this if() block takes around 1-2 ms
-            rateOfChange = getFrameChanges(prevFrame, currFrame, &diffFrame);
+            if (isShowingBlankFrame == false) {
+                // profiling shows this if() block takes around 1-2 ms
+                rateOfChange = getFrameChanges(prevFrame, currFrame, &diffFrame);
+            } else {
+                rateOfChange = -1;
+            }
             /* Can't just assign like prevFrame = currFrame, otherwise two
             objects will share the same copy of underlying image data */
             prevFrame = currFrame.clone();
@@ -869,7 +873,8 @@ entryPoint:
         if (dispFrames.size() > frameQueueSize) {
             dispFrames.pop();
         }
-        if (drawContours && motionDetectionMode == MODE_DETECT_MOTION) {
+        if (drawContours && motionDetectionMode == MODE_DETECT_MOTION &&
+            isShowingBlankFrame == false) {
             overlayContours(dispFrames.back(), diffFrame);
             // CPU-intensive! Use with care!
         }

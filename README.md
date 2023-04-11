@@ -22,7 +22,7 @@ feed handling repetitively. The following methods are currently supported:
   * `Asio`, an  asynchronous mode used by Crow:  `apt install libasio-dev`
   * `OpenSSL`, for SSL support: `apt-get install libssl-dev`
 * `nlohmann-json3 (>= 3.9)`, JSON support: `apt install nlohmann-json3-dev`
-* `opencv`, for frame manipulation: `apt install libopencv-dev`
+* `opencv (>= 4.5.2)`, for frame manipulation: `apt install libopencv-dev`
 * `spdlog` for logging: `apt install libspdlog-dev`
 * `v4l-utils`: for manually examining and manipulating local video devices.
 * `ZeroMQ` for message queue, `apt install libzmq3-dev`
@@ -30,7 +30,7 @@ feed handling repetitively. The following methods are currently supported:
 
   * **No GPU route**  
     * If you don't have an Nvidia GPU, simply issue `apt install ffmpeg` should
-    be enough--we will use FFmpeg's default configuration and use the CPU to do
+    be enough--we will use FFmpeg's default configuration and use CPUs to do
     all the heavy-lifting things.
 
   * **Nvidia GPU route**
@@ -46,11 +46,12 @@ mkdir ./build
 cmake ../
 make -j2
 ```
-* Copy `./configs/camera-server.jsonc` to `~/.configs/ak-studio`.
+* Prepare configuration file:
+    * Copy `./configs/camera-server.jsonc` to the default location,
+    `$HOME/.configs/ak-studio/camera-server.jsonc`; or
+    * Start `./cs` with the path of configuration file manually, e.g.,
+    `./cs /tmp/cs.jsonc`.
 
-* The program is tested on Debian and should work on other distributions
-or POSIX-compliant OSes. However, given that it uses quite a few POSIX APIs,
-it is unlikely that it could run on Windows without significant porting effort.
 
 ## Quality assurance
 

@@ -16,9 +16,9 @@ remaining 80% missing.
 
 * Just run `valgrind --tool=callgrind ./cs`
 
-* Unfortunately, `valgrind` slows the program too much to the extent that
+* Unfortunately, `valgrind` greatly slows down the program to the extent that
 the program does not appear to be in the normal state, rendering the data
-most probably not realistic.
+collected most probably not realistic.
 
 ## Perf
 
@@ -29,8 +29,8 @@ most probably not realistic.
 
 * Report data being collected: `perf report`
 
-* The report does not seem to be very complete as it only captures around 10%
-of CPU time. It is likely that `perf` can collect data about the main thread
+* The report does not seem to be complete as it only captures around 10%
+of CPU time. It is likely that `perf` can collect data from the main thread
 only.
 
 ## [Poor man's profiler](http://poormansprofiler.org/)
@@ -40,9 +40,11 @@ only.
 * Build Camera Server will debug symbols: `make -DCMAKE_BUILD_TYPE=RelWithDebInfo ..`
     * And just run it: `./cs`
 
-* Get call stacks of all threads: `gdb -ex "set pagination 0" -ex "thread apply all bt" --batch -p <pid>`
+* Get call stacks of all threads:
+    `gdb -ex "set pagination 0" -ex "thread apply all bt" --batch -p <pid>`
 
-* Samples:
+* Samples of a heavily loaded thread, which reveals quite a bit of useful
+information:
 
     *
     ```
