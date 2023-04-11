@@ -128,7 +128,12 @@ to `"hw_encoders_any;cuda"`
     * It appears that OpenCV does not allow us to pick a specific encoder.
 
 1. Run `./cs` then `nvidia-smi` and `nvtop`, we should see `./cs` is using GPU
-now. More conretely:
+now.
+    * `nvidia-smi dmon -i 0 -s tu` offers some extra insights into the internals
+    of the GPU in real time.
+
+1. To be even more certain that GPU is in fact being leveraged, we can check
+log of `./cs` and should see something like:
     * For video decoding (i.e., `cv::VideoCapture`), you should see log like: 
     ```
     [DEBUG:2@1.037] global ./opencv/modules/videoio/src/cap_ffmpeg_impl.hpp (1229) open FFMPEG: Using video_codec='mjpeg_cuvid'
