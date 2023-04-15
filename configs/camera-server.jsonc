@@ -64,13 +64,13 @@
         "enabled": true,
         "fontScale": 1.0
       },
-			/* The below preferred values are directly sent to OpenCV. OpenCV (and
-			its back-end) may or may not hornor our request. Note that these
-			parameters do not control how frames are written to snapshot and saved
+      /* The below preferred values are directly sent to OpenCV. OpenCV (and
+      its back-end) may or may not hornor our request. Note that these
+      parameters do not control how frames are written to snapshot and saved
       to videos.*/
-			"preferredInputWidth": -1,
-			"preferredInputHeight": -1,
-			"preferredFps": 30,
+      "preferredInputWidth": -1,
+      "preferredInputHeight": -1,
+      "preferredFps": 30,
       /* The output frame dimensions are configured separately below. Leaving
       them to -1 means we output the frames in their original sizes. If input
       frame size (regardless the same as preferred size or not) and output
