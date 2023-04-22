@@ -84,7 +84,6 @@ deviceManager::deviceManager(const size_t deviceIndex,
         }
     }
 
-    
     return;
 err_sem_open:
     if (munmap(memPtr, sharedMemSize) != 0) {
@@ -807,7 +806,8 @@ void deviceManager::InternalThreadEntry() {
     VideoCapture cap;
     float rateOfChange = 0.0;
     
-    uint64_t retrievedFrameCount = 0;
+    uint64_t retrievedFramesSinceLastOpen = 0;
+    uint64_t retrievedFramesSinceStart = 0;
     uint32_t videoFrameCount = 0;
     Size actualFrameSize = Size(conf["frame"]["preferredInputWidth"],
         conf["frame"]["preferredInputHeight"]);
@@ -816,7 +816,7 @@ void deviceManager::InternalThreadEntry() {
     size_t openRetryDelay = 1;
     
     goto entryPoint;
-    /* We use the evil goto so that we can avoid the duplication of
+    /* We use the evil `goto` statement so that we can avoid the duplication of
        initializeDevice()...*/
     
     while (ev_flag == 0) {
@@ -828,11 +828,12 @@ void deviceManager::InternalThreadEntry() {
             this_thread::sleep_for(2ms);
             continue;
         }
-        ++retrievedFrameCount;
+        ++retrievedFramesSinceStart;
+        ++retrievedFramesSinceLastOpen;
 
         if (result == false || currFrame.empty() || cap.isOpened() == false) {
             deviceIsOffline(currFrame, actualFrameSize, isShowingBlankFrame);
-            if (retrievedFrameCount % openRetryDelay == 0) {
+            if (retrievedFramesSinceStart % openRetryDelay == 0) {
                 openRetryDelay *= 2;
                 spdlog::error("[{}] Unable to cap.read() a new frame. "
                     "currFrame.empty(): {}, cap.isOpened(): {}. "
@@ -841,20 +842,47 @@ void deviceManager::InternalThreadEntry() {
                     openRetryDelay);
 entryPoint:
                 initializeDevice(cap, result, actualFrameSize);
-                if (retrievedFrameCount == 0) { continue; }
+                retrievedFramesSinceLastOpen = 0;
+                continue;
             }
         } else {
+            if (retrievedFramesSinceLastOpen == 1) {
+                actualFrameSize = currFrame.size();
+                if ((actualFrameSize.width != 
+                    conf["frame"]["preferredInputWidth"] &&
+                    conf["frame"]["preferredInputWidth"] != -1) ||
+                    (actualFrameSize.height !=
+                    conf["frame"]["preferredInputHeight"] &&
+                    conf["frame"]["preferredInputHeight"] != -1)) {
+                    spdlog::warn("[{}] actualFrameSize({}x{}) is different "
+                        "from preferredInputSize ({}x{}). (The program has "
+                        "no choice but using actualFrameSize)", deviceName,
+                        actualFrameSize.width, actualFrameSize.height,
+                        conf["frame"]["preferredInputWidth"].get<int>(),
+                        conf["frame"]["preferredInputHeight"].get<int>());
+                }
+                if ((actualFrameSize.width != outputWidth &&
+                    outputWidth != -1) ||
+                    (actualFrameSize.height != outputHeight &&
+                    outputHeight != -1)) {
+                    spdlog::warn("[{}] actualFrameSize({}x{}) is different "
+                        "from outputSize ({}x{}), so frame will have to be "
+                        "resized, this is a CPU-intensive operation.",
+                        deviceName, actualFrameSize.width,
+                        actualFrameSize.height, outputWidth, outputHeight);
+                }
+            }
             if (isShowingBlankFrame) {
                 deviceIsBackOnline(openRetryDelay, isShowingBlankFrame);
             }
-            actualFrameSize = currFrame.size();
+            
         }
         if (frameRotation != -1 && isShowingBlankFrame == false) {
             rotate(currFrame, currFrame, frameRotation);
         }
 
         if (motionDetectionMode == MODE_DETECT_MOTION &&
-            retrievedFrameCount % diffEveryNthFrame == 0) {
+            retrievedFramesSinceStart % diffEveryNthFrame == 0) {
             if (isShowingBlankFrame == false) {
                 // profiling shows this if() block takes around 1-2 ms
                 rateOfChange = getFrameChanges(prevFrame, currFrame, &diffFrame);
@@ -885,7 +913,7 @@ entryPoint:
             overlayDeviceName(dispFrames.back());
         }
         
-        if ((retrievedFrameCount - 1) % snapshotFrameInterval == 0) {
+        if ((retrievedFramesSinceStart - 1) % snapshotFrameInterval == 0) {
             prepareDataForIpc(dispFrames.front());
         }
 
