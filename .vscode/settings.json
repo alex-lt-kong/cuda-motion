@@ -80,5 +80,6 @@
     "cerrno": "cpp"
   },
   "C_Cpp.errorSquiggles": "Disabled",
-  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  "editor.formatOnSave": true
 }
