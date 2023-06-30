@@ -7,7 +7,7 @@ def print_fourcc(cap) -> None:
     fourcc_str = chr(fourcc_int&0xff) + chr((fourcc_int>>8)&0xff) + chr((fourcc_int>>16)&0xff) + chr((fourcc_int>>24)&0xff) 
     print(f'fourcc: {fourcc_str}')
 
-cap = cv2.VideoCapture('/dev/video0')
+cap = cv2.VideoCapture('http://user:6SRHtW93Qqds3@rpi-corridor.sz.lan/corridor/')
 
 print_fourcc(cap)
 

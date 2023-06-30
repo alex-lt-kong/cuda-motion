@@ -1,10 +1,10 @@
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-include_directories(/usr/local/include/opencv4)
+#include_directories(/usr/local/include/opencv4)
 
 
 find_package(OpenCV REQUIRED)
 find_package(Crow REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIRS})
+#include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_definitions(-DCROW_ENABLE_SSL)
 add_executable(cs main.cpp)

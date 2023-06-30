@@ -1,22 +1,35 @@
-# Make Camera Server work with Nvidia GPUs
+# Build FFmpeg and OpenCV for Camera Server
+
+## CPU route
+
+* You follow this section if you use Camera Server with CPU only.
+
+* Install FFmpeg: `apt install FFmpeg`
+
+* Build OpenCV: following the same notes as [Build OpenCV](#iii-build-opencv)
+in the Nvidia GPU route section.
+
+## Nvidia GPU route
+
+* You follow this section if you would like to use Camera Server with Nvidia GPU.
 
 * This note is prepared using Ubuntu 22.04 with one Nvidia GPU only.
+
 * OpenCV can work with GPUs in two ways (a good summary
 [here](https://forum.opencv.org/t/trouble-using-nvdia-hardware-decoder-when-streaming-from-camera/7908/11)).
-    * The first way is to specifically build OpenCV that enables
+  * The first way is to specifically build OpenCV that enables
     `cv::cudacodec::VideoReader()`. This is not tested as Camera Server
     is designed to work in a wide variety of scenarios, where an Nvidia GPU
     could be available or unavailable. Using `cv::cudacodec::VideoReader()`
     means we need to align the entire program with Nvidia's ecosystem, which
     is not something we want.
-    * The second is to build FFmpeg that incorporates
+  * The second is to build FFmpeg that incorporates
     [Nvidia Video Codec SDK](https://developer.nvidia.com/video-codec-sdk) and
     build OpenCV on top of FFmpeg, allowing OpenCV to leverage the power of
     GPU almost transparently.
-    * We take the second approach.   
+  * Camera Server takes the second approach.
 
-
-## I. prepare Nvidia GPU
+## I. Prepare Nvidia GPU
 
 1. Make sure you have a compatible GPU of course.
     * Nvidia provides a support matrix
@@ -56,7 +69,7 @@ better support from Nvidia, making it a good option to work with Nvidia's GPU.
   `ERROR: failed checking for nvcc.` ([source](https://docs.nvidia.com/video-technologies/video-codec-sdk/pdf/Using_FFmpeg_with_NVIDIA_GPU_Hardware_Acceleration.pdf))
         * In a future version, we may try to omit this to see if the issue
         is gone before adding it.
-    * `--enable-pic --enable-shared --extra-cflags="-fPIC"`, used to solve 
+    * `--enable-pic --enable-shared --extra-cflags="-fPIC"`, used to solve
     the issue during OpenCV build in a later stage: "/usr/bin/ld:
     /usr/local/lib/libavcodec.a(vc1dsp_mmx.o):
     relocation R_X86_64_PC32 against symbol `ff_pw_9' can not be used when
@@ -100,6 +113,7 @@ to go back to `II` and build FFmpeg again.
 ## IV. Test
 
 1. Enable OpenCV's debug logging, which could reveal useful information:
+
     ```
     export OPENCV_VIDEOIO_DEBUG=1
     export OPENCV_FFMPEG_DEBUG=1
@@ -134,7 +148,8 @@ now.
 
 1. To be even more certain that GPU is in fact being leveraged, we can check
 log of `./cs` and should see something like:
-    * For video decoding (i.e., `cv::VideoCapture`), you should see log like: 
+    * For video decoding (i.e., `cv::VideoCapture`), you should see log like:
+
     ```
     [DEBUG:2@1.037] global ./opencv/modules/videoio/src/cap_ffmpeg_impl.hpp (1229) open FFMPEG: Using video_codec='mjpeg_cuvid'
     [OPENCV:FFMPEG:40] CUVID capabilities for mjpeg_cuvid:
@@ -142,7 +157,9 @@ log of `./cs` and should see something like:
     [OPENCV:FFMPEG:40] 10 bit: supported: 0, min_width: 0, max_width: 0, min_height: 0, max_height: 0
     [OPENCV:FFMPEG:40] 12 bit: supported: 0, min_width: 0, max_width: 0, min_height: 0, max_height: 0
     ```
+
     * For video encoding (i.e., `cv::VideoWriter`), you should see log like:
+
     ```
     [DEBUG:0@12.887] global ./opencv/modules/videoio/src/cap_ffmpeg_hw.hpp (933) HWAccelIterator FFMPEG: allowed acceleration types (any): 'cuda,'
     [DEBUG:0@12.887] global ./opencv/modules/videoio/src/cap_ffmpeg_hw.hpp (951) HWAccelIterator FFMPEG: disabled codecs: 'mjpeg_vaapi,mjpeg_qsv,vp8_vaapi'

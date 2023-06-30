@@ -22,41 +22,35 @@ feed handling repetitively. The following methods are currently supported:
   * `Asio`, an  asynchronous mode used by Crow:  `apt install libasio-dev`
   * `OpenSSL`, for SSL support: `apt-get install libssl-dev`
 * `nlohmann-json3 (>= 3.9)`, JSON support: `apt install nlohmann-json3-dev`
-* `opencv (>= 4.5.2)`, for frame manipulation: `apt install libopencv-dev`
 * `spdlog` for logging: `apt install libspdlog-dev`
 * `v4l-utils`: for manually examining and manipulating local video devices.
 * `ZeroMQ` for message queue, `apt install libzmq3-dev`
-* `FFmpeg`: the back-end used by `OpenCV` to decode/encode videos
+* `FFmpeg` and `OpenCV`: image/video manipulation libraries that do all the
+heavy lifting.
 
-  * **No GPU route**  
-    * If you don't have an Nvidia GPU, simply issue `apt install ffmpeg` should
-    be enough--we will use FFmpeg's default configuration and use CPUs to do
-    all the heavy-lifting things.
-
-  * **Nvidia GPU route**
-
-    * With an Nvidia GPU, it is going to be much more complicated. Check
-    build notes [here](./helper/build-notes.md).
+  * Check build notes [here](./helper/build-notes.md) to build FFmpeg and
+  OpenCV properly.
 
 ## Build and deployment
 
-* 
+*
+
 ```bash
 mkdir ./build
 cmake ../
 make -j2
 ```
-* Prepare configuration file:
-    * Copy `./configs/camera-server.jsonc` to the default location,
-    `$HOME/.configs/ak-studio/camera-server.jsonc`; or
-    * Start `./cs` with the path of configuration file manually, e.g.,
-    `./cs /tmp/cs.jsonc`.
 
+* Prepare configuration file:
+  * Copy `./configs/camera-server.jsonc` to the default location,
+    `$HOME/.configs/ak-studio/camera-server.jsonc`; or
+  * Start `./cs` with the path of configuration file manually, e.g.,
+    `./cs /tmp/cs.jsonc`.
 
 ## Quality assurance
 
 * Instead of `cmake ../`, run `cmake .. -DBUILD_ASAN=ON` /
-`cmake .. -DBUILD_UBSAN=ON ` to test memory/undefiend behavior error with
+`cmake .. -DBUILD_UBSAN=ON` to test memory/undefiend behavior error with
 AddressSanitizer / UndefinedBehaviorSanitizer.
 * The repo is also tested with `Valgrind` from time to time:
 `valgrind --leak-check=yes --log-file=valgrind.rpt ./build/cs`.
