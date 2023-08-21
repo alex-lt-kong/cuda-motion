@@ -37,7 +37,7 @@ in the Nvidia GPU route section.
 
 2. Install Nvidia's GPU driver
     [here](https://docs.nvidia.com/datacenter/tesla/tesla-installation-notes/index.html#package-manager)
-nvidia-utils
+
 3. Package `nvidia-utils-<version>` should be automatically installed by the
 above steps. If so, try `nvidia-smi` to see the status of your GPU.
     * `nvtop` is a usefull third-party tool that demonstrate more GPU details
@@ -53,13 +53,17 @@ better support from Nvidia, making it a good option to work with Nvidia's GPU.
     in compilation/linking, it make not be easy to configure different build
     systems (CMake/Ninja/handwritten ones) to use exactly the version of
     FFmpeg we want. Therefore, it is simpler if we can remove other
-    unused FFmpeg.Z
+    unused FFmpeg.
+    * Apart from `FFmpeg` itself, it is possible that some of its libraries,
+    such as `libswscale` and `libavutil` can exist independently. If so, try
+    commands such as `find / -name libswscale.so* 2> /dev/null` to find them
+    and then issue commands such as `apt remove libswscale5` to remove them.
 
 1. Build `FFmpeg` with Nvidia GPU support **based on**
 [this document](https://docs.nvidia.com/video-technologies/video-codec-sdk/pdf/Using_FFmpeg_with_NVIDIA_GPU_Hardware_Acceleration.pdf).
 
-    * We may need to combine options gleaned from different sources to
-    construct the final `./configure` command.
+  * We may need to combine options gleaned from different sources to
+  construct the final `./configure` command.
 
 1. One working version of `./configure` is: `./configure --enable-pic --enable-shared --enable-nonfree --enable-cuda-sdk --enable-cuda-llvm --enable-ffnvcodec --enable-libnpp --extra-cflags=-I/usr/local/cuda/include --extra-cflags="-fPIC" --extra-ldflags=-L/usr/local/cuda/lib64 --nvccflags="-gencode arch=compute_52,code=sm_52 -O2"`
 
