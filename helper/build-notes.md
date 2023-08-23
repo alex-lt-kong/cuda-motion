@@ -59,13 +59,14 @@ better support from Nvidia, making it a good option to work with Nvidia's GPU.
     commands such as `find / -name libswscale.so* 2> /dev/null` to find them
     and then issue commands such as `apt remove libswscale5` to remove them.
 
-1. Build `FFmpeg` with Nvidia GPU support **based on**
-[this document](https://docs.nvidia.com/video-technologies/video-codec-sdk/pdf/Using_FFmpeg_with_NVIDIA_GPU_Hardware_Acceleration.pdf).
+1. Build `FFmpeg` with Nvidia GPU support **based on** this
+[Nvidia document](https://docs.nvidia.com/video-technologies/video-codec-sdk/pdf/Using_FFmpeg_with_NVIDIA_GPU_Hardware_Acceleration.pdf)
+and this [FFmpeg document on HWAccel](https://trac.ffmpeg.org/wiki/HWAccelIntro).
 
   * We may need to combine options gleaned from different sources to
   construct the final `./configure` command.
 
-1. One working version of `./configure` is: `./configure --enable-pic --enable-shared --enable-nonfree --enable-cuda-sdk --enable-cuda-llvm --enable-ffnvcodec --enable-libnpp --extra-cflags=-I/usr/local/cuda/include --extra-cflags="-fPIC" --extra-ldflags=-L/usr/local/cuda/lib64 --nvccflags="-gencode arch=compute_52,code=sm_52 -O2"`
+1. One working version of `./configure` is: `./configure --enable-pic --enable-shared --enable-nonfree --enable-cuda-nvcc --enable-cuda-llvm --enable-ffnvcodec --enable-libnpp --extra-cflags=-I/usr/local/cuda/include --extra-cflags="-fPIC" --extra-ldflags=-L/usr/local/cuda/lib64 --nvccflags="-gencode arch=compute_52,code=sm_52 -O2"`
 
     * `--enable-cuda-llvm --enable-ffnvcodec`: enable Nvidia Video Codec SDK
   ([source](https://trac.ffmpeg.org/wiki/HWAccelIntro))
@@ -91,6 +92,12 @@ better support from Nvidia, making it a good option to work with Nvidia's GPU.
     libavutil      56. 70.100 / 56. 70.100
     libavcodec     58.134.100 / 58.134.100
     ...
+    ```
+    * If Nvidia's GPU acceleration is compiled in, issuing
+    `ffmpeg -codecs | grep h264` should show something like:
+    ```
+    ...
+    DEV.LS h264                 H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10 (decoders: h264 h264_v4l2m2m h264_cuvid ) (encoders: h264_nvenc h264_v4l2m2m nvenc nvenc_h264 )
     ```
 
 ## III. Build OpenCV
