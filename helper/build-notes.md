@@ -66,14 +66,11 @@ and this [FFmpeg document on HWAccel](https://trac.ffmpeg.org/wiki/HWAccelIntro)
   * We may need to combine options gleaned from different sources to
   construct the final `./configure` command.
 
-1. One working version of `./configure` is: `./configure --enable-pic --enable-shared --enable-nonfree --enable-cuda-nvcc --enable-cuda-llvm --enable-ffnvcodec --enable-libnpp --extra-cflags=-I/usr/local/cuda/include --extra-cflags="-fPIC" --extra-ldflags=-L/usr/local/cuda/lib64 --nvccflags="-gencode arch=compute_52,code=sm_52 -O2"`
 
-    * `--enable-cuda-llvm --enable-ffnvcodec`: enable Nvidia Video Codec SDK
+1. One working version of `./configure` is: `./configure --enable-pic --enable-shared --enable-nonfree --enable-cuda-nvcc --enable-cuda-llvm --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec --enable-libnpp --extra-cflags=-I/usr/local/cuda/include --extra-cflags="-fPIC" --extra-ldflags=-L/usr/local/cuda/lib64 --nvccflags="-gencode arch=compute_52,code=sm_52 -O2"`
+
+    * `--enable-cuda-llvm --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec`: enable Nvidia Video Codec SDK
   ([source](https://trac.ffmpeg.org/wiki/HWAccelIntro))
-    * `--nvccflags="-gencode arch=compute_52,code=sm_52 -O2"`: Used to solve
-  `ERROR: failed checking for nvcc.` ([source](https://docs.nvidia.com/video-technologies/video-codec-sdk/pdf/Using_FFmpeg_with_NVIDIA_GPU_Hardware_Acceleration.pdf))
-        * In a future version, we may try to omit this to see if the issue
-        is gone before adding it.
     * `--enable-pic --enable-shared --extra-cflags="-fPIC"`, used to solve
     the issue during OpenCV build in a later stage: "/usr/bin/ld:
     /usr/local/lib/libavcodec.a(vc1dsp_mmx.o):
@@ -82,13 +79,37 @@ and this [FFmpeg document on HWAccel](https://trac.ffmpeg.org/wiki/HWAccelIntro)
     ([source1](https://www.twblogs.net/a/5ef71a3c209c567d16133dae),
     [source2](https://askubuntu.com/questions/1292968/error-when-installing-opencv-any-version-on-ubuntu-18-04))
 
+1. It it likely that we need to compile FFmpeg multiple times to have the
+desired functionalities, to not mess the source directory, it is recommended 
+that we build the project "out of tree":
+    ```
+    mkdir /tmp/FFmpeg
+    cd /tmp/FFmpeg
+    ~/repos/FFmpeg/configure <whatever arguments>    
+    ```
+
+1. If `./configure`'s report contains strings `h264_nvenc`/`hevc_nvenc`/etc
+like below, the proper hardware encoders/decoders are correctly configured:
+    ```
+    Enabled encoders:
+    ...
+    adpcm_argo              aptx                    dvbsub                  h264_nvenc              msmpeg4v2               pcm_s16le_planar        pcm_u8                  roq                     targa                   wmav2
+    adpcm_g722              aptx_hd                 dvdsub                  h264_v4l2m2m            msmpeg4v3               pcm_s24be               pcm_vidc                roq_dpcm                text                    wmv1
+    adpcm_g726              ass                     dvvideo                 hevc_nvenc              msvideo1                pcm_s24daud             pcx                     rpza                    tiff                    wmv2
+    ...
+    Enabled hwaccels:
+    av1_nvdec               hevc_nvdec              mpeg1_nvdec             mpeg4_nvdec             vp8_nvdec               wmv3_nvdec
+    h264_nvdec              mjpeg_nvdec             mpeg2_nvdec             vc1_nvdec               vp9_nvdec
+
+    ```
+
 1. If build is successful, execute `FFmpeg` and check if it works.
     * It should show something like:
 
     ```
     ffmpeg version n4.4.3-48-gc3ad886251 Copyright (c) 2000-2022 the FFmpeg developers
     built with gcc 11 (Ubuntu 11.3.0-1ubuntu1~22.04)
-    configuration: --enable-pic --enable-shared --enable-nonfree --enable-cuda-sdk --enable-cuda-llvm --enable-ffnvcodec --enable-libnpp --extra-cflags=-I/usr/local/cuda/include --extra-cflags=-fPIC --extra-ldflags=-L/usr/local/cuda/lib64 --nvccflags='-gencode arch=compute_52,code=sm_52 -O2'
+    configuration: --enable-pic --enable-shared --enable-nonfree --enable-cuda-sdk --enable-cuda-llvm --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec --enable-libnpp --extra-cflags=-I/usr/local/cuda/include --extra-cflags=-fPIC --extra-ldflags=-L/usr/local/cuda/lib64
     libavutil      56. 70.100 / 56. 70.100
     libavcodec     58.134.100 / 58.134.100
     ...
