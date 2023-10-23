@@ -4,6 +4,9 @@ project(CAMERA_SERVER)
 
 set (CMAKE_CXX_STANDARD 17)
 
+# Always generate compile_commands.json for clangd, etc.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 find_package(nlohmann_json CONFIG REQUIRED)
 
 find_library(SPDLOG_LIB spdlog)
@@ -20,6 +23,7 @@ if(NOT ZMQ_LIB)
         "libzmp library not found, install it with 'apt install libzmq3-dev'"
     )
 endif()
+include_directories(${ZMQ_LIB_INCLUDE_DIRS})
 
 option(BUILD_ASAN "Build with AddressSanitizer to detect memory error" OFF)
 option(BUILD_UBSAN "Build with UndefinedBehaviorSanitizer to detect undefined behavior" OFF)

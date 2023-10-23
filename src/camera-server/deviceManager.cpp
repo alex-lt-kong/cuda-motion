@@ -463,7 +463,7 @@ void deviceManager::overlayDeviceName(Mat &frame) {
           2 * textOverlayFontSacle, LINE_8, false);
 }
 
-void deviceManager::overlayStats(Mat &frame, float changeRate, int cooldown,
+void deviceManager::overlayStats(Mat &frame, float changeRate, int cd,
                                  long long int videoFrameCount) {
   int64_t msSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
                              chrono::system_clock::now().time_since_epoch())
@@ -475,8 +475,8 @@ void deviceManager::overlayStats(Mat &frame, float changeRate, int cooldown,
   textToOverlay << fixed << setprecision(1) << getCurrentFps(msSinceEpoch)
                 << "fps ";
   if (motionDetectionMode != MODE_DISABLED) {
-    textToOverlay << "(" << cooldown << ", "
-                  << maxFramesPerVideo - videoFrameCount << ")";
+    textToOverlay << "(" << cd << ", " << maxFramesPerVideo - videoFrameCount
+                  << ")";
   }
   putText(frame, textToOverlay.str(), Point(5, frame.rows - 5),
           FONT_HERSHEY_DUPLEX, textOverlayFontSacle, Scalar(0, 0, 0),
@@ -554,18 +554,17 @@ void deviceManager::asyncExecCallback(void *This, string stdout, string stderr,
 }
 
 void deviceManager::stopVideoRecording(VideoWriter &vwriter,
-                                       uint32_t &videoFrameCount,
-                                       int cooldown) {
+                                       uint32_t &videoFrameCount, int cd) {
 
   vwriter.release();
 
-  if (cooldown > 0) {
+  if (cd > 0) {
     spdlog::warn("[{}] video recording stopped before cooldown "
                  "reaches 0",
                  deviceName);
   }
 
-  if (conf["events"]["onVideoEnds"].size() > 0 && cooldown == 0) {
+  if (conf["events"]["onVideoEnds"].size() > 0 && cd == 0) {
     vector<string> args;
     args.reserve(conf["events"]["onVideoEnds"].size());
     spdlog::info("[{}] video recording ends", deviceName);
@@ -576,7 +575,7 @@ void deviceManager::stopVideoRecording(VideoWriter &vwriter,
     execAsync((void *)this, args, asyncExecCallback);
     spdlog::info("[{}] onVideoEnds triggered, command [{}] executed",
                  deviceName, args[0]);
-  } else if (conf["events"]["onVideoEnds"].size() > 0 && cooldown > 0) {
+  } else if (conf["events"]["onVideoEnds"].size() > 0 && cd > 0) {
     spdlog::warn("[{}] onVideoEnds event defined but it won't be "
                  "triggered",
                  deviceName);
@@ -587,8 +586,7 @@ void deviceManager::stopVideoRecording(VideoWriter &vwriter,
 }
 
 void deviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
-                                              const Size &actualFrameSize,
-                                              int64_t &cooldown) {
+                                              int64_t &cd) {
 
   auto handleOnVideoStarts = [&]() {
     if (conf["events"]["onVideoStarts"].size() > 0) {
@@ -607,14 +605,14 @@ void deviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
     }
   };
 
-  cooldown = minFramesPerVideo;
+  cd = minFramesPerVideo;
 
   // These two if's: video recording is in progress already.
   if (vwriter.isOpened())
     return;
 
   timestampOnVideoStarts = getCurrentTimestamp();
-  string command = evaluateVideoSpecficVariables(
+  evaluatedVideoPath = evaluateVideoSpecficVariables(
       conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"]);
 
   handleOnVideoStarts();
@@ -622,14 +620,14 @@ void deviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
   string fourcc =
       conf["motionDetection"]["videoRecording"]["videoWriter"]["fourcc"]
           .get<string>();
+  const int codec =
+      VideoWriter::fourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3]);
   /* For VideoWriter, we have to use FFmpeg as we compiled FFmpeg with
   Nvidia GPU*/
   vwriter = VideoWriter(
-      command, cv::CAP_FFMPEG,
-      VideoWriter::fourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3]),
+      evaluatedVideoPath, cv::CAP_FFMPEG, codec,
       conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"],
-      Size(outputWidth == -1 ? actualFrameSize.width : outputWidth,
-           outputHeight == -1 ? actualFrameSize.height : outputHeight),
+      Size(outputWidth, outputHeight),
       {VIDEOWRITER_PROP_HW_ACCELERATION, cv::VIDEO_ACCELERATION_ANY});
 }
 
@@ -675,20 +673,19 @@ void deviceManager::generateBlankFrameAt1Fps(Mat &currFrame,
 }
 
 void deviceManager::updateVideoCooldownAndVideoFrameCount(
-    int64_t &cooldown, uint32_t &videoFrameCount) {
-  if (cooldown >= 0) {
-    cooldown--;
-    if (cooldown > 0) {
+    int64_t &cd, uint32_t &videoFrameCount) {
+  if (cd >= 0) {
+    cd--;
+    if (cd > 0) {
       ++videoFrameCount;
     }
   }
   if (videoFrameCount >= maxFramesPerVideo) {
-    cooldown = 0;
+    cd = 0;
   }
 }
 
-void deviceManager::deviceIsOffline(Mat &currFrame, const Size &actualFrameSize,
-                                    bool &isShowingBlankFrame) {
+void deviceManager::markDeviceAsOffline(bool &isShowingBlankFrame) {
 
   if (isShowingBlankFrame == false) {
     timestampOnDeviceOffline = getCurrentTimestamp();
@@ -707,7 +704,6 @@ void deviceManager::deviceIsOffline(Mat &currFrame, const Size &actualFrameSize,
       spdlog::info("[{}] onDeviceOffline: no command to execute", deviceName);
     }
   }
-  generateBlankFrameAt1Fps(currFrame, actualFrameSize);
 }
 
 void deviceManager::deviceIsBackOnline(size_t &openRetryDelay,
@@ -761,6 +757,28 @@ void deviceManager::initializeDevice(VideoCapture &cap, bool &result,
     cap.set(CAP_PROP_FRAME_HEIGHT, actualFrameSize.height);
   if (conf["frame"]["preferredFps"] > 0)
     cap.set(CAP_PROP_FPS, conf["frame"]["preferredFps"]);
+}
+
+void deviceManager::warnCPUResize(const Size &actualFrameSize) {
+  if ((actualFrameSize.width != conf["frame"]["preferredInputWidth"] &&
+       conf["frame"]["preferredInputWidth"] != -1) ||
+      (actualFrameSize.height != conf["frame"]["preferredInputHeight"] &&
+       conf["frame"]["preferredInputHeight"] != -1)) {
+    spdlog::warn("[{}] actualFrameSize({}x{}) is different "
+                 "from preferredInputSize ({}x{}). (The program has "
+                 "no choice but using actualFrameSize)",
+                 deviceName, actualFrameSize.width, actualFrameSize.height,
+                 conf["frame"]["preferredInputWidth"].get<int>(),
+                 conf["frame"]["preferredInputHeight"].get<int>());
+  }
+  if (actualFrameSize.width != outputWidth ||
+      actualFrameSize.height != outputHeight) {
+    spdlog::warn("[{}] actualFrameSize({}x{}) is different "
+                 "from outputSize ({}x{}), so frame will have to be "
+                 "resized, this is a CPU-intensive operation.",
+                 deviceName, actualFrameSize.width, actualFrameSize.height,
+                 outputWidth, outputHeight);
+  }
 }
 
 void deviceManager::prepareDataForIpc(Mat &dispFrame) {
@@ -850,7 +868,8 @@ void deviceManager::InternalThreadEntry() {
   Size actualFrameSize = Size(conf["frame"]["preferredInputWidth"],
                               conf["frame"]["preferredInputHeight"]);
   VideoWriter vwriter;
-  int64_t cooldown = 0;
+  // cd: cooldown
+  int64_t cd = 0;
   size_t openRetryDelay = 1;
 
   goto entryPoint;
@@ -870,49 +889,30 @@ void deviceManager::InternalThreadEntry() {
     ++retrievedFramesSinceLastOpen;
 
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
-      deviceIsOffline(currFrame, actualFrameSize, isShowingBlankFrame);
+      markDeviceAsOffline(isShowingBlankFrame);
+      generateBlankFrameAt1Fps(currFrame, actualFrameSize);
       if (retrievedFramesSinceStart % openRetryDelay == 0) {
         openRetryDelay *= 2;
         spdlog::error("[{}] Unable to cap.read() a new frame. "
-                      "currFrame.empty(): {}, cap.isOpened(): {}. "
                       "Wait for {} frames than then re-open()...",
-                      deviceName, currFrame.empty(), cap.isOpened(),
                       openRetryDelay);
       entryPoint:
         initializeDevice(cap, result, actualFrameSize);
         retrievedFramesSinceLastOpen = 0;
         continue;
       }
-    } else {
-      if (retrievedFramesSinceLastOpen == 1) {
-        actualFrameSize = currFrame.size();
-        if ((actualFrameSize.width != conf["frame"]["preferredInputWidth"] &&
-             conf["frame"]["preferredInputWidth"] != -1) ||
-            (actualFrameSize.height != conf["frame"]["preferredInputHeight"] &&
-             conf["frame"]["preferredInputHeight"] != -1)) {
-          spdlog::warn("[{}] actualFrameSize({}x{}) is different "
-                       "from preferredInputSize ({}x{}). (The program has "
-                       "no choice but using actualFrameSize)",
-                       deviceName, actualFrameSize.width,
-                       actualFrameSize.height,
-                       conf["frame"]["preferredInputWidth"].get<int>(),
-                       conf["frame"]["preferredInputHeight"].get<int>());
-        }
-        if ((actualFrameSize.width != outputWidth && outputWidth != -1) ||
-            (actualFrameSize.height != outputHeight && outputHeight != -1)) {
-          spdlog::warn("[{}] actualFrameSize({}x{}) is different "
-                       "from outputSize ({}x{}), so frame will have to be "
-                       "resized, this is a CPU-intensive operation.",
-                       deviceName, actualFrameSize.width,
-                       actualFrameSize.height, outputWidth, outputHeight);
-        }
-      }
-      if (isShowingBlankFrame) {
-        deviceIsBackOnline(openRetryDelay, isShowingBlankFrame);
-      }
     }
     if (frameRotation != -1 && isShowingBlankFrame == false) {
       rotate(currFrame, currFrame, frameRotation);
+    }
+    if (retrievedFramesSinceLastOpen == 1) {
+      actualFrameSize = currFrame.size();
+      outputWidth = outputWidth == -1 ? actualFrameSize.width : outputWidth;
+      outputHeight = outputHeight == -1 ? actualFrameSize.height : outputHeight;
+      warnCPUResize(actualFrameSize);
+    }
+    if (isShowingBlankFrame) {
+      deviceIsBackOnline(openRetryDelay, isShowingBlankFrame);
     }
 
     if (motionDetectionMode == MODE_DETECT_MOTION &&
@@ -927,8 +927,8 @@ void deviceManager::InternalThreadEntry() {
       objects will share the same copy of underlying image data */
       prevFrame = currFrame.clone();
     }
-    if ((outputWidth != -1 && actualFrameSize.width != outputWidth) ||
-        (outputHeight != -1 && actualFrameSize.height != outputHeight)) {
+    if (actualFrameSize.width != outputWidth ||
+        actualFrameSize.height != outputHeight) {
       resize(currFrame, currFrame, cv::Size(outputWidth, outputHeight));
     }
     dispFrames.push(currFrame);
@@ -941,7 +941,7 @@ void deviceManager::InternalThreadEntry() {
       // CPU-intensive! Use with care!
     }
     if (textOverlayEnabled) {
-      overlayStats(dispFrames.back(), rateOfChange, cooldown, videoFrameCount);
+      overlayStats(dispFrames.back(), rateOfChange, cd, videoFrameCount);
       overlayDatetime(dispFrames.back());
       overlayDeviceName(dispFrames.back());
     }
@@ -958,23 +958,30 @@ void deviceManager::InternalThreadEntry() {
         (rateOfChange > frameDiffPercentageLowerLimit &&
          rateOfChange < frameDiffPercentageUpperLimit &&
          motionDetectionMode == MODE_DETECT_MOTION)) {
-      startOrKeepVideoRecording(vwriter, actualFrameSize, cooldown);
+      startOrKeepVideoRecording(vwriter, cd);
     }
 
-    updateVideoCooldownAndVideoFrameCount(cooldown, videoFrameCount);
+    updateVideoCooldownAndVideoFrameCount(cd, videoFrameCount);
 
-    if (cooldown < 0) {
+    if (cd < 0) {
       continue;
     }
-    if (cooldown == 0) {
-      stopVideoRecording(vwriter, videoFrameCount, cooldown);
+    if (cd == 0) {
+      stopVideoRecording(vwriter, videoFrameCount, cd);
       continue;
     }
-
+    if (dispFrames.front().size().width != outputWidth ||
+        dispFrames.front().size().height != outputHeight) {
+      spdlog::warn("dispFrame.size() == (w{}, h{}) != Size(outputWidth, "
+                   "outputHeight) == (w{}, h{}), "
+                   "OpenCV::VideoWriter may fail silently",
+                   dispFrames.front().size().width,
+                   dispFrames.front().size().height, outputWidth, outputHeight);
+    }
     vwriter.write(dispFrames.front());
   }
-  if (cooldown > 0) {
-    stopVideoRecording(vwriter, videoFrameCount, cooldown);
+  if (cd > 0) {
+    stopVideoRecording(vwriter, videoFrameCount, cd);
   }
   cap.release();
   spdlog::info("[{}] thread quits gracefully", deviceName);

@@ -75,7 +75,9 @@
       them to -1 means we output the frames in their original sizes. If input
       frame size (regardless the same as preferred size or not) and output
       frame settings are not consistent, frames will be resized. Profiling
-      shows that frame resizing is a CPU-intensive task */
+      shows that frame resizing is a CPU-intensive task. Note that if input
+      frames are rotated, outputWidth and outputHeight should match the input
+      frame AFTER rotation to avoid resize. */
       "outputWidth": -1,
       "outputHeight": -1,
       /* Internally, frames are buffered in a FIFO queue. When performing motion
@@ -98,7 +100,6 @@
       every 150 frames read from the source device. */
       "frameInterval": 600,
       "ipc": {
-
         "switch": {
           "http": true,
           /* Save the snapshot to filesystem. To achieve better performance,
@@ -129,7 +130,7 @@
           are slashes.*/
           "sharedMemName": "/sharedMem-device{{deviceIndex}}",
           "sharedMemSize": 8388608 // 1024 * 8 * 1024 = 8MB
-        }, 
+        },
         "zeroMQ": {
           "endpoint": "tcp://127.0.0.1:4242"
         }
@@ -165,31 +166,44 @@
         "maxFramesPerVideo": 108000,
         /* Use to control the OpenCV's VideoWriter object*/
         "videoWriter": {
-            /*
+          /*
             * Set the format of the video being encoded, fourcc should be
             compatible with the extension in videoPath; otherwise it is up
             to OpenCV to decide how to reconcile them.
             * If a GPU is used, one needs to check if a given fourcc is
             supported by the GPU--it is possible that some formats are
             supported by OpenCV/FFmpeg but not supported by the GPU*/
-            "fourcc": "x264",
-            "fps": 30,
-            "videoPath": "/tmp/{{deviceIndex}}-{{deviceName}}-{{timestampOnVideoStarts}}.mp4"
+          "fourcc": "x264",
+          "fps": 30,
+          "videoPath": "/tmp/{{deviceIndex}}-{{deviceName}}-{{timestampOnVideoStarts}}.mp4"
         }
       }
     },
     "events": {
-      "onVideoStarts": ["/usr/bin/printf", "video starts at [{{timestampOnVideoStarts}}] %s", "!"],
-      "onVideoEnds": ["/usr/bin/echo", "onVideoEnds echoed from device [{{deviceIndex}}]"],
-      "onDeviceOffline": ["/usr/bin/echo", "Device [{{deviceIndex}}] is offline at [{{timestampOnDeviceOffline}}]"],
-      "onDeviceBackOnline": ["/usr/bin/echo", "Device [{{deviceName}}] is back online"]
-    }    
+      "onVideoStarts": [
+        "/usr/bin/printf",
+        "video starts at [{{timestampOnVideoStarts}}] %s",
+        "!"
+      ],
+      "onVideoEnds": [
+        "/usr/bin/echo",
+        "onVideoEnds echoed from device [{{deviceIndex}}]"
+      ],
+      "onDeviceOffline": [
+        "/usr/bin/echo",
+        "Device [{{deviceIndex}}] is offline at [{{timestampOnDeviceOffline}}]"
+      ],
+      "onDeviceBackOnline": [
+        "/usr/bin/echo",
+        "Device [{{deviceName}}] is back online"
+      ]
+    }
   },
   "devices": [
     /* A pair of braces ({}) means we have one device, but we want
     to leave all the settings to default. To use custom settings,
     duplicate the corresponding devicesDefault section and assgin
     new values*/
-    {} 
+    {}
   ]
 }
