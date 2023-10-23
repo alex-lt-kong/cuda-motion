@@ -895,7 +895,7 @@ void deviceManager::InternalThreadEntry() {
         openRetryDelay *= 2;
         spdlog::error("[{}] Unable to cap.read() a new frame. "
                       "Wait for {} frames than then re-open()...",
-                      openRetryDelay);
+                      deviceName, openRetryDelay);
       entryPoint:
         initializeDevice(cap, result, actualFrameSize);
         retrievedFramesSinceLastOpen = 0;
