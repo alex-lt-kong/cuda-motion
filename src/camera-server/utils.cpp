@@ -1,3 +1,8 @@
+#include "deviceManager.h"
+#include "utils.h"
+
+#include <spdlog/spdlog.h>
+
 #include <fcntl.h>
 #include <iomanip>
 #include <poll.h>
@@ -5,10 +10,7 @@
 #include <sys/wait.h>
 #include <time.h>
 
-#include <spdlog/spdlog.h>
-
-#include "deviceManager.h"
-#include "utils.h"
+using namespace std;
 
 void exec(void *This, const vector<string> &args, string &stdoutStr,
           string &stderrStr, int &rc) {

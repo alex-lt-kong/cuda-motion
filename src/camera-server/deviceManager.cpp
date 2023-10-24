@@ -1,3 +1,7 @@
+#include "deviceManager.h"
+
+#include <spdlog/spdlog.h>
+
 #include <arpa/inet.h>
 #include <chrono>
 #include <ctime>
@@ -12,10 +16,7 @@
 #include <sys/mman.h>
 #include <sys/socket.h>
 
-#include <spdlog/spdlog.h>
-
-#include "deviceManager.h"
-
+using namespace std;
 using sysclock_t = std::chrono::system_clock;
 
 string deviceManager::getCurrentTimestamp() {
@@ -872,9 +873,9 @@ void deviceManager::InternalThreadEntry() {
   int64_t cd = 0;
   size_t openRetryDelay = 1;
 
+  // We use the evil `goto` statement so that we can avoid the duplication of
+  //   initializeDevice()...
   goto entryPoint;
-  /* We use the evil `goto` statement so that we can avoid the duplication of
-     initializeDevice()...*/
 
   while (ev_flag == 0) {
     result = cap.read(currFrame);
@@ -901,6 +902,8 @@ void deviceManager::InternalThreadEntry() {
         retrievedFramesSinceLastOpen = 0;
         continue;
       }
+    } else if (isShowingBlankFrame) {
+      deviceIsBackOnline(openRetryDelay, isShowingBlankFrame);
     }
     if (frameRotation != -1 && isShowingBlankFrame == false) {
       rotate(currFrame, currFrame, frameRotation);
@@ -910,9 +913,6 @@ void deviceManager::InternalThreadEntry() {
       outputWidth = outputWidth == -1 ? actualFrameSize.width : outputWidth;
       outputHeight = outputHeight == -1 ? actualFrameSize.height : outputHeight;
       warnCPUResize(actualFrameSize);
-    }
-    if (isShowingBlankFrame) {
-      deviceIsBackOnline(openRetryDelay, isShowingBlankFrame);
     }
 
     if (motionDetectionMode == MODE_DETECT_MOTION &&

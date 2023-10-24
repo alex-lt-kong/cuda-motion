@@ -1,17 +1,11 @@
-#ifndef UTILS_H
-#define UTILS_H
-
-#include <cstdio>
-#include <iostream>
-#include <memory>
-#include <stdexcept>
-#include <string>
-#include <thread>
-#include <string>
+#ifndef CS_UTILS_H
+#define CS_UTILS_H
 
 #include <spdlog/spdlog.h>
 
-using namespace std;
+#include <memory>
+#include <string>
+#include <thread>
 
 enum MotionDetectionMode {
   MODE_ALWAYS_RECORD = 2,
@@ -19,8 +13,8 @@ enum MotionDetectionMode {
   MODE_DISABLED = 0
 };
 
-typedef void (*exec_cb)(void* This, string stdout, string stderr, int rc); // type for conciseness
+typedef void (*exec_cb)(void* This, std::string stdout, std::string stderr, int rc); // type for conciseness
 
-void execAsync(void* This, const vector<string>& args, exec_cb cb);
+void execAsync(void* This, const std::vector<std::string>& args, exec_cb cb);
 
-#endif
+#endif /* CS_UTILS_H */

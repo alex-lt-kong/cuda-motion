@@ -18,7 +18,6 @@
 #include <string>
 #include <sys/time.h>
 
-using namespace std;
 using namespace cv;
 using njson = nlohmann::json;
 
@@ -42,18 +41,18 @@ public:
   ~deviceManager();
   void setParameters(const size_t deviceIndex, const njson &defaultConf,
                      njson &overrideConf);
-  void getLiveImage(vector<uint8_t> &pl);
-  string getDeviceName() { return this->deviceName; }
+  void getLiveImage(std::vector<uint8_t> &pl);
+  std::string getDeviceName() { return this->deviceName; }
 
 protected:
   void InternalThreadEntry();
 
 private:
   pthread_mutex_t mutexLiveImage;
-  vector<uint8_t> encodedJpgImage;
+  std::vector<uint8_t> encodedJpgImage;
   njson conf;
   size_t deviceIndex = 0;
-  string deviceName;
+  std::string deviceName;
 
   // frame variables
   bool textOverlayEnabled;
@@ -62,7 +61,7 @@ private:
   int frameRotation;
   ssize_t outputWidth;
   ssize_t outputHeight;
-  string evaluatedVideoPath;
+  std::string evaluatedVideoPath;
 
   // motionDetection variables
   enum MotionDetectionMode motionDetectionMode;
@@ -81,33 +80,33 @@ private:
   int snapshotFrameInterval;
   bool snapshotIpcFileEnabled;
   bool snapshotIpcHttpEnabled;
-  string snapshotIpcFilePath;
+  std::string snapshotIpcFilePath;
   bool snapshotHttpFileEnabled;
   bool snapshotIpcSharedMemEnabled;
   int shmFd;
   size_t sharedMemSize;
-  string sharedMemName;
-  string semaphoreName;
+  std::string sharedMemName;
+  std::string semaphoreName;
   void *memPtr;
   sem_t *semPtr;
   bool snapshotIpcZeroMQEnabled;
-  string zeroMQEndpoint;
+  std::string zeroMQEndpoint;
   zmq::context_t zmqContext;
   zmq::socket_t zmqSocket;
 
-  string timestampOnVideoStarts;
-  string timestampOnDeviceOffline;
-  queue<int64_t> frameTimestamps;
+  std::string timestampOnVideoStarts;
+  std::string timestampOnDeviceOffline;
+  std::queue<int64_t> frameTimestamps;
 
   volatile sig_atomic_t *done;
 
   void updateVideoCooldownAndVideoFrameCount(int64_t &cooldown,
                                              uint32_t &videoFrameCount);
   bool shouldFrameBeThrottled();
-  string evaluateStaticVariables(basic_string<char> originalString);
-  string evaluateVideoSpecficVariables(basic_string<char> originalString);
-  string convertToString(char *a, int size);
-  string getCurrentTimestamp();
+  std::string evaluateStaticVariables(std::basic_string<char> originalString);
+  std::string evaluateVideoSpecficVariables(std::basic_string<char> originalString);
+  std::string convertToString(char *a, int size);
+  std::string getCurrentTimestamp();
   void startOrKeepVideoRecording(VideoWriter &vwriter, int64_t &cd);
   void stopVideoRecording(VideoWriter &vwriter, uint32_t &videoFrameCount,
                           int cd);
@@ -122,7 +121,7 @@ private:
   void deviceIsBackOnline(size_t &openRetryDelay, bool &isShowingBlankFrame);
   void initializeDevice(VideoCapture &cap, bool &result,
                         const Size &actualFrameSize);
-  static void asyncExecCallback(void *This, string stdout, string stderr,
+  static void asyncExecCallback(void *This, std::string stdout, std::string stderr,
                                 int rc);
   void prepareDataForIpc(Mat &dispFrames);
   float getCurrentFps(int64_t msSinceEpoch);

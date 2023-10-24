@@ -2,8 +2,10 @@
 #define CS_EVENT_LOOP_H
 
 #include <string>
-
-using namespace std;
+#include <pthread.h>
+#include <errno.h>
+#include <stdexcept>
+#include <string.h>
 
 // This multithreading model is inspired by:
 // https://stackoverflow.com/questions/1151582/pthread-function-from-a-class
@@ -24,7 +26,7 @@ public:
     */
     if ((errNum = pthread_create(&_thread, NULL, InternalThreadEntryFunc,
                                  this)) != 0) {
-      throw runtime_error("pthread_create() failed: " + to_string(errNum) +
+      throw std::runtime_error("pthread_create() failed: " + std::to_string(errNum) +
                           " (" + strerror(errNum) + ")");
     }
   }
@@ -32,7 +34,7 @@ public:
   void WaitForInternalEventLoopThreadToExit() {
     int errNum;
     if ((errNum = pthread_join(_thread, NULL)) != 0) {
-      throw runtime_error("pthread_join() failed: " + to_string(errNum) + " (" +
+      throw std::runtime_error("pthread_join() failed: " + std::to_string(errNum) + " (" +
                           strerror(errNum) + ")");
     }
   }
@@ -44,7 +46,7 @@ public:
   void DetachInternalEventLoopThread() {
     int errNum;
     if ((errNum = pthread_detach(_thread)) != 0) {
-      throw runtime_error("pthread_detach() failed: " + to_string(errNum) +
+      throw std::runtime_error("pthread_detach() failed: " + std::to_string(errNum) +
                           " (" + strerror(errNum) + ")");
     }
   }
