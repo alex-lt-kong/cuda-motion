@@ -1,5 +1,6 @@
 #include "device_manager.h"
 #include "global_vars.h"
+#include "http_service/oatpp_entry.h"
 #include "utils.h"
 
 #include <crow.h>
@@ -13,7 +14,6 @@
 
 using namespace std;
 using json = nlohmann::json;
-json settings;
 
 void askForCred(crow::response &res) {
   res.set_header("WWW-Authenticate", "Basic realm=On-demand CCTV server");
@@ -203,7 +203,7 @@ void start_http_server() {
 int main(int argc, char *argv[]) {
   string settingsPath;
   if (argc > 2) {
-    cerr << "Usage: ./cd.out [config-file.jsonc]" << endl;
+    cerr << "Usage: " << argv[0] << " [config-file.jsonc]" << endl;
     return EXIT_FAILURE;
   } else if (argc == 2) {
     settingsPath = string(argv[1]);
@@ -238,7 +238,8 @@ int main(int argc, char *argv[]) {
                                      settings["devices"][i]);
     myDevices[i]->StartInternalEventLoopThread();
   }
-
+  initialize_http_service(settings["httpService"]["interface"].get<string>(),
+                          settings["httpService"]["port"].get<int>() % 10000);
   start_http_server();
   for (size_t i = 0; i < myDevices.size(); ++i) {
     myDevices[i]->WaitForInternalEventLoopThreadToExit();

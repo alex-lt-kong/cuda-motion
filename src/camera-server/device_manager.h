@@ -88,8 +88,6 @@ private:
   std::string timestampOnDeviceOffline;
   std::queue<int64_t> frameTimestamps;
 
-  volatile sig_atomic_t *done;
-
   void updateVideoCooldownAndVideoFrameCount(int64_t &cooldown,
                                              uint32_t &videoFrameCount);
   bool shouldFrameBeThrottled();

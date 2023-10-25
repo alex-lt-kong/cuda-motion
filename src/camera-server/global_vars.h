@@ -1,6 +1,8 @@
 #ifndef CS_GLOBAL_VARS_H
 #define CS_GLOBAL_VARS_H
 
+#include <nlohmann/json.hpp>
+
 #include <mutex>
 #include <signal.h>
 
@@ -20,5 +22,7 @@ enum MotionDetectionMode {
 };
 
 extern std::mutex mutexLiveImage;
+
+extern nlohmann::json settings;
 
 #endif /* CS_GLOBAL_VARS_H */

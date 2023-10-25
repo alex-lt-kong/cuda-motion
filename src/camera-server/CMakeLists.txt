@@ -1,5 +1,7 @@
+add_subdirectory(http_service/)
+
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-#include_directories(/usr/local/include/opencv4)
+include_directories(http_service/)
 
 
 find_package(OpenCV REQUIRED)
@@ -15,7 +17,7 @@ add_library(utils utils.cpp)
 
 
 target_link_libraries(cs
-  global_vars device_manager frame_handler utils
+  http_service global_vars device_manager frame_handler utils
   ${OpenCV_LIBS} rt ssl crypto spdlog fmt zmq
 )
 

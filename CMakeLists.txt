@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16.3)
 
 project(CAMERA_SERVER)
+add_definitions(-DPROJECT_NAME="${PROJECT_NAME}")
 
 set (CMAKE_CXX_STANDARD 17)
 
@@ -66,7 +67,10 @@ endif()
 add_compile_options(-Wall)
 add_compile_options(-Wextra)
 add_compile_options(-pedantic)
-add_compile_options(-O3)
+add_compile_options(-O2)
+# Silence many OATPP's marco-related warnings
+add_compile_options(-Wno-gnu-zero-variadic-macro-arguments)
+
 
 
 add_subdirectory(src/camera-server)
