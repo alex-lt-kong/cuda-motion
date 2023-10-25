@@ -1,14 +1,15 @@
-#include <fstream>
-#include <iostream>
-#include <thread>
-#include <vector>
+#include "device_manager.h"
+#include "global_vars.h"
+#include "utils.h"
 
 #include <crow.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
-#include "deviceManager.h"
-#include "utils.h"
+#include <fstream>
+#include <iostream>
+#include <thread>
+#include <vector>
 
 using namespace std;
 using json = nlohmann::json;

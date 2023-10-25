@@ -1,4 +1,5 @@
-#include "deviceManager.h"
+#include "device_manager.h"
+#include "frame_handler.h"
 
 #include <spdlog/spdlog.h>
 
@@ -17,16 +18,8 @@
 #include <sys/socket.h>
 
 using namespace std;
-using sysclock_t = std::chrono::system_clock;
 
-string deviceManager::getCurrentTimestamp() {
-  time_t now = sysclock_t::to_time_t(sysclock_t::now());
-  string ts = "19700101-000000";
-  strftime(ts.data(), ts.size() + 1, "%Y%m%d-%H%M%S", localtime(&now));
-  // https://www.cplusplus.com/reference/ctime/strftime/
-  return ts;
-  // move constructor? No, most likely it is Copy elision/RVO
-}
+namespace FH = FrameHandler;
 
 deviceManager::deviceManager(const size_t deviceIndex, const njson &defaultConf,
                              njson &overrideConf)
@@ -396,108 +389,6 @@ deviceManager::~deviceManager() {
                     "but there is nothing we can do",
                     errno, strerror(errno));
     }
-  }
-}
-
-void deviceManager::overlayDatetime(Mat &frame) {
-  time_t now;
-  time(&now);
-  // char buf[sizeof "1970-01-01 00:00:00"];
-  // strftime(buf, sizeof buf, "%F %T", localtime(&now));
-  string ts = getCurrentTimestamp();
-  if (timestampOnDeviceOffline.size() > 0) {
-    ts += " (Offline since " + timestampOnDeviceOffline + ")";
-  }
-  cv::Size textSize = getTextSize(ts, FONT_HERSHEY_DUPLEX, textOverlayFontSacle,
-                                  8 * textOverlayFontSacle, nullptr);
-  putText(frame, ts, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
-          textOverlayFontSacle, Scalar(0, 0, 0), 8 * textOverlayFontSacle,
-          LINE_8, false);
-  putText(frame, ts, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
-          textOverlayFontSacle, Scalar(255, 255, 255), 2 * textOverlayFontSacle,
-          LINE_8, false);
-  /*
-  void cv::putText 	(InputOutputArray  	img,
-                      const String &  	text,
-                      Point  	org,
-                      int  	fontFace,
-                      double  	textOverlayFontSacle,
-                      Scalar  	color,
-                      int  	thickness = 1,
-                      int  	lineType = LINE_8,
-                      bool  	bottomLeftOrigin = false
-      )
-  */
-}
-
-float deviceManager::getFrameChanges(Mat &prevFrame, Mat &currFrame,
-                                     Mat *diffFrame) {
-  if (prevFrame.empty() || currFrame.empty()) {
-    return -1;
-  }
-  if (prevFrame.cols != currFrame.cols || prevFrame.rows != currFrame.rows) {
-    return -1;
-  }
-  if (prevFrame.cols == 0 || prevFrame.rows == 0) {
-    return -1;
-  }
-
-  absdiff(prevFrame, currFrame, *diffFrame);
-  cvtColor(*diffFrame, *diffFrame, COLOR_BGR2GRAY);
-  threshold(*diffFrame, *diffFrame, pixelDiffAbsThreshold, 255, THRESH_BINARY);
-  int nonZeroPixels = countNonZero(*diffFrame);
-  return 100.0 * nonZeroPixels / (diffFrame->rows * diffFrame->cols);
-}
-
-void deviceManager::overlayDeviceName(Mat &frame) {
-
-  cv::Size textSize =
-      getTextSize(deviceName, FONT_HERSHEY_DUPLEX, textOverlayFontSacle,
-                  8 * textOverlayFontSacle, nullptr);
-  putText(frame, deviceName,
-          Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
-          FONT_HERSHEY_DUPLEX, textOverlayFontSacle, Scalar(0, 0, 0),
-          8 * textOverlayFontSacle, LINE_8, false);
-  putText(frame, deviceName,
-          Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
-          FONT_HERSHEY_DUPLEX, textOverlayFontSacle, Scalar(255, 255, 255),
-          2 * textOverlayFontSacle, LINE_8, false);
-}
-
-void deviceManager::overlayStats(Mat &frame, float changeRate, int cd,
-                                 long long int videoFrameCount) {
-  int64_t msSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
-                             chrono::system_clock::now().time_since_epoch())
-                             .count();
-  ostringstream textToOverlay;
-  if (motionDetectionMode == MODE_DETECT_MOTION) {
-    textToOverlay << fixed << setprecision(2) << changeRate << "%, ";
-  }
-  textToOverlay << fixed << setprecision(1) << getCurrentFps(msSinceEpoch)
-                << "fps ";
-  if (motionDetectionMode != MODE_DISABLED) {
-    textToOverlay << "(" << cd << ", " << maxFramesPerVideo - videoFrameCount
-                  << ")";
-  }
-  putText(frame, textToOverlay.str(), Point(5, frame.rows - 5),
-          FONT_HERSHEY_DUPLEX, textOverlayFontSacle, Scalar(0, 0, 0),
-          8 * textOverlayFontSacle, LINE_8, false);
-  putText(frame, textToOverlay.str(), Point(5, frame.rows - 5),
-          FONT_HERSHEY_DUPLEX, textOverlayFontSacle, Scalar(255, 255, 255),
-          2 * textOverlayFontSacle, LINE_8, false);
-}
-
-void deviceManager::overlayContours(Mat &dispFrame, Mat &diffFrame) {
-  if (diffFrame.empty())
-    return;
-  vector<vector<Point>> contours;
-  vector<Vec4i> hierarchy;
-
-  findContours(diffFrame, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE);
-
-  for (int idx = 0; idx >= 0; idx = hierarchy[idx][0]) {
-    cv::drawContours(dispFrame, contours, idx, Scalar(255, 255, 255), 1, LINE_8,
-                     hierarchy);
   }
 }
 
@@ -919,7 +810,8 @@ void deviceManager::InternalThreadEntry() {
         retrievedFramesSinceStart % diffEveryNthFrame == 0) {
       if (isShowingBlankFrame == false) {
         // profiling shows this if() block takes around 1-2 ms
-        rateOfChange = getFrameChanges(prevFrame, currFrame, &diffFrame);
+        rateOfChange = FH::getFrameChanges(prevFrame, currFrame, &diffFrame,
+                                           pixelDiffAbsThreshold);
       } else {
         rateOfChange = -1;
       }
@@ -937,13 +829,21 @@ void deviceManager::InternalThreadEntry() {
     }
     if (drawContours && motionDetectionMode == MODE_DETECT_MOTION &&
         isShowingBlankFrame == false) {
-      overlayContours(dispFrames.back(), diffFrame);
+      FH::overlayContours(dispFrames.back(), diffFrame);
       // CPU-intensive! Use with care!
     }
     if (textOverlayEnabled) {
-      overlayStats(dispFrames.back(), rateOfChange, cd, videoFrameCount);
-      overlayDatetime(dispFrames.back());
-      overlayDeviceName(dispFrames.back());
+      FH::overlayStats(
+          dispFrames.back(), rateOfChange, cd, videoFrameCount,
+          textOverlayFontSacle, motionDetectionMode,
+          getCurrentFps(chrono::duration_cast<chrono::milliseconds>(
+                            chrono::system_clock::now().time_since_epoch())
+                            .count()),
+          maxFramesPerVideo);
+      FH::overlayDatetime(dispFrames.back(), textOverlayFontSacle,
+                          timestampOnDeviceOffline);
+      FH::overlayDeviceName(dispFrames.back(), textOverlayFontSacle,
+                            deviceName);
     }
 
     if ((retrievedFramesSinceStart - 1) % snapshotFrameInterval == 0) {

@@ -1,7 +1,8 @@
 #ifndef CS_DEVICE_MANAGER_H
 #define CS_DEVICE_MANAGER_H
 
-#include "eventLoop.h"
+#include "event_loop.h"
+#include "global_vars.h"
 #include "utils.h"
 
 #include <nlohmann/json.hpp>
@@ -20,15 +21,6 @@
 
 using namespace cv;
 using njson = nlohmann::json;
-
-/* The extern keyword tells the compiler that please dont generate any
-definition for it when compiling the source files that include the header.
-Without extern, multiple object files that include this header file
-will generate its own version of ev_flag, causing the "multiple definition
-of `ev_flag';" error. By adding extern, we need to manually add the definition
-of ev_flag in one .c/.cpp file. In this particular case, this is done
-in main.cpp. */
-extern volatile sig_atomic_t ev_flag;
 
 #define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
 #define SEM_INITIAL_VALUE 1
@@ -104,25 +96,19 @@ private:
                                              uint32_t &videoFrameCount);
   bool shouldFrameBeThrottled();
   std::string evaluateStaticVariables(std::basic_string<char> originalString);
-  std::string evaluateVideoSpecficVariables(std::basic_string<char> originalString);
+  std::string
+  evaluateVideoSpecficVariables(std::basic_string<char> originalString);
   std::string convertToString(char *a, int size);
-  std::string getCurrentTimestamp();
   void startOrKeepVideoRecording(VideoWriter &vwriter, int64_t &cd);
   void stopVideoRecording(VideoWriter &vwriter, uint32_t &videoFrameCount,
                           int cd);
-  void overlayDatetime(Mat &frame);
-  void overlayDeviceName(Mat &frame);
-  void overlayContours(Mat &dispFrame, Mat &diffFrame);
-  void overlayStats(Mat &frame, float changeRate, int cd,
-                    long long int videoFrameCount);
-  float getFrameChanges(Mat &prevFrame, Mat &currFrame, Mat *diffFrame);
   void generateBlankFrameAt1Fps(Mat &currFrame, const Size &actualFrameSize);
   void markDeviceAsOffline(bool &isShowingBlankFrame);
   void deviceIsBackOnline(size_t &openRetryDelay, bool &isShowingBlankFrame);
   void initializeDevice(VideoCapture &cap, bool &result,
                         const Size &actualFrameSize);
-  static void asyncExecCallback(void *This, std::string stdout, std::string stderr,
-                                int rc);
+  static void asyncExecCallback(void *This, std::string stdout,
+                                std::string stderr, int rc);
   void prepareDataForIpc(Mat &dispFrames);
   float getCurrentFps(int64_t msSinceEpoch);
   void warnCPUResize(const Size &actualFrameSize);

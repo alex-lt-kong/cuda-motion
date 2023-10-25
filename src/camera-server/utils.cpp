@@ -1,5 +1,5 @@
-#include "deviceManager.h"
 #include "utils.h"
+#include "device_manager.h"
 
 #include <spdlog/spdlog.h>
 
@@ -8,6 +8,7 @@
 #include <poll.h>
 #include <sstream>
 #include <sys/wait.h>
+#include <thread>
 #include <time.h>
 
 using namespace std;
@@ -224,4 +225,14 @@ void execAsync(void *This, const vector<string> &args, exec_cb cb) {
   };
   thread th_exec(f, This, args, cb);
   th_exec.detach();
+}
+
+string getCurrentTimestamp() {
+  using sysclock_t = std::chrono::system_clock;
+  time_t now = sysclock_t::to_time_t(sysclock_t::now());
+  string ts = "19700101-000000";
+  strftime(ts.data(), ts.size() + 1, "%Y%m%d-%H%M%S", localtime(&now));
+  // https://www.cplusplus.com/reference/ctime/strftime/
+  return ts;
+  // move constructor? No, most likely it is Copy elision/RVO
 }
