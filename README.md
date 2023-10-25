@@ -1,6 +1,8 @@
 # Camera server
 
-A C++17 project inspired by [Motion](https://github.com/Motion-Project/motion).
+A C++17 project inspired by
+[Motion](https://github.com/Motion-Project/motion)
+but with hardware-acceleration (i.e., CUDA) in mind.
 
 There are two main functions of this program:
 
@@ -11,10 +13,20 @@ There are two main functions of this program:
     so that downstream programs don't have to implement their own version of video
     feed handling repetitively. The following methods are currently supported:
 
-        1. File;
-        1. HTTP;
-        1. POSIX Shared Memory;
-        1. ZeroMQ Pub/Sub mode.
+    1.  File;
+    1.  HTTP;
+    1.  POSIX Shared Memory;
+    1.  ZeroMQ Pub/Sub mode.
+
+- In [Motion](https://github.com/Motion-Project/motion), hardware-acceleration
+  can only be achieved by piping data to external libraries such as FFmpeg,
+  and some computationally expensive tasks such as motion detection just
+  can't be offloaded to a GPU. This greatly limits the practical use of
+  Motion as we won't be able to handle even just a few (say, five) video feeds
+  with an average CPU.
+
+  - In contrast, this project is designed with CUDA support in mind, and it
+    tries to offload all parallelable tasks to GPUs.
 
 ## Dependencies
 
