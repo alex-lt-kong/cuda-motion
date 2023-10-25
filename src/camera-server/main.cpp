@@ -14,7 +14,6 @@
 using namespace std;
 using json = nlohmann::json;
 json settings;
-volatile sig_atomic_t ev_flag = 0;
 
 void askForCred(crow::response &res) {
   res.set_header("WWW-Authenticate", "Basic realm=On-demand CCTV server");

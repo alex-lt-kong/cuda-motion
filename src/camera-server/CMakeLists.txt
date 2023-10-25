@@ -10,12 +10,13 @@ add_definitions(-DCROW_ENABLE_SSL)
 add_executable(cs main.cpp)
 add_library(device_manager device_manager.cpp)
 add_library(frame_handler frame_handler.cpp)
+add_library(global_vars global_vars.cpp)
 add_library(utils utils.cpp)
 
 
 target_link_libraries(cs
-  device_manager frame_handler utils
-  ${OpenCV_LIBS} pthread rt ssl crypto spdlog fmt zmq
+  global_vars device_manager frame_handler utils
+  ${OpenCV_LIBS} rt ssl crypto spdlog fmt zmq
 )
 
 add_custom_command(

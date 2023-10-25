@@ -12,7 +12,6 @@
 #include <zmq.hpp>
 
 #include <linux/stat.h>
-#include <pthread.h>
 #include <queue>
 #include <semaphore.h>
 #include <signal.h>
@@ -40,7 +39,6 @@ protected:
   void InternalThreadEntry();
 
 private:
-  pthread_mutex_t mutexLiveImage;
   std::vector<uint8_t> encodedJpgImage;
   njson conf;
   size_t deviceIndex = 0;
@@ -98,11 +96,9 @@ private:
   std::string evaluateStaticVariables(std::basic_string<char> originalString);
   std::string
   evaluateVideoSpecficVariables(std::basic_string<char> originalString);
-  std::string convertToString(char *a, int size);
   void startOrKeepVideoRecording(VideoWriter &vwriter, int64_t &cd);
   void stopVideoRecording(VideoWriter &vwriter, uint32_t &videoFrameCount,
                           int cd);
-  void generateBlankFrameAt1Fps(Mat &currFrame, const Size &actualFrameSize);
   void markDeviceAsOffline(bool &isShowingBlankFrame);
   void deviceIsBackOnline(size_t &openRetryDelay, bool &isShowingBlankFrame);
   void initializeDevice(VideoCapture &cap, bool &result,

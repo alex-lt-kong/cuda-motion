@@ -38,13 +38,6 @@ deviceManager::deviceManager(const size_t deviceIndex, const njson &defaultConf,
     }
   }
 
-  if (snapshotIpcHttpEnabled) {
-    if (pthread_mutex_init(&mutexLiveImage, NULL) != 0) {
-      spdlog::error("pthread_mutex_init() failed, {}({})", errno,
-                    strerror(errno));
-      goto err_pthread_mutex_init;
-    }
-  }
   if (snapshotIpcSharedMemEnabled) {
     // Should have used multiple RAII classes to handle this but...
     int shmFd = shm_open(conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"]
@@ -98,13 +91,6 @@ err_ftruncate:
                   "but there is nothing we can do",
                   errno, strerror(errno));
 err_shmFd:
-err_pthread_mutex_init:
-  if (snapshotIpcHttpEnabled)
-    if (pthread_mutex_destroy(&mutexLiveImage) != 0) {
-      spdlog::error("pthread_mutex_destroy() failed:  {}({}), "
-                    "but there is nothing we can do",
-                    errno, strerror(errno));
-    }
   throw runtime_error("initializing deviceManager instance failed. "
                       "Check log for details");
 }
@@ -353,13 +339,7 @@ void deviceManager::setParameters(const size_t deviceIndex,
 }
 
 deviceManager::~deviceManager() {
-  if (snapshotIpcHttpEnabled) {
-    if (pthread_mutex_destroy(&mutexLiveImage) != 0) {
-      spdlog::error("pthread_mutex_destroy() failed: {}, "
-                    "but there is nothing we can do",
-                    errno);
-    }
-  }
+
   if (snapshotIpcSharedMemEnabled) {
     // unlink and close() are both needed: unlink only disassociates the
     // name from the underlying semaphore object, but the semaphore object
@@ -525,42 +505,10 @@ void deviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
 
 void deviceManager::getLiveImage(vector<uint8_t> &pl) {
   if (encodedJpgImage.size() > 0) {
-    if (pthread_mutex_lock(&mutexLiveImage) != 0) {
-      spdlog::error("[{}] pthread_mutex_lock() failed, "
-                    "will skip live image data copy, errno: {}",
-                    deviceName, errno);
-      return;
-    }
+    lock_guard<mutex> guard(mutexLiveImage);
     pl = encodedJpgImage;
-    if (pthread_mutex_unlock(&mutexLiveImage) != 0) {
-      spdlog::error("[{}] pthread_mutex_unlock() failed, errno: {}", deviceName,
-                    errno);
-      return;
-    }
   } else {
     pl = vector<uint8_t>();
-  }
-}
-
-void deviceManager::generateBlankFrameAt1Fps(Mat &currFrame,
-                                             const Size &actualFrameSize) {
-  this_thread::sleep_for(999ms); // Throttle the generation at 1 fps.
-
-  /* Even if we generate nothing but a blank screen, we cant just use some
-  hardcoded values and skip framepreferredInputWidth/actualFrameSize.width and
-  framepreferredInputHeight/actualFrameSize.height.
-  The problem will occur when piping frames to ffmpeg: In ffmpeg, we
-  pre-define the frame size, which is mostly framepreferredInputWidth x
-  framepreferredInputHeight. If the video device is down and we supply a
-  smaller frame, ffmpeg will wait until there are enough pixels filling
-  the original resolution to write one frame, causing screen tearing
-  */
-  if (actualFrameSize.width > 0 && actualFrameSize.height > 0) {
-    currFrame = Mat(actualFrameSize.height, actualFrameSize.width, CV_8UC3,
-                    Scalar(128, 128, 128));
-  } else {
-    currFrame = Mat(540, 960, CV_8UC3, Scalar(128, 128, 128));
-    // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
   }
 }
 
@@ -677,9 +625,8 @@ void deviceManager::prepareDataForIpc(Mat &dispFrame) {
   // vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
   vector<int> configs = {};
   if (snapshotIpcHttpEnabled) {
-    pthread_mutex_lock(&mutexLiveImage);
+    lock_guard<mutex> guard(mutexLiveImage);
     imencode(".jpg", dispFrame, encodedJpgImage, configs);
-    pthread_mutex_unlock(&mutexLiveImage);
   } else {
     imencode(".jpg", dispFrame, encodedJpgImage, configs);
   }
@@ -782,7 +729,7 @@ void deviceManager::InternalThreadEntry() {
 
     if (result == false || currFrame.empty() || cap.isOpened() == false) {
       markDeviceAsOffline(isShowingBlankFrame);
-      generateBlankFrameAt1Fps(currFrame, actualFrameSize);
+      FH::generateBlankFrameAt1Fps(currFrame, actualFrameSize);
       if (retrievedFramesSinceStart % openRetryDelay == 0) {
         openRetryDelay *= 2;
         spdlog::error("[{}] Unable to cap.read() a new frame. "

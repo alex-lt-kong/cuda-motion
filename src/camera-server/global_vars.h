@@ -1,6 +1,7 @@
 #ifndef CS_GLOBAL_VARS_H
 #define CS_GLOBAL_VARS_H
 
+#include <mutex>
 #include <signal.h>
 
 /* The extern keyword tells the compiler that please dont generate any
@@ -17,5 +18,7 @@ enum MotionDetectionMode {
   MODE_DETECT_MOTION = 1,
   MODE_DISABLED = 0
 };
+
+extern std::mutex mutexLiveImage;
 
 #endif /* CS_GLOBAL_VARS_H */
