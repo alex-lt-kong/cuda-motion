@@ -1,24 +1,29 @@
 
-#ifndef CS_STATI_CCONTROLLER_HPP
-#define CS_STATI_CCONTROLLER_HPP
+#ifndef CS_STATIC_CONTROLLER_HPP
+#define CS_STATIC_CONTROLLER_HPP
 
+#include "../../device_manager.h"
 #include "../auth_handler.h"
 
+#include <cstdlib>
+#include <oatpp/core/Types.hpp>
 #include <oatpp/core/macro/codegen.hpp>
 #include <oatpp/core/macro/component.hpp>
 #include <oatpp/parser/json/mapping/ObjectMapper.hpp>
+#include <oatpp/web/protocol/http/outgoing/BufferBody.hpp>
+#include <oatpp/web/protocol/http/outgoing/Response.hpp>
 #include <oatpp/web/server/api/ApiController.hpp>
-
-#include <iostream>
 
 #include OATPP_CODEGEN_BEGIN(ApiController) //<- Begin Codegen
 
-namespace ows = oatpp::web::server;
+typedef oatpp::web::protocol::http::outgoing::BufferBody BufferBody;
+typedef oatpp::web::protocol::http::outgoing::Response Response;
+typedef oatpp::web::server::api::ApiController ApiController;
 
-class StaticController : public ows::api::ApiController {
+class StaticController : public ApiController {
 public:
   StaticController(const std::shared_ptr<ObjectMapper> &objectMapper)
-      : ows::api::ApiController(objectMapper) {
+      : ApiController(objectMapper) {
     setDefaultAuthorizationHandler(std::make_shared<MyAuthorizationHandler>());
   }
 
@@ -49,8 +54,41 @@ public:
     response->putHeader(Header::CONTENT_TYPE, "text/html");
     return response;
   }
+
+  ENDPOINT("GET", "/live_image/*", live_image,
+           REQUEST(std::shared_ptr<IncomingRequest>, request),
+           AUTHORIZATION(std::shared_ptr<MyAuthorizationObject>, authObject)) {
+
+    /* get url 'tail' - everything that comes after '*' */
+    String tail = request->getPathTail(); // everything that goes after '*'
+
+    /* check tail for null */
+    OATPP_ASSERT_HTTP(tail, Status::CODE_400, "null query-params");
+
+    /* parse query params from tail */
+    auto queryParams = oatpp::network::Url::Parser::parseQueryParams(tail);
+
+    /* get your param by name */
+    auto queryParameter = queryParams.get("deviceId");
+    uint32_t deviceId = 0;
+    if (queryParameter != nullptr) {
+      spdlog::info("{}", queryParameter->c_str());
+      deviceId = atoi(queryParameter->c_str());
+    }
+    if (deviceId < myDevices.size()) {
+      std::vector<uint8_t> encodedImg;
+      myDevices[deviceId]->getLiveImage(encodedImg);
+      oatpp::String buf =
+          oatpp::String((const char *)encodedImg.data(), encodedImg.size());
+      auto body = BufferBody::createShared(buf);
+      return Response::createShared(Status::CODE_200, body);
+    } else {
+      return Response::createShared(Status::CODE_200,
+                                    BufferBody::createShared("ERROR"));
+    }
+  }
 };
 
 #include OATPP_CODEGEN_END(ApiController) //<- End Codegen
 
-#endif /* CS_STATI_CCONTROLLER_HPP */
+#endif /* CS_STATIC_CONTROLLER_HPP */

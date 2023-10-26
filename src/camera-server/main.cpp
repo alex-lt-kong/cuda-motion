@@ -63,7 +63,7 @@ struct httpAuthMiddleware : crow::ILocalMiddleware {
 };
 
 crow::App<httpAuthMiddleware> app;
-static vector<deviceManager *> myDevices;
+std::vector<deviceManager *> myDevices;
 
 static void signal_handler(int signum) {
   if (signum != SIGCHLD) {

@@ -108,4 +108,6 @@ private:
   void warnCPUResize(const Size &actualFrameSize);
 };
 
+extern std::vector<deviceManager *> myDevices;
+
 #endif

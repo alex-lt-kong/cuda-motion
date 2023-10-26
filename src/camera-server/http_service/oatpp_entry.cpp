@@ -99,6 +99,8 @@ void stop_http_service() {
     spdlog::warn("oatpp::base::Environment::getObjectsCount() > 0 ({}), they "
                  "may have been leaked!",
                  oatpp::base::Environment::getObjectsCount());
+  } else {
+    spdlog::warn("oatpp does not report any possible leak");
   }
   oatpp::base::Environment::destroy();
 }
