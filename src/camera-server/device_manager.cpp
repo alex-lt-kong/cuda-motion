@@ -8,13 +8,11 @@
 #include <ctime>
 #include <errno.h>
 #include <filesystem>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <limits.h>
 #include <regex>
 #include <sstream>
-#include <sys/mman.h>
 #include <sys/socket.h>
 
 using namespace std;
@@ -23,76 +21,30 @@ namespace FH = FrameHandler;
 
 deviceManager::deviceManager(const size_t deviceIndex, const njson &defaultConf,
                              njson &overrideConf)
-    : zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub) {
+    : ipc(IPC()) {
 
   setParameters(deviceIndex, defaultConf, overrideConf);
 
-  if (snapshotIpcZeroMQEnabled) {
-    /* zmqSocket.bind() throws exception, so we want it to be called
-    before other POSIX APIs. */
-    try {
-      zmqSocket.bind(zeroMQEndpoint);
-    } catch (const std::exception &e) {
-      spdlog::error("zmqSocket.bind(zeroMQEndpoint): {}", e.what());
-      abort();
-    }
+  ipc.deviceName = deviceName;
+  if (conf["snapshot"]["ipc"]["switch"]["http"].get<bool>()) {
+    ipc.enableHttp();
   }
-
-  if (snapshotIpcSharedMemEnabled) {
-    // Should have used multiple RAII classes to handle this but...
-    int shmFd = shm_open(conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"]
-                             .get<string>()
-                             .c_str(),
-                         O_RDWR | O_CREAT, PERMS);
-    if (shmFd < 0) {
-      spdlog::error("shm_open() failed, {}({})", errno, strerror(errno));
-      goto err_shmFd;
-    }
-    sharedMemSize = conf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"];
-    if (ftruncate(shmFd, sharedMemSize) != 0) {
-      spdlog::error("ftruncate() failed, {}({})", errno, strerror(errno));
-      goto err_ftruncate;
-    }
-    memPtr =
-        mmap(NULL, sharedMemSize, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
-    if (memPtr == MAP_FAILED) {
-      spdlog::error("mmap() failed, {}({})", errno, strerror(errno));
-      goto err_mmap;
-    }
-    // umask() is needed to set the correct permissions.
-    mode_t old_umask = umask(0);
-    semPtr = sem_open(conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"]
-                          .get<string>()
-                          .c_str(),
-                      O_CREAT | O_RDWR, PERMS, SEM_INITIAL_VALUE);
-    umask(old_umask);
-
-    if (semPtr == SEM_FAILED) {
-      spdlog::error("sem_open() failed, {}({})", errno, strerror(errno));
-      goto err_sem_open;
-    }
+  if (conf["snapshot"]["ipc"]["switch"]["file"].get<bool>()) {
+    ipc.enableFile(
+        evaluateStaticVariables(conf["snapshot"]["ipc"]["file"]["path"]));
   }
-
-  return;
-err_sem_open:
-  if (munmap(memPtr, sharedMemSize) != 0) {
-    spdlog::error("munmap() failed: {}({}), "
-                  "but there is nothing we can do",
-                  errno, strerror(errno));
+  if (conf["snapshot"]["ipc"]["switch"]["zeroMQ"].get<bool>()) {
+    ipc.enableZeroMQ(
+        evaluateStaticVariables(conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"]));
   }
-err_mmap:
-err_ftruncate:
-  if (shm_unlink(sharedMemName.c_str()) != 0)
-    spdlog::error("shm_unlink() failed: {}({}), "
-                  "but there is nothing we can do",
-                  errno, strerror(errno));
-  if (close(shmFd) != 0)
-    spdlog::error("close() failed: {}({}), "
-                  "but there is nothing we can do",
-                  errno, strerror(errno));
-err_shmFd:
-  throw runtime_error("initializing deviceManager instance failed. "
-                      "Check log for details");
+  if (conf["snapshot"]["ipc"]["switch"]["sharedMem"]) {
+    ipc.enableSharedMemory(
+        evaluateStaticVariables(
+            conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"]),
+        conf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"].get<size_t>(),
+        evaluateStaticVariables(
+            conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"]));
+  }
 }
 
 string deviceManager::evaluateVideoSpecficVariables(
@@ -185,43 +137,30 @@ void deviceManager::setParameters(const size_t deviceIndex,
     conf["snapshot"]["ipc"]["switch"]["http"] =
         defaultConf["snapshot"]["ipc"]["switch"]["http"];
   }
-  snapshotIpcHttpEnabled = conf["snapshot"]["ipc"]["switch"]["http"];
   if (!conf.contains("/snapshot/ipc/switch/file"_json_pointer)) {
     conf["snapshot"]["ipc"]["switch"]["file"] =
         defaultConf["snapshot"]["ipc"]["switch"]["file"];
   }
-
-  snapshotIpcFileEnabled = conf["snapshot"]["ipc"]["switch"]["file"];
-  if (snapshotIpcFileEnabled) {
+  if (conf["snapshot"]["ipc"]["switch"]["file"].get<bool>()) {
     if (!conf.contains("/snapshot/ipc/file/path"_json_pointer)) {
       conf["snapshot"]["ipc"]["file"]["path"] =
           defaultConf["snapshot"]["ipc"]["file"]["path"];
     }
-    conf["snapshot"]["ipc"]["file"]["path"] =
-        evaluateStaticVariables(conf["snapshot"]["ipc"]["file"]["path"]);
-    snapshotIpcFilePath = conf["snapshot"]["ipc"]["file"]["path"];
   }
 
   if (!conf.contains("/snapshot/ipc/switch/sharedMem"_json_pointer)) {
     conf["snapshot"]["ipc"]["switch"]["sharedMem"] =
         defaultConf["snapshot"]["ipc"]["switch"]["sharedMem"];
   }
-  snapshotIpcSharedMemEnabled = conf["snapshot"]["ipc"]["switch"]["sharedMem"];
-  if (snapshotIpcSharedMemEnabled) {
+  if (conf["snapshot"]["ipc"]["switch"]["sharedMem"]) {
     if (!conf.contains("/snapshot/ipc/sharedMem/semaphoreName"_json_pointer)) {
       conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"] =
           defaultConf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"];
     }
-    conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"] =
-        evaluateStaticVariables(
-            conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"]);
     if (!conf.contains("/snapshot/ipc/sharedMem/sharedMemName"_json_pointer)) {
       conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"] =
           defaultConf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"];
     }
-    conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"] =
-        evaluateStaticVariables(
-            conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"]);
     if (!conf.contains("/snapshot/ipc/sharedMem/sharedMemSize"_json_pointer)) {
       conf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"] =
           defaultConf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"];
@@ -232,15 +171,11 @@ void deviceManager::setParameters(const size_t deviceIndex,
     conf["snapshot"]["ipc"]["switch"]["zeroMQ"] =
         defaultConf["snapshot"]["ipc"]["switch"]["zeroMQ"];
   }
-  snapshotIpcZeroMQEnabled = conf["snapshot"]["ipc"]["switch"]["zeroMQ"];
-  if (snapshotIpcZeroMQEnabled) {
+  if (conf["snapshot"]["ipc"]["switch"]["zeroMQ"]) {
     if (!conf.contains("/snapshot/ipc/zeroMQ/endpoint"_json_pointer)) {
       conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"] =
           defaultConf["snapshot"]["ipc"]["zeroMQ"]["endpoint"];
-    }
-    conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"] =
-        evaluateStaticVariables(conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"]);
-    zeroMQEndpoint = conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"];
+    };
   }
 
   // ===== events =====
@@ -338,39 +273,7 @@ void deviceManager::setParameters(const size_t deviceIndex,
                deviceIndex, conf.dump(2));
 }
 
-deviceManager::~deviceManager() {
-
-  if (snapshotIpcSharedMemEnabled) {
-    // unlink and close() are both needed: unlink only disassociates the
-    // name from the underlying semaphore object, but the semaphore object
-    // is not gone. It will only be gone when we close() it.
-    if (sem_unlink(semaphoreName.c_str()) != 0) {
-      spdlog::error("sem_unlink() failed: {}({}), "
-                    "but there is nothing we can do",
-                    errno, strerror(errno));
-    }
-    if (sem_close(semPtr) != 0) {
-      spdlog::error("sem_close() failed: {}({}), "
-                    "but there is nothing we can do",
-                    errno, strerror(errno));
-    }
-    if (munmap(memPtr, sharedMemSize) != 0) {
-      spdlog::error("munmap() failed: {}({}), "
-                    "but there is nothing we can do",
-                    errno, strerror(errno));
-    }
-    if (shm_unlink(sharedMemName.c_str()) != 0) {
-      spdlog::error("shm_unlink() failed: {}({}), "
-                    "but there is nothing we can do",
-                    errno, strerror(errno));
-    }
-    if (close(shmFd) != 0) {
-      spdlog::error("close() failed: {}({}), "
-                    "but there is nothing we can do",
-                    errno, strerror(errno));
-    }
-  }
-}
+deviceManager::~deviceManager() {}
 
 float deviceManager::getCurrentFps(int64_t msSinceEpoch) {
   float fps = FLT_MAX;
@@ -504,9 +407,9 @@ void deviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
 }
 
 void deviceManager::getLiveImage(vector<uint8_t> &pl) {
-  if (encodedJpgImage.size() > 0) {
+  if (ipc.encodedJpgImage.size() > 0) {
     lock_guard<mutex> guard(mutexLiveImage);
-    pl = encodedJpgImage;
+    pl = ipc.encodedJpgImage;
   } else {
     pl = vector<uint8_t>();
   }
@@ -621,77 +524,6 @@ void deviceManager::warnCPUResize(const Size &actualFrameSize) {
   }
 }
 
-void deviceManager::prepareDataForIpc(Mat &dispFrame) {
-  // vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
-  vector<int> configs = {};
-  if (snapshotIpcHttpEnabled) {
-    lock_guard<mutex> guard(mutexLiveImage);
-    imencode(".jpg", dispFrame, encodedJpgImage, configs);
-  } else {
-    imencode(".jpg", dispFrame, encodedJpgImage, configs);
-  }
-
-  // Profiling show that the above mutex section without actual
-  // waiting takes ~30 ms to complete, means that the CPU can only
-  // handle ~30 fps
-
-  // https://stackoverflow.com/questions/7054844/is-rename-atomic
-  // https://stackoverflow.com/questions/29261648/atomic-writing-to-file-on-linux
-  if (snapshotIpcFileEnabled) {
-    string sp = evaluateVideoSpecficVariables(snapshotIpcFilePath);
-    ofstream fout(sp + ".tmp", ios::out | ios::binary);
-    if (!fout.good()) {
-      spdlog::error("[{}] Failed to open file [{}]: {}", deviceName,
-                    sp + ".tmp", strerror(errno));
-    } else {
-      fout.write((char *)encodedJpgImage.data(), encodedJpgImage.size());
-      if (!fout.good()) {
-        spdlog::error("[{}] Failed to write to file [{}]: {}", deviceName,
-                      sp + ".tmp", strerror(errno));
-      }
-      fout.close();
-      if (rename((sp + ".tmp").c_str(), sp.c_str()) != 0) {
-        spdlog::error("[{}] Failed to rename [{}] tp [{}]: {}", deviceName,
-                      sp + ".tmp", sp, strerror(errno));
-      }
-    }
-    // profiling shows from ofstream fout()... to rename() takes
-    // less than 1 ms.
-  }
-
-  if (snapshotIpcSharedMemEnabled) {
-    size_t s = encodedJpgImage.size();
-    if (s > sharedMemSize - sizeof(size_t)) {
-      spdlog::error("[{}] encodedJpgImage({} bytes) too large for "
-                    "sharedMemSize({} bytes)",
-                    deviceName, s, sharedMemSize);
-      s = 0;
-    } else {
-      if (sem_wait(semPtr) != 0) {
-        spdlog::error(
-            "[{}] sem_wait() failed: {}, the program will "
-            "continue to run but the semaphore mechanism could be broken",
-            deviceName, errno);
-      } else {
-
-        memcpy(memPtr, &s, sizeof(size_t));
-        memcpy((uint8_t *)memPtr + sizeof(size_t), encodedJpgImage.data(),
-               encodedJpgImage.size());
-        if (sem_post(semPtr) != 0) {
-          spdlog::error(
-              "[{}] sem_post() failed: {}, the program will "
-              "continue to run but the semaphore mechanism could be broken",
-              deviceName, errno);
-        }
-      }
-    }
-  }
-
-  if (snapshotIpcZeroMQEnabled) {
-    zmqSocket.send(encodedJpgImage.data(), encodedJpgImage.size());
-  }
-}
-
 void deviceManager::InternalThreadEntry() {
 
   queue<Mat> dispFrames;
@@ -794,7 +626,7 @@ void deviceManager::InternalThreadEntry() {
     }
 
     if ((retrievedFramesSinceStart - 1) % snapshotFrameInterval == 0) {
-      prepareDataForIpc(dispFrames.front());
+      ipc.sendData(dispFrames.front());
     }
 
     if (motionDetectionMode == MODE_DISABLED) {

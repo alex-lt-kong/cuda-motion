@@ -3,17 +3,16 @@
 
 #include "event_loop.h"
 #include "global_vars.h"
+#include "ipc.h"
 #include "utils.h"
 
 #include <nlohmann/json.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <zmq.hpp>
 
 #include <linux/stat.h>
 #include <queue>
-#include <semaphore.h>
 #include <signal.h>
 #include <string>
 #include <sys/time.h>
@@ -21,17 +20,12 @@
 using namespace cv;
 using njson = nlohmann::json;
 
-#define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
-#define SEM_INITIAL_VALUE 1
-
 class deviceManager : public EventLoop {
 
 public:
   deviceManager(const size_t deviceIndex, const njson &defaultConf,
                 njson &overrideConf);
   ~deviceManager();
-  void setParameters(const size_t deviceIndex, const njson &defaultConf,
-                     njson &overrideConf);
   void getLiveImage(std::vector<uint8_t> &pl);
   std::string getDeviceName() { return this->deviceName; }
 
@@ -39,7 +33,7 @@ protected:
   void InternalThreadEntry();
 
 private:
-  std::vector<uint8_t> encodedJpgImage;
+  IPC ipc;
   njson conf;
   size_t deviceIndex = 0;
   std::string deviceName;
@@ -68,26 +62,13 @@ private:
 
   // snapshot variables
   int snapshotFrameInterval;
-  bool snapshotIpcFileEnabled;
-  bool snapshotIpcHttpEnabled;
-  std::string snapshotIpcFilePath;
-  bool snapshotHttpFileEnabled;
-  bool snapshotIpcSharedMemEnabled;
-  int shmFd;
-  size_t sharedMemSize;
-  std::string sharedMemName;
-  std::string semaphoreName;
-  void *memPtr;
-  sem_t *semPtr;
-  bool snapshotIpcZeroMQEnabled;
-  std::string zeroMQEndpoint;
-  zmq::context_t zmqContext;
-  zmq::socket_t zmqSocket;
 
   std::string timestampOnVideoStarts;
   std::string timestampOnDeviceOffline;
   std::queue<int64_t> frameTimestamps;
 
+  void setParameters(const size_t deviceIndex, const njson &defaultConf,
+                     njson &overrideConf);
   void updateVideoCooldownAndVideoFrameCount(int64_t &cooldown,
                                              uint32_t &videoFrameCount);
   bool shouldFrameBeThrottled();
@@ -103,7 +84,6 @@ private:
                         const Size &actualFrameSize);
   static void asyncExecCallback(void *This, std::string stdout,
                                 std::string stderr, int rc);
-  void prepareDataForIpc(Mat &dispFrames);
   float getCurrentFps(int64_t msSinceEpoch);
   void warnCPUResize(const Size &actualFrameSize);
 };

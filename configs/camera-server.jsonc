@@ -92,10 +92,12 @@
     basis. This function is called "snapshot". Camera server supports
     a few common IPC method to share the JPEG image to other programs.*/
     "snapshot": {
-      /* frameInterval is effective after frame.throttleFpsIfHigherThan is
-      applied. For example, if throttleFpsIfHigherThan is set to 30, and
-      frameInterval is set to 5, then the snapshot will be generated
-      every 150 frames read from the source device. */
+      /* frameInterval decides how frequently snapshots (i.e. frames) are sent
+      via various IPC methods. frameInterval is calculated after
+      frame.throttleFpsIfHigherThan is applied. For example, if
+      throttleFpsIfHigherThan is set to 30, and frameInterval is set to 5,
+      then a snapshot will be generated and sent via IPC methods every 150
+      frames read from the source device. */
       "frameInterval": 600,
       "ipc": {
         "switch": {
