@@ -122,17 +122,19 @@
           section.*/
         },
         "sharedMem": {
-          "semaphoreName": "/semaphore-device{{deviceIndex}}",
+          "semaphoreName": "/semaphore-device-{{deviceName}}-{{deviceIndex}}",
           /* man shm_open recommends that the name of a shared memory
           object should be , a null-terminated string of up to
           NAME_MAX (i.e., 255) characters consisting of an initial
           slash, followed by one or more characters, none of which
           are slashes.*/
-          "sharedMemName": "/sharedMem-device{{deviceIndex}}",
+          "sharedMemName": "/sharedMem-device-{{deviceName}}-{{deviceIndex}}",
           "sharedMemSize": 8388608 // 1024 * 8 * 1024 = 8MB
         },
         "zeroMQ": {
-          "endpoint": "tcp://127.0.0.1:4242"
+          /* {{deviceName}} is also supported by "endpoint", but it usually
+          doesn't make sense, so it is not included in the default settings */
+          "endpoint": "tcp://127.0.0.1:424{{deviceIndex}}"
         }
       }
     },
