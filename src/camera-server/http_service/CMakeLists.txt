@@ -1,21 +1,24 @@
 add_library(rest-lib
         controller/StaticController.hpp
-        AppComponent.hpp
+        app_component.hpp
         error_handler.cpp
         error_handler.hpp)
 
-## include directories
-include_directories(/usr/local/include/torch/)
+
+
 
 ## link libs
 find_package(oatpp          1.3.0 REQUIRED)
-find_package(OpenCV REQUIRED)
+find_package(oatpp-openssl  1.3.0 REQUIRED)
+find_package(OpenSSL        1.1   REQUIRED)
+find_package(OpenCV               REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 target_link_libraries(rest-lib
         # Oat++
         PUBLIC oatpp::oatpp
+        PUBLIC oatpp::oatpp-openssl
         spdlog
-        opencv_highgui opencv_core opencv_imgproc opencv_imgcodecs
 )
 
 

@@ -3,12 +3,9 @@ add_subdirectory(http_service/)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include_directories(http_service/)
 
-
 find_package(OpenCV REQUIRED)
-find_package(Crow REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-add_definitions(-DCROW_ENABLE_SSL)
 add_executable(cs main.cpp)
 add_library(device_manager device_manager.cpp)
 add_library(frame_handler frame_handler.cpp)

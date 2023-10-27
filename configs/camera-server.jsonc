@@ -5,7 +5,7 @@
     "ssl": {
       "enabled": false,
       "keyPath": "",
-      "crtPath": ""
+      "pemPath": ""
     },
     "httpAuthentication": {
       "enabled": false,
