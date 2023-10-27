@@ -22,7 +22,7 @@ public:
   ~IPC();
   void sendData(cv::Mat &dispFrame);
   std::vector<uint8_t> encodedJpgImage;
-  std::string deviceName;
+  std::string deviceName = "<unset>";
 
 private:
   // File variables

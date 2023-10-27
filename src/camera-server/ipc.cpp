@@ -16,18 +16,26 @@ void IPC::enableZeroMQ(const string &zeroMQEndpoint) {
   zmqEnabled = true;
   try {
     zmqSocket.bind(zeroMQEndpoint);
+    spdlog::info("[{}] ZeroMQ IPC enabled, endpoint is {}", deviceName,
+                 zeroMQEndpoint);
   } catch (const std::exception &e) {
-    spdlog::error("zmqSocket.bind(zeroMQEndpoint) failed: {}, zeroMQ IPC "
+    spdlog::error("[{}] zmqSocket.bind(zeroMQEndpoint) failed: {}, zeroMQ IPC "
                   "support will be disabled for this device",
-                  e.what());
+                  deviceName, e.what());
     zmqEnabled = false;
   }
 }
 
-void IPC::enableHttp() { httpEnabled = true; }
+void IPC::enableHttp() {
+  httpEnabled = true;
+  spdlog::info("[{}] HTTP IPC enabled", deviceName);
+}
 
 void IPC::enableFile(const string &filePathWithStaticVarEvaluated) {
+  fileEnabled = true;
   this->filePathWithStaticVarEvaluated = filePathWithStaticVarEvaluated;
+  spdlog::info("[{}] IPC via filesystem enabled, filePath: {}", deviceName,
+               filePathWithStaticVarEvaluated);
 }
 
 void IPC::enableSharedMemory(const string &sharedMemoryName,
@@ -43,23 +51,25 @@ void IPC::enableSharedMemory(const string &sharedMemoryName,
   // Should have used multiple RAII classes to handle this but...
   shmFd = shm_open(sharedMemoryName.c_str(), O_RDWR | O_CREAT, PERMS);
   if (shmFd < 0) {
-    spdlog::error("shm_open() failed, {}({}), shared memory will be disabled "
-                  "for this device",
-                  errno, strerror(errno));
+    spdlog::error(
+        "[{}] shm_open() failed, {}({}), shared memory will be disabled "
+        "for this device",
+        deviceName, errno, strerror(errno));
     goto err_shmFd;
   }
   if (ftruncate(shmFd, sharedMemSize) != 0) {
-    spdlog::error("ftruncate() failed, {}({}), shared memory will be disabled "
-                  "for this device",
-                  errno, strerror(errno));
+    spdlog::error(
+        "[{}] ftruncate() failed, {}({}), shared memory will be disabled "
+        "for this device",
+        deviceName, errno, strerror(errno));
     goto err_ftruncate;
   }
   memPtr =
       mmap(NULL, sharedMemSize, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
   if (memPtr == MAP_FAILED) {
-    spdlog::error("mmap() failed, {}({}) shared memory will be disabled "
+    spdlog::error("[{}] mmap() failed, {}({}) shared memory will be disabled "
                   "for this device",
-                  errno, strerror(errno));
+                  deviceName, errno, strerror(errno));
     goto err_mmap;
   }
   semPtr = sem_open(semaphoreName.c_str(), O_CREAT | O_RDWR, PERMS,
@@ -67,27 +77,27 @@ void IPC::enableSharedMemory(const string &sharedMemoryName,
   umask(old_umask);
 
   if (semPtr == SEM_FAILED) {
-    spdlog::error("sem_open() failed, {}({})", errno, strerror(errno));
+    spdlog::error("[{}] sem_open() failed, {}({})", deviceName, errno,
+                  strerror(errno));
     goto err_sem_open;
   }
-
+  spdlog::info("[{}] Shared memory IPC enabled", deviceName);
   return;
 err_sem_open:
   if (munmap(memPtr, sharedMemSize) != 0) {
-    spdlog::error("munmap() failed: {}({}), "
-                  "but there is nothing we can do",
-                  errno, strerror(errno));
+    spdlog::error(
+        "[{}] munmap() failed: {}({}), but there is nothing we can do",
+        deviceName, errno, strerror(errno));
   }
 err_mmap:
 err_ftruncate:
   if (shm_unlink(sharedMemoryName.c_str()) != 0)
-    spdlog::error("shm_unlink() failed: {}({}), "
-                  "but there is nothing we can do",
-                  errno, strerror(errno));
+    spdlog::error(
+        "[{}] shm_unlink() failed: {}({}), but there is nothing we can do",
+        deviceName, errno, strerror(errno));
   if (close(shmFd) != 0)
-    spdlog::error("close() failed: {}({}), "
-                  "but there is nothing we can do",
-                  errno, strerror(errno));
+    spdlog::error("[{}] close() failed: {}({}), but there is nothing we can do",
+                  deviceName, errno, strerror(errno));
 err_shmFd:
   sharedMemEnabled = false;
 }
@@ -100,23 +110,19 @@ IPC::~IPC() {
   // name from the underlying semaphore object, but the semaphore object
   // is not gone. It will only be gone when we close() it.
   if (sem_unlink(semaphoreName.c_str()) != 0) {
-    spdlog::error("sem_unlink() failed: {}({}), "
-                  "but there is nothing we can do",
+    spdlog::error("sem_unlink() failed: {}({}), but there is nothing we can do",
                   errno, strerror(errno));
   }
   if (sem_close(semPtr) != 0) {
-    spdlog::error("sem_close() failed: {}({}), "
-                  "but there is nothing we can do",
+    spdlog::error("sem_close() failed: {}({}), but there is nothing we can do",
                   errno, strerror(errno));
   }
   if (munmap(memPtr, sharedMemSize) != 0) {
-    spdlog::error("munmap() failed: {}({}), "
-                  "but there is nothing we can do",
+    spdlog::error("munmap() failed: {}({}), but there is nothing we can do",
                   errno, strerror(errno));
   }
   if (shm_unlink(sharedMemoryName.c_str()) != 0) {
-    spdlog::error("shm_unlink() failed: {}({}), "
-                  "but there is nothing we can do",
+    spdlog::error("shm_unlink() failed: {}({}), but there is nothing we can do",
                   errno, strerror(errno));
   }
   if (close(shmFd) != 0) {
