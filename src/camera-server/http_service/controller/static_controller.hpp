@@ -74,13 +74,28 @@ public:
       if (deviceId < myDevices.size()) {
         std::vector<uint8_t> encodedImg;
         myDevices[deviceId]->getLiveImage(encodedImg);
-        String buf = String((const char *)encodedImg.data(), encodedImg.size());
-        return Response::createShared(Status::CODE_200,
-                                      BufferBody::createShared(buf));
+        if (encodedImg.size() > 0) {
+          String buf =
+              String((const char *)encodedImg.data(), encodedImg.size());
+          return Response::createShared(Status::CODE_200,
+                                        BufferBody::createShared(buf));
+        } else {
+          return Response::createShared(
+              Status::CODE_200,
+              BufferBody::createShared(
+                  "ERROR: video device exists but fetched image is empty. The "
+                  "most likely reason is that http snapshot for the given "
+                  "device is turned off"));
+        }
+      } else {
+        return Response::createShared(
+            Status::CODE_400,
+            BufferBody::createShared("ERROR: Invalid deviceId"));
       }
     }
-    return Response::createShared(Status::CODE_200,
-                                  BufferBody::createShared("ERROR"));
+    return Response::createShared(
+        Status::CODE_400,
+        BufferBody::createShared("ERROR: Invalid parameters"));
   }
 };
 

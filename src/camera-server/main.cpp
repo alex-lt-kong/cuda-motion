@@ -99,13 +99,13 @@ int main(int argc, char *argv[]) {
     pointer is a relatively easy way to circumvent these operations. */
     myDevices[i] = new deviceManager(i, settings["devicesDefault"],
                                      settings["devices"][i]);
-    myDevices[i]->StartInternalEventLoopThread();
+    myDevices[i]->StartEv();
   }
   initialize_http_service(settings["httpService"]["interface"].get<string>(),
                           settings["httpService"]["port"].get<int>());
   // start_http_server();
   for (size_t i = 0; i < myDevices.size(); ++i) {
-    myDevices[i]->WaitForInternalEventLoopThreadToExit();
+    myDevices[i]->JoinEv();
     spdlog::info("{}-th device thread exited gracefully", i);
     delete myDevices[i];
   }

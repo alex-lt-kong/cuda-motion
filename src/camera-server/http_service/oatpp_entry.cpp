@@ -1,7 +1,7 @@
 #define FMT_HEADER_ONLY
 
 #include "app_component.hpp"
-#include "controller/StaticController.hpp"
+#include "controller/static_controller.hpp"
 
 #include <oatpp/network/Server.hpp>
 #include <spdlog/spdlog.h>

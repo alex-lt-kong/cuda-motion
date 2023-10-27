@@ -33,13 +33,13 @@ public:
   // header.
   std::shared_ptr<AuthorizationObject> authorize(const oString &userId,
                                                  const oString &password) {
-    if (!settings["httpService"]["httpAuthentication"]["accounts"].contains(
+    if (!settings["httpService"]["httpAuthentication"].contains(
             userId->c_str())) {
       spdlog::warn("User [{}] does not exist", userId->c_str());
       return nullptr;
     }
-    if (settings["httpService"]["httpAuthentication"]["accounts"]
-                [userId->c_str()] != password->c_str()) {
+    if (settings["httpService"]["httpAuthentication"][userId->c_str()] !=
+        password->c_str()) {
       spdlog::warn("password is incorrect for user [{}]", password->c_str());
       return nullptr;
     }

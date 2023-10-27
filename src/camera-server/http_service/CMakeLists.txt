@@ -1,10 +1,8 @@
 add_library(rest-lib
-        controller/StaticController.hpp
+        controller/static_controller.hpp
         app_component.hpp
         error_handler.cpp
         error_handler.hpp)
-
-
 
 
 ## link libs

@@ -1,24 +1,21 @@
 #ifndef CS_EVENT_LOOP_H
 #define CS_EVENT_LOOP_H
 
-#include <stdexcept>
-#include <string>
 #include <thread>
-
 // This multithreading model is inspired by:
 // https://stackoverflow.com/questions/1151582/pthread-function-from-a-class
-class MyEventLoopThread {
+class EventLoop {
 public:
-  MyEventLoopThread() {}
-  virtual ~MyEventLoopThread() {}
+  EventLoop() {}
+  virtual ~EventLoop() {}
 
-  void StartInternalEventLoopThread() {
-    _thread = std::thread(&MyEventLoopThread::InternalThreadEntry, this);
+  void StartEv() {
+    evThread = std::thread(&EventLoop::InternalThreadEntry, this);
   }
 
-  void WaitForInternalEventLoopThreadToExit() {
-    if (_thread.joinable()) {
-      _thread.join();
+  void JoinEv() {
+    if (evThread.joinable()) {
+      evThread.join();
     }
   }
 
@@ -26,7 +23,7 @@ public:
    * @brief One should either WaitForInternalEventLoopThreadToExit() or
    * DetachInternalEventLoopThread()
    */
-  void DetachInternalEventLoopThread() { _thread.detach(); }
+  void DetachEv() { evThread.detach(); }
 
 protected:
   /** Implement this method in your subclass with the code you want your thread
@@ -38,7 +35,7 @@ private:
     ((MyEventLoopThread *)This)->InternalThreadEntry();
     return NULL;
   }*/
-  std::thread _thread;
+  std::thread evThread;
 };
 
 #endif /* CS_EVENT_LOOP_H */

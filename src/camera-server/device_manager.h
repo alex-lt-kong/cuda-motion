@@ -24,7 +24,7 @@ using njson = nlohmann::json;
 #define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
 #define SEM_INITIAL_VALUE 1
 
-class deviceManager : public MyEventLoopThread {
+class deviceManager : public EventLoop {
 
 public:
   deviceManager(const size_t deviceIndex, const njson &defaultConf,

@@ -7,11 +7,9 @@
       "keyPath": "",
       "pemPath": ""
     },
+    /* Define a list of username:password key-value pairs here */
     "httpAuthentication": {
-      "enabled": false,
-      "accounts": {
-        "defaultUser": "defaultPassword"
-      }
+      "defaultUser": "defaultPassword"
     }
   },
   "devicesDefault": {
