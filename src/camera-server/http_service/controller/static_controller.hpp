@@ -59,7 +59,8 @@ public:
   ENDPOINT("GET", "/live_image/*", live_image,
            REQUEST(std::shared_ptr<IncomingRequest>, request),
            AUTHORIZATION(std::shared_ptr<MyAuthorizationObject>, authObject)) {
-
+    // Just to silence the "unused object warning..."
+    (void)authObject;
     /* get url 'tail' - everything that comes after '*' */
     String tail = request->getPathTail(); // everything that goes after '*'
     /* check tail for null */

@@ -22,7 +22,12 @@ enum MotionDetectionMode {
 };
 
 extern std::mutex mutexLiveImage;
+extern std::mutex mtxNjsonSettings;
 
+// settings variable is used by multiple threads, possibly concurrently, is
+// reading it thread-safe? According to the below response from the library
+// author: https://github.com/nlohmann/json/issues/651
+// The answer seems to be affirmative.
 extern nlohmann::json settings;
 
 #endif /* CS_GLOBAL_VARS_H */

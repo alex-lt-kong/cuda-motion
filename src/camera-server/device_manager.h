@@ -23,8 +23,7 @@ using njson = nlohmann::json;
 class DeviceManager : public EventLoop {
 
 public:
-  DeviceManager(const size_t deviceIndex, const njson &defaultConf,
-                njson &overrideConf);
+  DeviceManager(const size_t deviceIndex);
   ~DeviceManager();
   void getLiveImage(std::vector<uint8_t> &pl);
   std::string getDeviceName() { return this->deviceName; }
@@ -96,4 +95,4 @@ private:
 
 extern std::vector<DeviceManager *> myDevices;
 
-#endif
+#endif /* CS_DEVICE_MANAGER_H */

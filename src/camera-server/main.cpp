@@ -45,24 +45,22 @@ int main(int argc, char *argv[]) {
     throw logic_error("No devices are defined.");
   }
   myDevices = vector<DeviceManager *>(deviceCount);
-  // myDevices.reserve(deviceCount);
   for (size_t i = 0; i < deviceCount; ++i) {
-    /* Seems ZeroMQ objects are neither copyable nor movable, using
-    pointer is a relatively easy way to circumvent these operations. */
-    myDevices[i] = new DeviceManager(i, settings["devicesDefault"],
-                                     settings["devices"][i]);
+    /* DeviceManager objects are neither copyable nor movable, using
+    pointer is a relatively easy way to circumvent these limitations. */
+    myDevices[i] = new DeviceManager(i);
     myDevices[i]->StartEv();
   }
   initialize_http_service(settings["httpService"]["interface"].get<string>(),
                           settings["httpService"]["port"].get<int>());
-  // start_http_server();
+
   for (size_t i = 0; i < myDevices.size(); ++i) {
     myDevices[i]->JoinEv();
-    spdlog::info("{}-th device thread exited gracefully", i);
+    spdlog::info("{}-th device event loop thread exited gracefully", i);
     delete myDevices[i];
   }
   stop_http_service();
-  spdlog::info("All device threads exited gracefully");
+  spdlog::info("All device event loop threads exited gracefully");
 
   return 0;
 }

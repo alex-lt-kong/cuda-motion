@@ -14,11 +14,15 @@ using namespace std;
 
 namespace FH = FrameHandler;
 
-DeviceManager::DeviceManager(const size_t deviceIndex, const njson &defaultConf,
-                             njson &overrideConf)
-    : ipc(IPC()) {
+DeviceManager::DeviceManager(const size_t deviceIndex) : ipc(IPC()) {
 
-  setParameters(deviceIndex, defaultConf, overrideConf);
+  {
+    // But writing to settings is unlikely to be thread-safe:
+    // https://github.com/nlohmann/json/issues/651
+    lock_guard<mutex> guard(mtxNjsonSettings);
+    setParameters(deviceIndex, settings["devicesDefault"],
+                  settings["devices"][deviceIndex]);
+  }
 
   ipc.deviceName = deviceName;
   if (conf["snapshot"]["ipc"]["switch"]["http"].get<bool>()) {
