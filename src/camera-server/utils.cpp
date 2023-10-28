@@ -12,7 +12,7 @@ using namespace std;
 
 atomic<size_t> executionId = -1;
 
-void execExternalProgramAsync(mutex &mtx, const string &cmd,
+void execExternalProgramAsync(mutex &mtx, const string cmd,
                               const string &deviceName) {
   thread th_exec([&mtx, deviceName, cmd]() {
     if (mtx.try_lock()) {
