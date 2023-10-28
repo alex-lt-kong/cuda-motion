@@ -6,11 +6,11 @@
 #include <memory>
 #include <string>
 
-typedef void (*exec_cb)(void *This, std::string stdout, std::string stderr,
-                        int rc); // type for conciseness
-
-void execAsync(void *This, const std::vector<std::string> &args, exec_cb cb);
+void execExternalProgramAsync(std::mutex &mtx, const std::string &cmd,
+                              const std::string &deviceName);
 
 std::string getCurrentTimestamp();
+
+void install_signal_handler();
 
 #endif /* CS_UTILS_H */

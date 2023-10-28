@@ -20,12 +20,12 @@
 using namespace cv;
 using njson = nlohmann::json;
 
-class deviceManager : public EventLoop {
+class DeviceManager : public EventLoop {
 
 public:
-  deviceManager(const size_t deviceIndex, const njson &defaultConf,
+  DeviceManager(const size_t deviceIndex, const njson &defaultConf,
                 njson &overrideConf);
-  ~deviceManager();
+  ~DeviceManager();
   void getLiveImage(std::vector<uint8_t> &pl);
   std::string getDeviceName() { return this->deviceName; }
 
@@ -63,6 +63,12 @@ private:
   // snapshot variables
   int snapshotFrameInterval;
 
+  // mutexes
+  std::mutex mtxOnVideoStarts;
+  std::mutex mtxOnVideoEnds;
+  std::mutex mtxOnDeviceOffline;
+  std::mutex mtxOnDeviceBackOnline;
+
   std::string timestampOnVideoStarts;
   std::string timestampOnDeviceOffline;
   std::queue<int64_t> frameTimestamps;
@@ -88,6 +94,6 @@ private:
   void warnCPUResize(const Size &actualFrameSize);
 };
 
-extern std::vector<deviceManager *> myDevices;
+extern std::vector<DeviceManager *> myDevices;
 
 #endif

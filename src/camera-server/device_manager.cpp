@@ -3,13 +3,8 @@
 
 #include <spdlog/spdlog.h>
 
-#include <arpa/inet.h>
-#include <chrono>
-#include <ctime>
 #include <errno.h>
 #include <filesystem>
-#include <iomanip>
-#include <iostream>
 #include <limits.h>
 #include <regex>
 #include <sstream>
@@ -19,7 +14,7 @@ using namespace std;
 
 namespace FH = FrameHandler;
 
-deviceManager::deviceManager(const size_t deviceIndex, const njson &defaultConf,
+DeviceManager::DeviceManager(const size_t deviceIndex, const njson &defaultConf,
                              njson &overrideConf)
     : ipc(IPC()) {
 
@@ -47,7 +42,7 @@ deviceManager::deviceManager(const size_t deviceIndex, const njson &defaultConf,
   }
 }
 
-string deviceManager::evaluateVideoSpecficVariables(
+string DeviceManager::evaluateVideoSpecficVariables(
     basic_string<char> originalString) {
   string filledString =
       regex_replace(originalString, regex(R"(\{\{timestampOnVideoStarts\}\})"),
@@ -61,7 +56,7 @@ string deviceManager::evaluateVideoSpecficVariables(
 }
 
 string
-deviceManager::evaluateStaticVariables(basic_string<char> originalString) {
+DeviceManager::evaluateStaticVariables(basic_string<char> originalString) {
   string filledString = regex_replace(
       originalString, regex(R"(\{\{deviceIndex\}\})"), to_string(deviceIndex));
   filledString = regex_replace(filledString, regex(R"(\{\{deviceName\}\})"),
@@ -69,7 +64,7 @@ deviceManager::evaluateStaticVariables(basic_string<char> originalString) {
   return filledString;
 }
 
-void deviceManager::setParameters(const size_t deviceIndex,
+void DeviceManager::setParameters(const size_t deviceIndex,
                                   const njson &defaultConf,
                                   njson &overrideConf) {
 
@@ -181,30 +176,25 @@ void deviceManager::setParameters(const size_t deviceIndex,
   // ===== events =====
   if (!conf.contains("/events/onVideoStarts"_json_pointer))
     conf["events"]["onVideoStarts"] = defaultConf["events"]["onVideoStarts"];
-  for (size_t i = 0; i < conf["events"]["onVideoStarts"].size(); ++i) {
-    conf["events"]["onVideoStarts"][i] =
-        evaluateStaticVariables(conf["events"]["onVideoStarts"][i]);
-  }
+  conf["events"]["onVideoStarts"] =
+      evaluateStaticVariables(conf["events"]["onVideoStarts"]);
+
   if (!conf.contains("/events/onVideoEnds"_json_pointer))
     conf["events"]["onVideoEnds"] = defaultConf["events"]["onVideoEnds"];
-  for (size_t i = 0; i < conf["events"]["onVideoEnds"].size(); ++i) {
-    conf["events"]["onVideoEnds"][i] =
-        evaluateStaticVariables(conf["events"]["onVideoEnds"][i]);
-  }
+  conf["events"]["onVideoEnds"] =
+      evaluateStaticVariables(conf["events"]["onVideoEnds"]);
+
   if (!conf.contains("/events/onDeviceOffline"_json_pointer))
     conf["events"]["onDeviceOffline"] =
         defaultConf["events"]["onDeviceOffline"];
-  for (size_t i = 0; i < conf["events"]["onDeviceOffline"].size(); ++i) {
-    conf["events"]["onDeviceOffline"][i] =
-        evaluateStaticVariables(conf["events"]["onDeviceOffline"][i]);
-  }
+  conf["events"]["onDeviceOffline"] =
+      evaluateStaticVariables(conf["events"]["onDeviceOffline"]);
+
   if (!conf.contains("/events/onDeviceBackOnline"_json_pointer))
     conf["events"]["onDeviceBackOnline"] =
         defaultConf["events"]["onDeviceBackOnline"];
-  for (size_t i = 0; i < conf["events"]["onDeviceBackOnline"].size(); ++i) {
-    conf["events"]["onDeviceBackOnline"][i] =
-        evaluateStaticVariables(conf["events"]["onDeviceBackOnline"][i]);
-  }
+  conf["events"]["onDeviceBackOnline"] =
+      evaluateStaticVariables(conf["events"]["onDeviceBackOnline"]);
 
   // ===== motion detection =====
   if (!conf.contains("/motionDetection/mode"_json_pointer))
@@ -273,9 +263,9 @@ void deviceManager::setParameters(const size_t deviceIndex,
                deviceIndex, conf.dump(2));
 }
 
-deviceManager::~deviceManager() {}
+DeviceManager::~DeviceManager() {}
 
-float deviceManager::getCurrentFps(int64_t msSinceEpoch) {
+float DeviceManager::getCurrentFps(int64_t msSinceEpoch) {
   float fps = FLT_MAX;
   if (msSinceEpoch - frameTimestamps.front() > 0) {
     fps = 1000.0 * frameTimestamps.size() /
@@ -284,7 +274,7 @@ float deviceManager::getCurrentFps(int64_t msSinceEpoch) {
   return fps;
 }
 
-bool deviceManager::shouldFrameBeThrottled() {
+bool DeviceManager::shouldFrameBeThrottled() {
 
   constexpr int sampleMsUpperLimit = 10 * 1000;
   int64_t msSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
@@ -311,24 +301,24 @@ bool deviceManager::shouldFrameBeThrottled() {
   return false;
 }
 
-void deviceManager::asyncExecCallback(void *This, string stdout, string stderr,
+void DeviceManager::asyncExecCallback(void *This, string stdout, string stderr,
                                       int rc) {
   if (stdout.size() > 0) {
     spdlog::info("[{}] non-empty stdout from command: [{}]",
-                 reinterpret_cast<deviceManager *>(This)->deviceName, stdout);
+                 reinterpret_cast<DeviceManager *>(This)->deviceName, stdout);
   }
   if (stderr.size() > 0) {
     spdlog::info("[{}] non-empty stderr from command: [{}]",
-                 reinterpret_cast<deviceManager *>(This)->deviceName, stderr,
+                 reinterpret_cast<DeviceManager *>(This)->deviceName, stderr,
                  rc);
   }
   if (rc != 0) {
     spdlog::info("[{}] non-zero return code from command: [{}]",
-                 reinterpret_cast<deviceManager *>(This)->deviceName, rc);
+                 reinterpret_cast<DeviceManager *>(This)->deviceName, rc);
   }
 }
 
-void deviceManager::stopVideoRecording(VideoWriter &vwriter,
+void DeviceManager::stopVideoRecording(VideoWriter &vwriter,
                                        uint32_t &videoFrameCount, int cd) {
 
   vwriter.release();
@@ -339,44 +329,38 @@ void deviceManager::stopVideoRecording(VideoWriter &vwriter,
                  deviceName);
   }
 
-  if (conf["events"]["onVideoEnds"].size() > 0 && cd == 0) {
-    vector<string> args;
-    args.reserve(conf["events"]["onVideoEnds"].size());
-    spdlog::info("[{}] video recording ends", deviceName);
-    for (size_t i = 0; i < conf["events"]["onVideoEnds"].size(); ++i) {
-      args.push_back(
-          evaluateVideoSpecficVariables(conf["events"]["onVideoEnds"][i]));
-    }
-    execAsync((void *)this, args, asyncExecCallback);
-    spdlog::info("[{}] onVideoEnds triggered, command [{}] executed",
-                 deviceName, args[0]);
-  } else if (conf["events"]["onVideoEnds"].size() > 0 && cd > 0) {
+  if (conf["events"]["onVideoEnds"].get<string>().size() > 0 && cd == 0) {
+    spdlog::info("[{}] onVideoEnds triggered", deviceName);
+    execExternalProgramAsync(mtxOnVideoEnds,
+                             evaluateVideoSpecficVariables(
+                                 conf["events"]["onVideoEnds"].get<string>()),
+                             deviceName);
+  } else if (conf["events"]["onVideoEnds"].get<string>().size() > 0 && cd > 0) {
     spdlog::warn("[{}] onVideoEnds event defined but it won't be "
                  "triggered",
                  deviceName);
   } else {
-    spdlog::info("[{}] onVideoEnds, no command to execute", deviceName);
+    spdlog::info("[{}] onVideoEnds triggered but no command to execute",
+                 deviceName);
   }
   videoFrameCount = 0;
 }
 
-void deviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
+void DeviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
                                               int64_t &cd) {
 
   auto handleOnVideoStarts = [&]() {
-    if (conf["events"]["onVideoStarts"].size() > 0) {
-      vector<string> args;
-      args.reserve(conf["events"]["onVideoStarts"].size());
-      for (size_t i = 0; i < conf["events"]["onVideoStarts"].size(); ++i) {
-        args.push_back(
-            evaluateVideoSpecficVariables(conf["events"]["onVideoStarts"][i]));
-      }
+    if (conf["events"]["onVideoStarts"].get<string>().size() > 0) {
       spdlog::info("[{}] motion detected, video recording begins", deviceName);
-      execAsync((void *)this, args, asyncExecCallback);
-      spdlog::info("[{}] onVideoStarts: command [{}] executed", deviceName,
-                   args[0]);
+      execExternalProgramAsync(
+          mtxOnVideoStarts,
+          evaluateVideoSpecficVariables(
+              conf["events"]["onVideoStarts"].get<string>()),
+          deviceName);
+      // execAsync((void *)this, args, asyncExecCallback);
     } else {
-      spdlog::info("[{}] onVideoStarts: no command to execute", deviceName);
+      spdlog::info("[{}] onVideoStarts triggered but no command to execute",
+                   deviceName);
     }
   };
 
@@ -406,7 +390,7 @@ void deviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
       {VIDEOWRITER_PROP_HW_ACCELERATION, cv::VIDEO_ACCELERATION_ANY});
 }
 
-void deviceManager::getLiveImage(vector<uint8_t> &pl) {
+void DeviceManager::getLiveImage(vector<uint8_t> &pl) {
   if (ipc.encodedJpgImage.size() > 0) {
     lock_guard<mutex> guard(mutexLiveImage);
     pl = ipc.encodedJpgImage;
@@ -415,7 +399,7 @@ void deviceManager::getLiveImage(vector<uint8_t> &pl) {
   }
 }
 
-void deviceManager::updateVideoCooldownAndVideoFrameCount(
+void DeviceManager::updateVideoCooldownAndVideoFrameCount(
     int64_t &cd, uint32_t &videoFrameCount) {
   if (cd >= 0) {
     cd--;
@@ -428,47 +412,45 @@ void deviceManager::updateVideoCooldownAndVideoFrameCount(
   }
 }
 
-void deviceManager::markDeviceAsOffline(bool &isShowingBlankFrame) {
+void DeviceManager::markDeviceAsOffline(bool &isShowingBlankFrame) {
 
   if (isShowingBlankFrame == false) {
     timestampOnDeviceOffline = getCurrentTimestamp();
     isShowingBlankFrame = true;
-    if (conf["events"]["onDeviceOffline"].size() > 0) {
-      vector<string> args;
-      args.reserve(conf["events"]["onDeviceOffline"].size());
-      for (size_t i = 0; i < conf["events"]["onDeviceOffline"].size(); ++i) {
-        args.push_back(evaluateVideoSpecficVariables(
-            conf["events"]["onDeviceOffline"][i]));
-      }
-      execAsync((void *)this, args, asyncExecCallback);
-      spdlog::info("[{}] onDeviceOffline: command [{}] executed", deviceName,
-                   args[0]);
+    if (conf["events"]["onDeviceOffline"].get<string>().size() > 0) {
+      spdlog::info("[{}] onDeviceOffline triggered", deviceName);
+      execExternalProgramAsync(
+          mtxOnDeviceOffline,
+          evaluateVideoSpecficVariables(
+              conf["events"]["onDeviceOffline"].get<string>()),
+          deviceName);
     } else {
-      spdlog::info("[{}] onDeviceOffline: no command to execute", deviceName);
+      spdlog::info("[{}] onDeviceOffline triggered but no command to execute",
+                   deviceName);
     }
   }
 }
 
-void deviceManager::deviceIsBackOnline(size_t &openRetryDelay,
+void DeviceManager::deviceIsBackOnline(size_t &openRetryDelay,
                                        bool &isShowingBlankFrame) {
   spdlog::info("[{}] Device is back online", deviceName);
   timestampOnDeviceOffline = "";
   openRetryDelay = 1;
   isShowingBlankFrame = false;
-  if (conf["events"]["onDeviceBackOnline"].size() > 0) {
-    vector<string> args;
-    args.reserve(conf["events"]["onDeviceBackOnline"].size());
-    for (size_t i = 0; i < conf["events"]["onDeviceBackOnline"].size(); ++i) {
-      args.push_back(evaluateVideoSpecficVariables(
-          conf["events"]["onDeviceBackOnline"][i]));
-    }
-    execAsync((void *)this, args, asyncExecCallback);
-    spdlog::info("[{}] onDeviceBackOnline: command [{}] executed", deviceName,
-                 args[0]);
+  if (conf["events"]["onDeviceBackOnline"].get<string>().size() > 0) {
+    spdlog::info("[{}] onDeviceBackOnline triggered", deviceName);
+    execExternalProgramAsync(
+        mtxOnDeviceBackOnline,
+        evaluateVideoSpecficVariables(
+            conf["events"]["onDeviceBackOnline"].get<string>()),
+        deviceName);
+  } else {
+    spdlog::info("[{}] onDeviceBackOnline triggered but no command to execute",
+                 deviceName);
   }
 }
 
-void deviceManager::initializeDevice(VideoCapture &cap, bool &result,
+void DeviceManager::initializeDevice(VideoCapture &cap, bool &result,
                                      const Size &actualFrameSize) {
   result = cap.open(conf["videoFeed"]["uri"].get<string>(),
                     conf["videoFeed"]["videoCaptureApi"],
@@ -502,7 +484,7 @@ void deviceManager::initializeDevice(VideoCapture &cap, bool &result,
     cap.set(CAP_PROP_FPS, conf["frame"]["preferredFps"]);
 }
 
-void deviceManager::warnCPUResize(const Size &actualFrameSize) {
+void DeviceManager::warnCPUResize(const Size &actualFrameSize) {
   if ((actualFrameSize.width != conf["frame"]["preferredInputWidth"] &&
        conf["frame"]["preferredInputWidth"] != -1) ||
       (actualFrameSize.height != conf["frame"]["preferredInputHeight"] &&
@@ -524,7 +506,7 @@ void deviceManager::warnCPUResize(const Size &actualFrameSize) {
   }
 }
 
-void deviceManager::InternalThreadEntry() {
+void DeviceManager::InternalThreadEntry() {
 
   queue<Mat> dispFrames;
   Mat prevFrame, currFrame, diffFrame;
