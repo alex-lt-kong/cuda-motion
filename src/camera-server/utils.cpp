@@ -34,6 +34,7 @@ void execExternalProgramAsync(mutex &mtx, const string cmd,
     }
   });
   th_exec.detach();
+  spdlog::warn("[{}] th_exec.detach()ed", deviceName);
 }
 
 string getCurrentTimestamp() {
