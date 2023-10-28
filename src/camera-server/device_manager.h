@@ -87,12 +87,10 @@ private:
   void deviceIsBackOnline(size_t &openRetryDelay, bool &isShowingBlankFrame);
   void initializeDevice(VideoCapture &cap, bool &result,
                         const Size &actualFrameSize);
-  static void asyncExecCallback(void *This, std::string stdout,
-                                std::string stderr, int rc);
   float getCurrentFps(int64_t msSinceEpoch);
   void warnCPUResize(const Size &actualFrameSize);
 };
 
-extern std::vector<DeviceManager *> myDevices;
+extern std::vector<std::unique_ptr<DeviceManager>> myDevices;
 
 #endif /* CS_DEVICE_MANAGER_H */

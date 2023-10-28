@@ -13,7 +13,7 @@
 using namespace std;
 using json = nlohmann::json;
 
-std::vector<DeviceManager *> myDevices;
+vector<unique_ptr<DeviceManager>> myDevices;
 
 int main(int argc, char *argv[]) {
   string settingsPath;
@@ -44,11 +44,11 @@ int main(int argc, char *argv[]) {
   if (deviceCount == 0) {
     throw logic_error("No devices are defined.");
   }
-  myDevices = vector<DeviceManager *>(deviceCount);
+  myDevices = vector<unique_ptr<DeviceManager>>(); //(deviceCount);
   for (size_t i = 0; i < deviceCount; ++i) {
     /* DeviceManager objects are neither copyable nor movable, using
     pointer is a relatively easy way to circumvent these limitations. */
-    myDevices[i] = new DeviceManager(i);
+    myDevices.emplace_back(make_unique<DeviceManager>(i));
     myDevices[i]->StartEv();
   }
   initialize_http_service(settings["httpService"]["interface"].get<string>(),
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
   for (size_t i = 0; i < myDevices.size(); ++i) {
     myDevices[i]->JoinEv();
     spdlog::info("{}-th device event loop thread exited gracefully", i);
-    delete myDevices[i];
+    // delete myDevices[i];
   }
   stop_http_service();
   spdlog::info("All device event loop threads exited gracefully");

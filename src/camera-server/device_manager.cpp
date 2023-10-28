@@ -305,23 +305,6 @@ bool DeviceManager::shouldFrameBeThrottled() {
   return false;
 }
 
-void DeviceManager::asyncExecCallback(void *This, string stdout, string stderr,
-                                      int rc) {
-  if (stdout.size() > 0) {
-    spdlog::info("[{}] non-empty stdout from command: [{}]",
-                 reinterpret_cast<DeviceManager *>(This)->deviceName, stdout);
-  }
-  if (stderr.size() > 0) {
-    spdlog::info("[{}] non-empty stderr from command: [{}]",
-                 reinterpret_cast<DeviceManager *>(This)->deviceName, stderr,
-                 rc);
-  }
-  if (rc != 0) {
-    spdlog::info("[{}] non-zero return code from command: [{}]",
-                 reinterpret_cast<DeviceManager *>(This)->deviceName, rc);
-  }
-}
-
 void DeviceManager::stopVideoRecording(VideoWriter &vwriter,
                                        uint32_t &videoFrameCount, int cd) {
 

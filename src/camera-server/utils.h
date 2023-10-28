@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 
-void execExternalProgramAsync(std::mutex &mtx, const std::string &cmd,
+void execExternalProgramAsync(std::mutex &mtx, const std::string cmd,
                               const std::string &deviceName);
 
 std::string getCurrentTimestamp();
