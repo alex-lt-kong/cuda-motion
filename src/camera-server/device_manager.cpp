@@ -328,8 +328,7 @@ void DeviceManager::stopVideoRecording(VideoWriter &vwriter,
   vwriter.release();
 
   if (cd > 0) {
-    spdlog::warn("[{}] video recording stopped before cooldown "
-                 "reaches 0",
+    spdlog::warn("[{}] video recording stopped before cooldown reaches 0",
                  deviceName);
   }
 
@@ -340,8 +339,7 @@ void DeviceManager::stopVideoRecording(VideoWriter &vwriter,
                                  conf["events"]["onVideoEnds"].get<string>()),
                              deviceName);
   } else if (conf["events"]["onVideoEnds"].get<string>().size() > 0 && cd > 0) {
-    spdlog::warn("[{}] onVideoEnds event defined but it won't be "
-                 "triggered",
+    spdlog::warn("[{}] onVideoEnds event defined but it won't be triggered",
                  deviceName);
   } else {
     spdlog::info("[{}] onVideoEnds triggered but no command to execute",

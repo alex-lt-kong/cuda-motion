@@ -18,7 +18,6 @@ target_link_libraries(http_service
         spdlog
 )
 
-
 if(CMAKE_SYSTEM_NAME MATCHES Linux)
     find_package(Threads REQUIRED)
     target_link_libraries(http_service INTERFACE Threads::Threads ${CMAKE_DL_LIBS})

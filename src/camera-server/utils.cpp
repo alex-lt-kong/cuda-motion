@@ -14,7 +14,7 @@ atomic<size_t> executionId = -1;
 
 void execExternalProgramAsync(mutex &mtx, const string &cmd,
                               const string &deviceName) {
-  auto f = [&mtx, deviceName](string cmd) {
+  auto f = [](mutex &mtx, const string &cmd, const string &deviceName) {
     if (mtx.try_lock()) {
       // We must increment executionID before execution instead of after it;
       // otherwise, if the 1st execution gets stuck, the 2nd execution might
@@ -33,7 +33,7 @@ void execExternalProgramAsync(mutex &mtx, const string &cmd,
                    deviceName, cmd);
     }
   };
-  thread th_exec(f, cmd);
+  thread th_exec(f, mtx, cmd, deviceName);
   th_exec.detach();
 }
 
@@ -48,9 +48,12 @@ string getCurrentTimestamp() {
 }
 
 static void signal_handler(int signum) {
-  if (signum != SIGCHLD) {
-    ev_flag = 1;
+  if (signum == SIGCHLD) {
+    // When a child process stops or terminates, SIGCHLD is sent to the parent
+    // process. The default response to the signal is to ignore it.
+    return;
   }
+  ev_flag = 1;
   char msg[] = "Signal [  ] caught\n";
   msg[8] = '0' + signum / 10;
   msg[9] = '0' + signum % 10;
