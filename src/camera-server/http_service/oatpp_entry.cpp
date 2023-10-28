@@ -85,7 +85,7 @@ void initialize_http_service(std::string host, int port) {
   StartOatppServer(host, port);
 }
 void stop_http_service() {
-  spdlog::info("Rest service exiting");
+  spdlog::info("Oat++ http service exiting");
   std::lock_guard<std::mutex> lock(server_op_mutex);
 
   /* Tell server to stop */
@@ -99,8 +99,6 @@ void stop_http_service() {
     spdlog::warn("oatpp::base::Environment::getObjectsCount() > 0 ({}), they "
                  "may have been leaked!",
                  oatpp::base::Environment::getObjectsCount());
-  } else {
-    spdlog::warn("oatpp does not report any possible leak");
   }
   oatpp::base::Environment::destroy();
 }
