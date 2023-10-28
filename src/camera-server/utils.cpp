@@ -10,7 +10,7 @@
 
 using namespace std;
 
-atomic<size_t> executionId = -1;
+atomic<ssize_t> executionId = -1;
 
 void execExternalProgramAsync(mutex &mtx, const string cmd,
                               const string &deviceName) {
