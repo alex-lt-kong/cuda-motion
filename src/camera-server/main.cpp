@@ -35,19 +35,14 @@ int main(int argc, char *argv[]) {
 
   spdlog::info("Loading json settings from {}", settingsPath);
   ifstream is(settingsPath);
-  settings = json::parse(is,
-                         /* callback */ nullptr,
-                         /* allow exceptions */ true,
-                         /* ignore_comments */ true);
+  settings = json::parse(is, nullptr, true, true);
 
   size_t deviceCount = settings["devices"].size();
   if (deviceCount == 0) {
     throw logic_error("No devices are defined.");
   }
-  myDevices = vector<unique_ptr<DeviceManager>>(); //(deviceCount);
+  myDevices = vector<unique_ptr<DeviceManager>>();
   for (size_t i = 0; i < deviceCount; ++i) {
-    /* DeviceManager objects are neither copyable nor movable, using
-    pointer is a relatively easy way to circumvent these limitations. */
     myDevices.emplace_back(make_unique<DeviceManager>(i));
     myDevices[i]->StartEv();
   }
@@ -57,7 +52,6 @@ int main(int argc, char *argv[]) {
   for (size_t i = 0; i < myDevices.size(); ++i) {
     myDevices[i]->JoinEv();
     spdlog::info("{}-th device event loop thread exited gracefully", i);
-    // delete myDevices[i];
   }
   stop_http_service();
   spdlog::info("All device event loop threads exited gracefully");

@@ -49,7 +49,7 @@ endif()
 add_compile_options(-Wall)
 add_compile_options(-Wextra)
 add_compile_options(-pedantic)
-add_compile_options(-O2)
+add_compile_options(-Og -g)
 # Silence many OATPP's marco-related warnings
 add_compile_options(-Wno-gnu-zero-variadic-macro-arguments)
 
