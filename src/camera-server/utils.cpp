@@ -14,7 +14,7 @@ atomic<size_t> executionId = -1;
 
 void execExternalProgramAsync(mutex &mtx, const string &cmd,
                               const string &deviceName) {
-  auto f = [](mutex &mtx, const string &cmd, const string &deviceName) {
+  thread th_exec([&mtx, deviceName, cmd]() {
     if (mtx.try_lock()) {
       // We must increment executionID before execution instead of after it;
       // otherwise, if the 1st execution gets stuck, the 2nd execution might
@@ -32,8 +32,7 @@ void execExternalProgramAsync(mutex &mtx, const string &cmd,
                    "instance is still running",
                    deviceName, cmd);
     }
-  };
-  thread th_exec(f, mtx, cmd, deviceName);
+  });
   th_exec.detach();
 }
 
