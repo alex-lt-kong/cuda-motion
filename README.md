@@ -30,13 +30,20 @@ There are two main functions of this program:
 
 ## Dependencies
 
-- [Crow HTTP library](https://github.com/CrowCpp/Crow) for HTTP service support
-  - `Asio`, an asynchronous mode used by Crow: `apt install libasio-dev`
-  - `OpenSSL`, for SSL support: `apt-get install libssl-dev`
+- [Oat++](https://github.com/oatpp/) for HTTP service support:
+
+  ```
+  git clone https://github.com/oatpp/oatpp.git
+  cd oatpp && mkdir build && cd build
+  cmake ../ -DCMAKE_BUILD_TYPE=Release
+  make -j4
+  sudo make install
+  ```
+
 - `nlohmann-json3 (>= 3.9)`, JSON support: `apt install nlohmann-json3-dev`
 - `spdlog` for logging: `apt install libspdlog-dev`
 - `v4l-utils`: for manually examining and manipulating local video devices.
-- `ZeroMQ` for message queue, `apt install libzmq3-dev`
+- `cppzmq` for message queue, `apt install libzmq3-dev`
 - `FFmpeg` and `OpenCV`: image/video manipulation libraries that do all the
   heavy lifting.
 

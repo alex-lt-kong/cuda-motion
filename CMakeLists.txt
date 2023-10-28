@@ -8,24 +8,6 @@ set (CMAKE_CXX_STANDARD 17)
 # Always generate compile_commands.json for clangd, etc.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(nlohmann_json CONFIG REQUIRED)
-
-find_library(SPDLOG_LIB spdlog)
-if(NOT SPDLOG_LIB)
-    message(
-        FATAL_ERROR
-        "spdlog library not found, install it with 'apt install libspdlog-dev'"
-    )
-endif()
-find_library(ZMQ_LIB zmq)
-if(NOT ZMQ_LIB)
-    message(
-        FATAL_ERROR
-        "libzmp library not found, install it with 'apt install libzmq3-dev'"
-    )
-endif()
-include_directories(${ZMQ_LIB_INCLUDE_DIRS})
-
 option(BUILD_ASAN "Build with AddressSanitizer to detect memory error" OFF)
 option(BUILD_UBSAN "Build with UndefinedBehaviorSanitizer to detect undefined behavior" OFF)
 
@@ -70,7 +52,6 @@ add_compile_options(-pedantic)
 add_compile_options(-O2)
 # Silence many OATPP's marco-related warnings
 add_compile_options(-Wno-gnu-zero-variadic-macro-arguments)
-
 
 
 add_subdirectory(src/camera-server)
