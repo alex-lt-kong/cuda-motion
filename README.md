@@ -35,7 +35,7 @@ There are two main functions of this program:
   ```
   git clone https://github.com/oatpp/oatpp.git
   cd oatpp && mkdir build && cd build
-  cmake ../ -DCMAKE_BUILD_TYPE=Release
+  cmake -DCMAKE_BUILD_TYPE=Release ../
   make -j4
   sudo make install
   ```
@@ -68,8 +68,13 @@ make -j2
 
 ## Quality assurance
 
-- Instead of `cmake ../`, run `cmake .. -DBUILD_ASAN=ON` /
-  `cmake .. -DBUILD_UBSAN=ON` to test memory/undefiend behavior error with
-  AddressSanitizer / UndefinedBehaviorSanitizer.
+- Instead of `cmake ../`, run:
+
+  - `cmake -DBUILD_ASAN=ON ../`
+  - `cmake -DBUILD_UBSAN=ON ../`
+  - `cmake -DBUILD_THSAN=ON -DCMAKE_CXX_COMPILER=clang++ ../`
+
+  to turn on different sanitizers.
+
 - The repo is also tested with `Valgrind` from time to time:
   `valgrind --leak-check=yes --log-file=valgrind.rpt ./build/cs`.
