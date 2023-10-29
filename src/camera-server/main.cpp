@@ -67,7 +67,6 @@ int main(int argc, char *argv[]) {
   spdlog::info("Loading json settings from {}", configPath);
   ifstream is(configPath);
   settings = json::parse(is, nullptr, true, true);
-
   size_t deviceCount = settings["devices"].size();
   if (deviceCount == 0) {
     throw logic_error("No devices are defined.");

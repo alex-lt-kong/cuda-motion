@@ -72,8 +72,7 @@ private:
   std::string timestampOnDeviceOffline;
   std::queue<int64_t> frameTimestamps;
 
-  void setParameters(const size_t deviceIndex, const njson &defaultConf,
-                     njson &overrideConf);
+  void setParameters(const size_t deviceIndex);
   void updateVideoCooldownAndVideoFrameCount(int64_t &cooldown,
                                              uint32_t &videoFrameCount);
   bool shouldFrameBeThrottled();

@@ -16,26 +16,33 @@ namespace FH = FrameHandler;
 
 DeviceManager::DeviceManager(const size_t deviceIndex) {
 
-  {
+  { // settings variable is used by multiple threads, possibly concurrently, is
+    // reading it thread-safe? According to the below response from the library
+    // author: https://github.com/nlohmann/json/issues/651
+    // The answer seems to be affirmative.
     // But writing to settings is unlikely to be thread-safe:
     // https://github.com/nlohmann/json/issues/651
     lock_guard<mutex> guard(mtxNjsonSettings);
-    setParameters(deviceIndex, settings["devicesDefault"],
-                  settings["devices"][deviceIndex]);
+    auto t = settings["devices"][deviceIndex];
+    settings["devices"][deviceIndex] = settings["devicesDefault"];
+    settings["devices"][deviceIndex].merge_patch(t);
+    conf = settings["devices"][deviceIndex];
+    setParameters(deviceIndex);
   }
   ipc = make_unique<IPC>(deviceIndex, deviceName);
-  if (conf["snapshot"]["ipc"]["switch"]["http"].get<bool>()) {
+
+  if (conf.value("/snapshot/ipc/http/enabled"_json_pointer, false)) {
     ipc->enableHttp();
   }
-  if (conf["snapshot"]["ipc"]["switch"]["file"].get<bool>()) {
+  if (conf.value("/snapshot/ipc/file/enabled"_json_pointer, false)) {
     ipc->enableFile(
         evaluateStaticVariables(conf["snapshot"]["ipc"]["file"]["path"]));
   }
-  if (conf["snapshot"]["ipc"]["switch"]["zeroMQ"].get<bool>()) {
+  if (conf.value("/snapshot/ipc/zeroMQ/enabled"_json_pointer, false)) {
     ipc->enableZeroMQ(
         evaluateStaticVariables(conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"]));
   }
-  if (conf["snapshot"]["ipc"]["switch"]["sharedMem"]) {
+  if (conf.value("/snapshot/ipc/sharedMem/enabled"_json_pointer, false)) {
     ipc->enableSharedMemory(
         evaluateStaticVariables(
             conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"]),
@@ -67,199 +74,56 @@ DeviceManager::evaluateStaticVariables(basic_string<char> originalString) {
   return filledString;
 }
 
-void DeviceManager::setParameters(const size_t deviceIndex,
-                                  const njson &defaultConf,
-                                  njson &overrideConf) {
+void DeviceManager::setParameters(const size_t deviceIndex) {
 
   // Most config items will be directly used from njson object, however,
   // given performance concern, for items that are on the critical path,
   // we will duplicate them as class member variables
   this->deviceIndex = deviceIndex;
-  conf = overrideConf;
-  if (!conf.contains("/name"_json_pointer))
-    conf["name"] = defaultConf["name"];
   conf["name"] = evaluateStaticVariables(conf["name"]);
   deviceName = conf["name"];
-  if (!conf.contains("/videoFeed/uri"_json_pointer))
-    conf["videoFeed"]["uri"] = defaultConf["videoFeed"]["uri"];
   conf["videoFeed"]["uri"] = evaluateStaticVariables(conf["videoFeed"]["uri"]);
-  if (!conf.contains("/videoFeed/fourcc"_json_pointer))
-    conf["videoFeed"]["fourcc"] = defaultConf["videoFeed"]["fourcc"];
-  if (!conf.contains("/videoFeed/videoCaptureApi"_json_pointer))
-    conf["videoFeed"]["videoCaptureApi"] =
-        defaultConf["videoFeed"]["videoCaptureApi"];
 
-  // ===== frame =====
-  if (!conf.contains("/frame/rotation"_json_pointer))
-    conf["frame"]["rotation"] = defaultConf["frame"]["rotation"];
-  frameRotation = conf["frame"]["rotation"];
-  if (!conf.contains("/frame/preferredInputWidth"_json_pointer))
-    conf["frame"]["preferredInputWidth"] =
-        defaultConf["frame"]["preferredInputWidth"];
-  if (!conf.contains("/frame/preferredInputHeight"_json_pointer))
-    conf["frame"]["preferredInputHeight"] =
-        defaultConf["frame"]["preferredInputHeight"];
-  if (!conf.contains("/frame/preferredFps"_json_pointer))
-    conf["frame"]["preferredFps"] = defaultConf["frame"]["preferredFps"];
-
-  if (!conf.contains("/frame/outputWidth"_json_pointer))
-    conf["frame"]["outputWidth"] = defaultConf["frame"]["outputWidth"];
-  outputWidth = conf["frame"]["outputWidth"];
-  if (!conf.contains("/frame/outputHeight"_json_pointer))
-    conf["frame"]["outputHeight"] = defaultConf["frame"]["outputHeight"];
-  outputHeight = conf["frame"]["outputHeight"];
-
-  if (!conf.contains("/frame/throttleFpsIfHigherThan"_json_pointer))
-    conf["frame"]["throttleFpsIfHigherThan"] =
-        defaultConf["frame"]["throttleFpsIfHigherThan"];
-  throttleFpsIfHigherThan = conf["frame"]["throttleFpsIfHigherThan"];
-  if (!conf.contains("/frame/textOverlay/enabled"_json_pointer))
-    conf["frame"]["textOverlay"]["enabled"] =
-        defaultConf["frame"]["textOverlay"]["enabled"];
-  textOverlayEnabled = conf["frame"]["textOverlay"]["enabled"];
-  if (!conf.contains("/frame/textOverlay/fontScale"_json_pointer))
-    conf["frame"]["textOverlay"]["fontScale"] =
-        defaultConf["frame"]["textOverlay"]["fontScale"];
-  textOverlayFontSacle = conf["frame"]["textOverlay"]["fontScale"];
-  if (!conf.contains("/frame/queueSize"_json_pointer))
-    conf["frame"]["queueSize"] = defaultConf["frame"]["queueSize"];
-  frameQueueSize = conf["frame"]["queueSize"];
-
-  // =====  snapshot =====
-  if (!conf.contains("/snapshot/frameInterval"_json_pointer)) {
-    conf["snapshot"]["frameInterval"] =
-        defaultConf["snapshot"]["frameInterval"];
-  }
-  snapshotFrameInterval = conf["snapshot"]["frameInterval"];
-  if (!conf.contains("/snapshot/ipc/switch/http"_json_pointer)) {
-    conf["snapshot"]["ipc"]["switch"]["http"] =
-        defaultConf["snapshot"]["ipc"]["switch"]["http"];
-  }
-  if (!conf.contains("/snapshot/ipc/switch/file"_json_pointer)) {
-    conf["snapshot"]["ipc"]["switch"]["file"] =
-        defaultConf["snapshot"]["ipc"]["switch"]["file"];
-  }
-  if (conf["snapshot"]["ipc"]["switch"]["file"].get<bool>()) {
-    if (!conf.contains("/snapshot/ipc/file/path"_json_pointer)) {
-      conf["snapshot"]["ipc"]["file"]["path"] =
-          defaultConf["snapshot"]["ipc"]["file"]["path"];
-    }
-  }
-
-  if (!conf.contains("/snapshot/ipc/switch/sharedMem"_json_pointer)) {
-    conf["snapshot"]["ipc"]["switch"]["sharedMem"] =
-        defaultConf["snapshot"]["ipc"]["switch"]["sharedMem"];
-  }
-  if (conf["snapshot"]["ipc"]["switch"]["sharedMem"]) {
-    if (!conf.contains("/snapshot/ipc/sharedMem/semaphoreName"_json_pointer)) {
-      conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"] =
-          defaultConf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"];
-    }
-    if (!conf.contains("/snapshot/ipc/sharedMem/sharedMemName"_json_pointer)) {
-      conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"] =
-          defaultConf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"];
-    }
-    if (!conf.contains("/snapshot/ipc/sharedMem/sharedMemSize"_json_pointer)) {
-      conf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"] =
-          defaultConf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"];
-    }
-  }
-
-  if (!conf.contains("/snapshot/ipc/switch/zeroMQ"_json_pointer)) {
-    conf["snapshot"]["ipc"]["switch"]["zeroMQ"] =
-        defaultConf["snapshot"]["ipc"]["switch"]["zeroMQ"];
-  }
-  if (conf["snapshot"]["ipc"]["switch"]["zeroMQ"]) {
-    if (!conf.contains("/snapshot/ipc/zeroMQ/endpoint"_json_pointer)) {
-      conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"] =
-          defaultConf["snapshot"]["ipc"]["zeroMQ"]["endpoint"];
-    };
-  }
-
-  // ===== events =====
-  if (!conf.contains("/events/onVideoStarts"_json_pointer))
-    conf["events"]["onVideoStarts"] = defaultConf["events"]["onVideoStarts"];
   conf["events"]["onVideoStarts"] =
       evaluateStaticVariables(conf["events"]["onVideoStarts"]);
-
-  if (!conf.contains("/events/onVideoEnds"_json_pointer))
-    conf["events"]["onVideoEnds"] = defaultConf["events"]["onVideoEnds"];
   conf["events"]["onVideoEnds"] =
       evaluateStaticVariables(conf["events"]["onVideoEnds"]);
-
-  if (!conf.contains("/events/onDeviceOffline"_json_pointer))
-    conf["events"]["onDeviceOffline"] =
-        defaultConf["events"]["onDeviceOffline"];
   conf["events"]["onDeviceOffline"] =
       evaluateStaticVariables(conf["events"]["onDeviceOffline"]);
-
-  if (!conf.contains("/events/onDeviceBackOnline"_json_pointer))
-    conf["events"]["onDeviceBackOnline"] =
-        defaultConf["events"]["onDeviceBackOnline"];
   conf["events"]["onDeviceBackOnline"] =
       evaluateStaticVariables(conf["events"]["onDeviceBackOnline"]);
 
+  // ===== frame =====
+  frameRotation = conf["frame"]["rotation"];
+  outputWidth = conf["frame"]["outputWidth"];
+  outputHeight = conf["frame"]["outputHeight"];
+  throttleFpsIfHigherThan = conf["frame"]["throttleFpsIfHigherThan"];
+  textOverlayEnabled = conf["frame"]["textOverlay"]["enabled"];
+  textOverlayFontSacle = conf["frame"]["textOverlay"]["fontScale"];
+  frameQueueSize = conf["frame"]["queueSize"];
+
+  // =====  snapshot =====
+  snapshotFrameInterval = conf["snapshot"]["frameInterval"];
+
   // ===== motion detection =====
-  if (!conf.contains("/motionDetection/mode"_json_pointer))
-    conf["motionDetection"]["mode"] = defaultConf["motionDetection"]["mode"];
   motionDetectionMode = conf["motionDetection"]["mode"];
-  if (!conf.contains(
-          "/motionDetection/frameDiffPercentageLowerLimit"_json_pointer))
-    conf["motionDetection"]["frameDiffPercentageLowerLimit"] =
-        defaultConf["motionDetection"]["frameDiffPercentageLowerLimit"];
   frameDiffPercentageLowerLimit =
       conf["motionDetection"]["frameDiffPercentageLowerLimit"];
-  if (!conf.contains(
-          "/motionDetection/frameDiffPercentageUpperLimit"_json_pointer))
-    conf["motionDetection"]["frameDiffPercentageUpperLimit"] =
-        defaultConf["motionDetection"]["frameDiffPercentageUpperLimit"];
   frameDiffPercentageUpperLimit =
       conf["motionDetection"]["frameDiffPercentageUpperLimit"];
-  if (!conf.contains("/motionDetection/pixelDiffAbsThreshold"_json_pointer))
-    conf["motionDetection"]["pixelDiffAbsThreshold"] =
-        defaultConf["motionDetection"]["pixelDiffAbsThreshold"];
   pixelDiffAbsThreshold = conf["motionDetection"]["pixelDiffAbsThreshold"];
-  if (!conf.contains("/motionDetection/diffEveryNthFrame"_json_pointer))
-    conf["motionDetection"]["diffEveryNthFrame"] =
-        defaultConf["motionDetection"]["diffEveryNthFrame"];
   diffEveryNthFrame = conf["motionDetection"]["diffEveryNthFrame"];
   if (diffEveryNthFrame == 0) {
     throw invalid_argument("diffEveryNthFrame must be greater than 0");
   }
-  if (!conf.contains(
-          "/motionDetection/videoRecording/minFramesPerVideo"_json_pointer))
-    conf["motionDetection"]["videoRecording"]["minFramesPerVideo"] =
-        defaultConf["motionDetection"]["videoRecording"]["minFramesPerVideo"];
   minFramesPerVideo =
       conf["motionDetection"]["videoRecording"]["minFramesPerVideo"];
-  if (!conf.contains(
-          "/motionDetection/videoRecording/maxFramesPerVideo"_json_pointer))
-    conf["motionDetection"]["videoRecording"]["maxFramesPerVideo"] =
-        defaultConf["motionDetection"]["videoRecording"]["maxFramesPerVideo"];
   maxFramesPerVideo =
       conf["motionDetection"]["videoRecording"]["maxFramesPerVideo"];
 
-  if (!conf.contains(
-          "/motionDetection/videoRecording/videoWriter/fourcc"_json_pointer))
-    conf["motionDetection"]["videoRecording"]["videoWriter"]["fourcc"] =
-        defaultConf["motionDetection"]["videoRecording"]["videoWriter"]
-                   ["fourcc"];
-  if (!conf.contains(
-          "/motionDetection/videoRecording/videoWriter/videoPath"_json_pointer))
-    conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"] =
-        defaultConf["motionDetection"]["videoRecording"]["videoWriter"]
-                   ["videoPath"];
   conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"] =
       evaluateStaticVariables(conf["motionDetection"]["videoRecording"]
                                   ["videoWriter"]["videoPath"]);
-  if (!conf.contains(
-          "/motionDetection/videoRecording/videoWriter/fps"_json_pointer))
-    conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"] =
-        defaultConf["motionDetection"]["videoRecording"]["videoWriter"]["fps"];
-
-  if (!conf.contains("/motionDetection/drawContours"_json_pointer))
-    conf["motionDetection"]["drawContours"] =
-        defaultConf["motionDetection"]["drawContours"];
   drawContours = conf["motionDetection"]["drawContours"];
 
   spdlog::info("{}-th device to be used with the following configs:\n{}",
