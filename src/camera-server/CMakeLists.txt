@@ -5,7 +5,16 @@ include_directories(http_service/)
 
 find_package(OpenCV               REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
-find_package(ZeroMQ    4.3.1      REQUIRED)
+# find_library() has better compatibility when finding ZeroMQ (cppzmq to be specific)...
+#find_package(ZeroMQ    4.3.1      REQUIRED)
+#find_package(libzmq   4.3.1      REQUIRED)
+find_library(ZMQ_LIB zmq)
+if(NOT ZMQ_LIB)
+    message(
+        FATAL_ERROR
+        "libzmp library not found, install it with 'apt install libzmq3-dev'"
+    )
+endif()
 find_package(spdlog               REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
