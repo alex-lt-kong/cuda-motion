@@ -121,6 +121,11 @@
           where interface, port, etc are configured in the httpService
           section.*/
         },
+        /* Memory layout: the first sizeof(size_t) bytes store a size_t
+        variable N, representing the size in bytes of the actual payload,
+        i.e., the encoded JPEG frame. The next N bytes of the shared memory
+        store JPEG data. In any case, sizeof(size_t) + N can NOT be greater
+        than sharedMemSize in bytes as defined below. */
         "sharedMem": {
           "semaphoreName": "/semaphore-device-{{deviceName}}-{{deviceIndex}}",
           /* man shm_open recommends that the name of a shared memory

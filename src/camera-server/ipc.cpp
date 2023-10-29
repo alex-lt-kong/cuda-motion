@@ -7,6 +7,7 @@
 #include <fstream>
 #include <regex>
 #include <sys/mman.h>
+#include <zmq.hpp>
 
 using namespace std;
 
@@ -201,6 +202,19 @@ void IPC::sendData(cv::Mat &dispFrame) {
   }
 
   if (zmqEnabled) {
-    zmqSocket.send(encodedJpgImage.data(), encodedJpgImage.size());
+    try {
+      if (auto ret =
+              zmqSocket.send(zmq::const_buffer(encodedJpgImage.data(),
+                                               encodedJpgImage.size()),
+                             zmq::send_flags::none) != encodedJpgImage.size()) {
+        spdlog::error("zmqSocket.send() failed: ZeroMQ socket reports {} bytes "
+                      "being sent, but encodedJpgImage.size() is {} bytes",
+                      ret, encodedJpgImage.size());
+      }
+    } catch (const zmq::error_t &err) {
+      spdlog::error("zmqSocket.send() failed: {}({}). The program will "
+                    "continue with this frame being unsent",
+                    err.num(), err.what());
+    }
   }
 }

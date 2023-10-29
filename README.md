@@ -72,9 +72,16 @@ make -j2
 
   - `cmake -DBUILD_ASAN=ON ../`
   - `cmake -DBUILD_UBSAN=ON ../`
-  - `cmake -DBUILD_THSAN=ON -DCMAKE_CXX_COMPILER=clang++ ../`
+  - `cmake -DBUILD_TSAN=ON -DCMAKE_CXX_COMPILER=clang++ ../`
 
-  to turn on different sanitizers.
+  to turn on different sanitizers. Note that ThreadSanitizer generally requires
+  all code to be compiled with `-fsanitize=thread`. If some code (e.g. dynamic
+  libraries) is not compiled with the flag, it can lead to false positive race
+  reports, false negative race reports and/or missed stack frames in reports
+  depending on the nature of non-instrumented code per its
+  [official doc](https://github.com/google/sanitizers/wiki/ThreadSanitizerCppManual#non-instrumented-code)
+
+
 
 - The repo is also tested with `Valgrind` from time to time:
   `valgrind --leak-check=yes --log-file=valgrind.rpt ./build/cs`.

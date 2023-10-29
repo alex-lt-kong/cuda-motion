@@ -7,6 +7,7 @@
 #include <spdlog/spdlog.h>
 
 #include <fstream>
+#include <getopt.h>
 #include <iostream>
 #include <vector>
 
@@ -14,18 +15,48 @@ using namespace std;
 using json = nlohmann::json;
 
 vector<unique_ptr<DeviceManager>> myDevices;
+string configPath =
+    string(getenv("HOME")) + "/.config/ak-studio/camera-server.jsonc";
+
+void print_usage(string binary_name) {
+
+  cerr << "Usage: " << binary_name << " [OPTION]\n\n";
+
+  cerr << "Options:\n"
+       << "  --help,        -h        Display this help and exit\n"
+       << "  --config-path, -c        JSON configuration file path, default to "
+       << configPath << endl;
+}
+
+void parse_arguments(int argc, char **argv) {
+  static struct option long_options[] = {
+      {"config-path", required_argument, 0, 'c'},
+      {"help", optional_argument, 0, 'h'},
+      {0, 0, 0, 0}};
+
+  int opt, option_index = 0;
+
+  while ((opt = getopt_long(argc, argv, "c:h", long_options, &option_index)) !=
+         -1) {
+    switch (opt) {
+    case 'c':
+      if (optarg != NULL) {
+        configPath = string(optarg);
+      }
+      break;
+    default:
+      print_usage(argv[0]);
+      exit(EXIT_FAILURE);
+    }
+  }
+  if (configPath.empty()) {
+    print_usage(argv[0]);
+    exit(EXIT_FAILURE);
+  }
+}
 
 int main(int argc, char *argv[]) {
-  string settingsPath;
-  if (argc > 2) {
-    cerr << "Usage: " << argv[0] << " [config-file.jsonc]" << endl;
-    return EXIT_FAILURE;
-  } else if (argc == 2) {
-    settingsPath = string(argv[1]);
-  } else {
-    settingsPath =
-        string(getenv("HOME")) + "/.config/ak-studio/camera-server.jsonc";
-  }
+  parse_arguments(argc, argv);
   // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
   spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
   spdlog::info("Camera Server started");
@@ -33,8 +64,8 @@ int main(int argc, char *argv[]) {
 
   spdlog::info("cv::getBuildInformation(): {}", string(getBuildInformation()));
 
-  spdlog::info("Loading json settings from {}", settingsPath);
-  ifstream is(settingsPath);
+  spdlog::info("Loading json settings from {}", configPath);
+  ifstream is(configPath);
   settings = json::parse(is, nullptr, true, true);
 
   size_t deviceCount = settings["devices"].size();
