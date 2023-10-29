@@ -12,7 +12,7 @@
 
 class IPC {
 public:
-  IPC();
+  IPC(const size_t deviceIndex, const std::string &deviceName);
   void enableZeroMQ(const std::string &zeroMQEndpoint);
   void enableSharedMemory(const std::string &sharedMemoryName,
                           size_t sharedMemSize,
@@ -22,9 +22,10 @@ public:
   ~IPC();
   void sendData(cv::Mat &dispFrame);
   std::vector<uint8_t> encodedJpgImage;
-  std::string deviceName = "<unset>";
 
 private:
+  size_t deviceIndex;
+  std::string deviceName = "<unset>";
   // File variables
   bool fileEnabled = false;
   std::string filePathWithStaticVarEvaluated;

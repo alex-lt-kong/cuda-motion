@@ -2,6 +2,8 @@
   "httpService": {
     "interface": "127.0.0.1",
     "port": 54321,
+    /* Dont include a trailing slash at the end of the it*/
+    "advertisedAddress": "https://localhost:54321",
     "ssl": {
       "enabled": false,
       "keyPath": "",

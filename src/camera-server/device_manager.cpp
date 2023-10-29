@@ -14,7 +14,7 @@ using namespace std;
 
 namespace FH = FrameHandler;
 
-DeviceManager::DeviceManager(const size_t deviceIndex) : ipc(IPC()) {
+DeviceManager::DeviceManager(const size_t deviceIndex) {
 
   {
     // But writing to settings is unlikely to be thread-safe:
@@ -23,21 +23,20 @@ DeviceManager::DeviceManager(const size_t deviceIndex) : ipc(IPC()) {
     setParameters(deviceIndex, settings["devicesDefault"],
                   settings["devices"][deviceIndex]);
   }
-
-  ipc.deviceName = deviceName;
+  ipc = make_unique<IPC>(deviceIndex, deviceName);
   if (conf["snapshot"]["ipc"]["switch"]["http"].get<bool>()) {
-    ipc.enableHttp();
+    ipc->enableHttp();
   }
   if (conf["snapshot"]["ipc"]["switch"]["file"].get<bool>()) {
-    ipc.enableFile(
+    ipc->enableFile(
         evaluateStaticVariables(conf["snapshot"]["ipc"]["file"]["path"]));
   }
   if (conf["snapshot"]["ipc"]["switch"]["zeroMQ"].get<bool>()) {
-    ipc.enableZeroMQ(
+    ipc->enableZeroMQ(
         evaluateStaticVariables(conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"]));
   }
   if (conf["snapshot"]["ipc"]["switch"]["sharedMem"]) {
-    ipc.enableSharedMemory(
+    ipc->enableSharedMemory(
         evaluateStaticVariables(
             conf["snapshot"]["ipc"]["sharedMem"]["sharedMemName"]),
         conf["snapshot"]["ipc"]["sharedMem"]["sharedMemSize"].get<size_t>(),
@@ -376,9 +375,9 @@ void DeviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
 }
 
 void DeviceManager::getLiveImage(vector<uint8_t> &pl) {
-  if (ipc.encodedJpgImage.size() > 0) {
+  if (ipc->encodedJpgImage.size() > 0) {
     lock_guard<mutex> guard(mutexLiveImage);
-    pl = ipc.encodedJpgImage;
+    pl = ipc->encodedJpgImage;
   } else {
     pl = vector<uint8_t>();
   }
@@ -593,7 +592,7 @@ void DeviceManager::InternalThreadEntry() {
     }
 
     if ((retrievedFramesSinceStart - 1) % snapshotFrameInterval == 0) {
-      ipc.sendData(dispFrames.front());
+      ipc->sendData(dispFrames.front());
     }
 
     if (motionDetectionMode == MODE_DISABLED) {

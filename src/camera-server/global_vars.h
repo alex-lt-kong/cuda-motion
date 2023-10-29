@@ -6,6 +6,8 @@
 #include <mutex>
 #include <signal.h>
 
+#define HTTP_IPC_URL "/live_image/"
+
 /* The extern keyword tells the compiler that please dont generate any
 definition for it when compiling the source files that include the header.
 Without extern, multiple object files that include this header file

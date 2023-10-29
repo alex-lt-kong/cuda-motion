@@ -41,22 +41,26 @@ public:
 
     std::cout << authObject->User->c_str() << std::endl;
 
+    // clang-format off
     String html = "<html lang='en'>"
                   "  <head>"
+                  "    <title>" PROJECT_NAME "'s HTTP service</title>"
                   "    <meta charset=utf-8/>"
                   "  </head>"
                   "  <body>"
-                  "    <p>" PROJECT_NAME "</p>"
-                  "    <a href='swagger/ui'>Checkout Swagger-UI page</a>"
+                  "    <p>Hi " + authObject->User + ", welcome to " PROJECT_NAME "'s HTTP service</p>"
+                  "    <p>Try accessing real-time images like below:</p>" +
+                        settings.value("/httpService/advertisedAddress"_json_pointer,
+                        "http://localhost:54321") + HTTP_IPC_URL "?deviceId=0"
                   "  </body>"
                   "</html>";
-    html->append(authObject->User);
+    // clang-format on
     auto response = createResponse(Status::CODE_200, html);
     response->putHeader(Header::CONTENT_TYPE, "text/html");
     return response;
   }
 
-  ENDPOINT("GET", "/live_image/*", live_image,
+  ENDPOINT("GET", HTTP_IPC_URL "*", live_image,
            REQUEST(std::shared_ptr<IncomingRequest>, request),
            AUTHORIZATION(std::shared_ptr<MyAuthorizationObject>, authObject)) {
     // Just to silence the "unused object warning..."

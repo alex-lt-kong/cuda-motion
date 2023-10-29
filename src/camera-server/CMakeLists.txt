@@ -3,10 +3,10 @@ add_subdirectory(http_service/)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include_directories(http_service/)
 
-find_package(OpenCV REQUIRED)
+find_package(OpenCV               REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
-find_package(cppzmq)
-find_package(spdlog REQUIRED)
+find_package(ZeroMQ    4.3.1      REQUIRED)
+find_package(spdlog               REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
 add_executable(cs main.cpp)

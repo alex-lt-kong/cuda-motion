@@ -32,7 +32,7 @@ protected:
   void InternalThreadEntry();
 
 private:
-  IPC ipc;
+  std::unique_ptr<IPC> ipc = nullptr;
   njson conf;
   size_t deviceIndex = 0;
   std::string deviceName;

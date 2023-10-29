@@ -44,6 +44,7 @@ There are two main functions of this program:
 - `spdlog` for logging: `apt install libspdlog-dev`
 - `v4l-utils`: for manually examining and manipulating local video devices.
 - `cppzmq` for message queue, `apt install libzmq3-dev`
+  - `cppzmq-dev` will be automatically installed with `libzmq3-dev`
 - `FFmpeg` and `OpenCV`: image/video manipulation libraries that do all the
   heavy lifting.
 
@@ -80,8 +81,6 @@ make -j2
   reports, false negative race reports and/or missed stack frames in reports
   depending on the nature of non-instrumented code per its
   [official doc](https://github.com/google/sanitizers/wiki/ThreadSanitizerCppManual#non-instrumented-code)
-
-
 
 - The repo is also tested with `Valgrind` from time to time:
   `valgrind --leak-check=yes --log-file=valgrind.rpt ./build/cs`.

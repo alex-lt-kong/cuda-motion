@@ -11,7 +11,11 @@
 
 using namespace std;
 
-IPC::IPC() : zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub) {}
+IPC::IPC(const size_t deviceIndex, const string &deviceName)
+    : zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub) {
+  this->deviceIndex = deviceIndex;
+  this->deviceName = deviceName;
+}
 
 void IPC::enableZeroMQ(const string &zeroMQEndpoint) {
   zmqEnabled = true;
@@ -29,7 +33,12 @@ void IPC::enableZeroMQ(const string &zeroMQEndpoint) {
 
 void IPC::enableHttp() {
   httpEnabled = true;
-  spdlog::info("[{}] HTTP IPC enabled", deviceName);
+  spdlog::info("[{}] HTTP IPC enabled, endpoint is {}" HTTP_IPC_URL
+               "?deviceId={}",
+               deviceName,
+               settings.value("/httpService/advertisedAddress"_json_pointer,
+                              "http://localhost:54321"),
+               deviceIndex);
 }
 
 void IPC::enableFile(const string &filePathWithStaticVarEvaluated) {
