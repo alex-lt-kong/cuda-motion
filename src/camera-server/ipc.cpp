@@ -91,7 +91,9 @@ void IPC::enableSharedMemory(const string &sharedMemoryName,
                   strerror(errno));
     goto err_sem_open;
   }
-  spdlog::info("[{}] Shared memory IPC enabled", deviceName);
+  spdlog::info("[{}] Shared memory IPC enabled, shared memory path: {}, "
+               "semaphore path: {}",
+               deviceName, sharedMemoryName, semaphoreName);
   return;
 err_sem_open:
   if (munmap(memPtr, sharedMemSize) != 0) {
