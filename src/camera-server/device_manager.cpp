@@ -84,15 +84,6 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
   deviceName = conf["name"];
   conf["videoFeed"]["uri"] = evaluateStaticVariables(conf["videoFeed"]["uri"]);
 
-  conf["events"]["onVideoStarts"] =
-      evaluateStaticVariables(conf["events"]["onVideoStarts"]);
-  conf["events"]["onVideoEnds"] =
-      evaluateStaticVariables(conf["events"]["onVideoEnds"]);
-  conf["events"]["onDeviceOffline"] =
-      evaluateStaticVariables(conf["events"]["onDeviceOffline"]);
-  conf["events"]["onDeviceBackOnline"] =
-      evaluateStaticVariables(conf["events"]["onDeviceBackOnline"]);
-
   // ===== frame =====
   frameRotation = conf["frame"]["rotation"];
   outputWidth = conf["frame"]["outputWidth"];
@@ -104,6 +95,16 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
 
   // =====  snapshot =====
   snapshotFrameInterval = conf["snapshot"]["frameInterval"];
+
+  // ===== events =====
+  conf["events"]["onVideoStarts"] =
+      evaluateStaticVariables(conf["events"]["onVideoStarts"]);
+  conf["events"]["onVideoEnds"] =
+      evaluateStaticVariables(conf["events"]["onVideoEnds"]);
+  conf["events"]["onDeviceOffline"] =
+      evaluateStaticVariables(conf["events"]["onDeviceOffline"]);
+  conf["events"]["onDeviceBackOnline"] =
+      evaluateStaticVariables(conf["events"]["onDeviceBackOnline"]);
 
   // ===== motion detection =====
   motionDetectionMode = conf["motionDetection"]["mode"];
