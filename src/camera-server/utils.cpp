@@ -36,7 +36,7 @@ void execExternalProgramAsync(mutex &mtx, const string cmd,
   th_exec.detach();
 }
 
-string getCurrentTimestamp() {
+string getCurrentTimestamp() noexcept {
   using sysclock_t = std::chrono::system_clock;
   time_t now = sysclock_t::to_time_t(sysclock_t::now());
   string ts = "19700101-000000";
@@ -46,7 +46,7 @@ string getCurrentTimestamp() {
   // move constructor? No, most likely it is Copy elision/RVO
 }
 
-static void signal_handler(int signum) {
+static void signal_handler(int signum) noexcept {
   if (signum == SIGCHLD) {
     // When a child process stops or terminates, SIGCHLD is sent to the parent
     // process. The default response to the signal is to ignore it.

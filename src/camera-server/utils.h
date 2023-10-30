@@ -9,7 +9,7 @@
 void execExternalProgramAsync(std::mutex &mtx, const std::string cmd,
                               const std::string &deviceName);
 
-std::string getCurrentTimestamp();
+std::string getCurrentTimestamp() noexcept;
 
 void install_signal_handler();
 

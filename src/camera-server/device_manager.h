@@ -73,8 +73,9 @@ private:
   std::queue<int64_t> frameTimestamps;
 
   void setParameters(const size_t deviceIndex);
-  void updateVideoCooldownAndVideoFrameCount(int64_t &cooldown,
-                                             uint32_t &videoFrameCount);
+  void
+  updateVideoCooldownAndVideoFrameCount(int64_t &cooldown,
+                                        uint32_t &videoFrameCount) noexcept;
   bool shouldFrameBeThrottled();
   std::string evaluateStaticVariables(std::basic_string<char> originalString);
   std::string

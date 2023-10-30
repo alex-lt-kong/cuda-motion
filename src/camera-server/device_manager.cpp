@@ -249,7 +249,7 @@ void DeviceManager::getLiveImage(vector<uint8_t> &pl) {
 }
 
 void DeviceManager::updateVideoCooldownAndVideoFrameCount(
-    int64_t &cd, uint32_t &videoFrameCount) {
+    int64_t &cd, uint32_t &videoFrameCount) noexcept {
   if (cd >= 0) {
     cd--;
     if (cd > 0) {
