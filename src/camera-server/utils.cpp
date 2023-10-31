@@ -10,7 +10,7 @@
 
 using namespace std;
 
-atomic<ssize_t> executionId = -1;
+atomic<ssize_t> executionCounter = -1;
 
 void execExternalProgramAsync(mutex &mtx, const string cmd,
                               const string &deviceName) {
@@ -19,7 +19,7 @@ void execExternalProgramAsync(mutex &mtx, const string cmd,
       // We must increment executionID before execution instead of after it;
       // otherwise, if the 1st execution gets stuck, the 2nd execution might
       // unexpectedly use the same executionId as the 1st execution.
-      ++executionId;
+      auto executionId = ++executionCounter;
       spdlog::info("[{}] Calling external program: [{}] in a separate child "
                    "process. (executionId: {})",
                    deviceName, cmd, executionId);
