@@ -31,7 +31,6 @@ There are two main functions of this program:
 ## Dependencies
 
 - [Oat++](https://github.com/oatpp/) for HTTP service support:
-
   ```
   git clone https://github.com/oatpp/oatpp.git
   cd oatpp && mkdir build && cd build
@@ -39,7 +38,7 @@ There are two main functions of this program:
   make -j4
   sudo make install
   ```
-
+- [libmycrypto](https://github.com/alex-lt-kong/libmycrypto) for hash functions
 - `nlohmann-json3 (>= 3.9)`, JSON support: `apt install nlohmann-json3-dev`
 - `spdlog` for logging: `apt install libspdlog-dev`
 - `v4l-utils`: for manually examining and manipulating local video devices.
@@ -47,7 +46,6 @@ There are two main functions of this program:
   - `cppzmq-dev` will be automatically installed with `libzmq3-dev`
 - `FFmpeg` and `OpenCV`: image/video manipulation libraries that do all the
   heavy lifting.
-
   - Check build notes [here](./helper/build-notes.md) to build FFmpeg and
     OpenCV properly.
 
