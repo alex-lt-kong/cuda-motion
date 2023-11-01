@@ -39,8 +39,6 @@ public:
   ENDPOINT("GET", "/", root,
            AUTHORIZATION(std::shared_ptr<MyAuthorizationObject>, authObject)) {
 
-    std::cout << authObject->User->c_str() << std::endl;
-
     // clang-format off
     String html = "<html lang='en'>"
                   "  <head>"

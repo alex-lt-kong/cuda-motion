@@ -9,9 +9,10 @@
       "keyPath": "",
       "pemPath": ""
     },
-    /* Define a list of username:password key-value pairs here */
+    /* Define a list of (username, SHA256-hashed password) key-value pairs here */
     "httpAuthentication": {
-      "defaultUser": "defaultPassword"
+      // defaultPassword
+      "defaultUser": "48c0b4ec512adf9820a77187cc8b55b4da280c1a192d05ac458b3e0535100c0b"
     }
   },
   "devicesDefault": {

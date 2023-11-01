@@ -6,8 +6,6 @@
 #include <oatpp/network/Server.hpp>
 #include <spdlog/spdlog.h>
 
-#include <iostream>
-
 bool server_running = false;
 std::mutex server_op_mutex;
 std::atomic_bool server_should_continue;
@@ -62,12 +60,6 @@ void StartOatppServer(std::string host, int port) {
     std::function<bool()> condition = []() {
       return server_should_continue.load();
     };
-    /*
-    for (auto i = connectionProvider->getProperties().begin();
-         i != connectionProvider->getProperties().end(); ++i)
-      std::cout << i->first.toString()->c_str() << " \t\t\t"
-                << i->second.toString()->c_str() << std::endl;
-    */
 
     server.run(condition);
 
