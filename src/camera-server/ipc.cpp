@@ -233,8 +233,8 @@ void IPC::sendDataViaZeroMQ() {
                 zmq::const_buffer(serializedMsg.data(), serializedMsg.size()),
                 zmq::send_flags::none) != serializedMsg.size()) {
       spdlog::error("zmqSocket.send() failed: ZeroMQ socket reports {} bytes "
-                    "being sent, but encodedJpgImage.size() is {} bytes",
-                    ret, encodedJpgImage.size());
+                    "being sent, but serializedMsg.size() is {} bytes",
+                    ret, serializedMsg.size());
     }
   } catch (const zmq::error_t &err) {
     spdlog::error("zmqSocket.send() failed: {}({}). The program will "
