@@ -1,5 +1,8 @@
 option(BUILD_ASAN "Build with AddressSanitizer to detect memory error" OFF)
 option(BUILD_UBSAN "Build with UndefinedBehaviorSanitizer to detect undefined behavior" OFF)
+# MemorySanitizer requires that all program code is instrumented. This also
+# includes any libraries that the program depends on, even libc. 
+#option(BUILD_MSAN "Build with MemorySanitizer to detect memory error" OFF)
 option(BUILD_TSAN "Build with ThreadSanitizer to detect data race issues" OFF)
 
 set(COUNTER 0)
@@ -35,6 +38,21 @@ if(BUILD_UBSAN)
 else()
     message("-- UndefinedBehaviorSanitizer will NOT be compiled in as BUILD_UBSAN=OFF")
 endif()
+
+
+#if(BUILD_MSAN)
+#    if(NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
+#        message(FATAL_ERROR "MemorySanitizer is supported by clang only, but "
+#            "current compiler is [${CMAKE_C_COMPILER_ID}]")
+#    endif()
+
+#    message("-- MemorySanitizer WILL be compiled in as BUILD_MSAN=ON")
+#    add_compile_options(-fsanitize=memory -fsanitize-memory-track-origins
+#        -fno-omit-frame-pointer -g)
+#    add_link_options(-fsanitize=memory)
+#else()
+#    message("-- MemorySanitizer will NOT be compiled in as BUILD_MSAN=OFF")
+#endif()
 
 if(BUILD_TSAN)
     message("-- ThreadSanitizer WILL be compiled in as BUILD_TSAN=ON")

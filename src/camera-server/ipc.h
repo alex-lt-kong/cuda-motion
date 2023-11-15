@@ -47,6 +47,8 @@ private:
   sem_t *semPtr;
   int shmFd;
   std::string semaphoreName;
+
+  void sendDataViaZeroMQ();
 };
 
 #endif /* CS_IPC_H */

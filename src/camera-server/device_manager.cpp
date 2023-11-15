@@ -39,8 +39,8 @@ DeviceManager::DeviceManager(const size_t deviceIndex) {
         evaluateStaticVariables(conf["snapshot"]["ipc"]["file"]["path"]));
   }
   if (conf.value("/snapshot/ipc/zeroMQ/enabled"_json_pointer, false)) {
-    ipc->enableZeroMQ(
-        evaluateStaticVariables(conf["snapshot"]["ipc"]["zeroMQ"]["endpoint"]));
+    ipc->enableZeroMQ(evaluateStaticVariables(conf.value(
+        "/snapshot/ipc/zeroMQ/endpoint"_json_pointer, "tcp://127.0.0.1:4240")));
   }
   if (conf.value("/snapshot/ipc/sharedMem/enabled"_json_pointer, false)) {
     ipc->enableSharedMemory(

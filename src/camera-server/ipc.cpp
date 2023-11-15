@@ -1,5 +1,6 @@
 #include "ipc.h"
 #include "global_vars.h"
+#include "snapshot.pb.h"
 #include "utils.h"
 
 #include <spdlog/spdlog.h>
@@ -213,19 +214,31 @@ void IPC::sendData(cv::Mat &dispFrame) {
   }
 
   if (zmqEnabled) {
-    try {
-      if (auto ret =
-              zmqSocket.send(zmq::const_buffer(encodedJpgImage.data(),
-                                               encodedJpgImage.size()),
-                             zmq::send_flags::none) != encodedJpgImage.size()) {
-        spdlog::error("zmqSocket.send() failed: ZeroMQ socket reports {} bytes "
-                      "being sent, but encodedJpgImage.size() is {} bytes",
-                      ret, encodedJpgImage.size());
-      }
-    } catch (const zmq::error_t &err) {
-      spdlog::error("zmqSocket.send() failed: {}({}). The program will "
-                    "continue with this frame being unsent",
-                    err.num(), err.what());
+    sendDataViaZeroMQ();
+  }
+}
+
+void IPC::sendDataViaZeroMQ() {
+  SnapshotMsg msg;
+  auto epochNanoseconds =
+      chrono::time_point_cast<chrono::nanoseconds>(chrono::system_clock::now())
+          .time_since_epoch()
+          .count();
+  msg.set_unixepochns(epochNanoseconds);
+  msg.set_payload(encodedJpgImage.data(), encodedJpgImage.size());
+  auto serializedMsg = msg.SerializeAsString();
+  try {
+    if (auto ret =
+            zmqSocket.send(
+                zmq::const_buffer(serializedMsg.data(), serializedMsg.size()),
+                zmq::send_flags::none) != serializedMsg.size()) {
+      spdlog::error("zmqSocket.send() failed: ZeroMQ socket reports {} bytes "
+                    "being sent, but encodedJpgImage.size() is {} bytes",
+                    ret, encodedJpgImage.size());
     }
+  } catch (const zmq::error_t &err) {
+    spdlog::error("zmqSocket.send() failed: {}({}). The program will "
+                  "continue with this frame being unsent",
+                  err.num(), err.what());
   }
 }

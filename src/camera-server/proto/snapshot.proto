@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message SnapshotMsg {
+  int64 unixEpochNs = 1;
+  bytes payload = 2;
+}

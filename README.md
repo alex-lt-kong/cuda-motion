@@ -1,8 +1,8 @@
 # Camera server
 
-A C++17 project inspired by
+A C++20 project inspired by
 [Motion](https://github.com/Motion-Project/motion)
-but with hardware-acceleration (i.e., CUDA) in mind.
+but with hardware acceleration (i.e., CUDA) in mind.
 
 There are two main functions of this program:
 
@@ -10,15 +10,16 @@ There are two main functions of this program:
     during the periods when a motion event occurs;
 1.  Provide various inter-process communication methods for downstream
     programs to consume live images from different types of cameras
-    so that downstream programs don't have to implement their own version of video
-    feed handling repetitively. The following methods are currently supported:
+    so that downstream programs don't have to implement their own version of
+    video feed handling repetitively. The following methods are currently
+    supported:
 
     1.  File;
     1.  HTTP;
     1.  POSIX Shared Memory;
-    1.  ZeroMQ Pub/Sub mode.
+    1.  ZeroMQ Pub/Sub mode (with ProtoBuf encoding).
 
-- In [Motion](https://github.com/Motion-Project/motion), hardware-acceleration
+- In [Motion](https://github.com/Motion-Project/motion), hardware acceleration
   can only be achieved by piping data to external libraries such as FFmpeg,
   and some computationally expensive tasks such as motion detection just
   can't be offloaded to a GPU. This greatly limits the practical use of
@@ -44,6 +45,7 @@ There are two main functions of this program:
 - `v4l-utils`: for manually examining and manipulating local video devices.
 - `cppzmq` for message queue, `apt install libzmq3-dev`
   - `cppzmq-dev` will be automatically installed with `libzmq3-dev`
+- `protobuf` for data serialization support: `apt install libprotobuf-dev protobuf-compiler`
 - `FFmpeg` and `OpenCV`: image/video manipulation libraries that do all the
   heavy lifting.
   - Check build notes [here](./helper/build-notes.md) to build FFmpeg and
@@ -51,19 +53,11 @@ There are two main functions of this program:
 
 ## Build and deployment
 
--
-
 ```bash
 mkdir ./build
 cmake ../
 make -j2
 ```
-
-- Prepare configuration file:
-  - Copy `./configs/camera-server.jsonc` to the default location,
-    `$HOME/.configs/ak-studio/camera-server.jsonc`; or
-  - Start `./cs` with the path of configuration file manually, e.g.,
-    `./cs /tmp/cs.jsonc`.
 
 ## Quality assurance
 
