@@ -12,6 +12,7 @@ add_compile_options("-Wextra")
 add_compile_options("-pedantic")
 # Silence many OATPP's marco-related warnings
 add_compile_options("-Wno-gnu-zero-variadic-macro-arguments")
+add_compile_options("-O2")
 #add_compile_options("-g3")
 
 #
