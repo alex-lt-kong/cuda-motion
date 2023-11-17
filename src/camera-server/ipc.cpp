@@ -3,6 +3,7 @@
 #include "snapshot.pb.h"
 #include "utils.h"
 
+#include <chrono>
 #include <spdlog/spdlog.h>
 
 #include <fstream>
@@ -12,10 +13,20 @@
 
 using namespace std;
 
+void IPC::consume(IPC *This) {
+  cv::Mat msg;
+  while (ev_flag == 0) {
+    if (This->q.wait_dequeue_timed(msg, std::chrono::milliseconds(100))) {
+      This->consumeCb(msg);
+    }
+  }
+}
+
 IPC::IPC(const size_t deviceIndex, const string &deviceName)
-    : zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub) {
+    : q(1024), zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub) {
   this->deviceIndex = deviceIndex;
   this->deviceName = deviceName;
+  consumer = std::thread(&consume, this);
 }
 
 void IPC::enableZeroMQ(const string &zeroMQEndpoint) {
@@ -117,6 +128,9 @@ err_shmFd:
 
 IPC::~IPC() {
 
+  if (consumer.joinable()) {
+    consumer.join();
+  }
   if (!sharedMemEnabled)
     return;
   // unlink and close() are both needed: unlink only disassociates the
@@ -144,14 +158,19 @@ IPC::~IPC() {
                   errno, strerror(errno));
   }
 }
+void IPC::enqueueData(cv::Mat dispFrame) {
+  if (q.try_enqueue(dispFrame) == false) [[unlikely]] {
+    spdlog::warn("IPC pcQueue is full, this dispFrame will be not be sent");
+  }
+}
 
-void IPC::sendData(cv::Mat &dispFrame) {
+void IPC::consumeCb(cv::Mat &dispFrame) {
   // vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
   vector<int> configs = {};
   if (httpEnabled) {
     lock_guard<mutex> guard(mutexLiveImage);
     cv::imencode(".jpg", dispFrame, encodedJpgImage, configs);
-  } else {
+  } else if (fileEnabled || sharedMemEnabled || zmqEnabled) {
     cv::imencode(".jpg", dispFrame, encodedJpgImage, configs);
   }
 
@@ -186,39 +205,51 @@ void IPC::sendData(cv::Mat &dispFrame) {
   }
 
   if (sharedMemEnabled) {
-    size_t s = encodedJpgImage.size();
-    if (s > sharedMemSize - sizeof(size_t)) {
-      spdlog::error("[{}] encodedJpgImage({} bytes) too large for "
-                    "sharedMemSize({} bytes)",
-                    deviceName, s, sharedMemSize);
-      s = 0;
+    sendDataViaSharedMemory();
+  }
+  if (zmqEnabled) {
+    // profiling shows that for 1280x720 images, the method takes 10-5000us to
+    // complete auto start = chrono::high_resolution_clock::now();
+    sendDataViaZeroMQ();
+    // auto end = chrono::high_resolution_clock::now();
+    // spdlog::info(
+    //     "{}us",
+    //    chrono::duration_cast<chrono::microseconds>(end - start).count());
+  }
+}
+
+void IPC::sendDataViaSharedMemory() {
+  size_t s = encodedJpgImage.size();
+  if (s > sharedMemSize - sizeof(size_t)) {
+    spdlog::error("[{}] encodedJpgImage({} bytes) too large for "
+                  "sharedMemSize({} bytes)",
+                  deviceName, s, sharedMemSize);
+    s = 0;
+  } else {
+    if (sem_wait(semPtr) != 0) {
+      spdlog::error(
+          "[{}] sem_wait() failed: {}, the program will "
+          "continue to run but the semaphore mechanism could be broken",
+          deviceName, errno);
     } else {
-      if (sem_wait(semPtr) != 0) {
+
+      memcpy(memPtr, &s, sizeof(size_t));
+      memcpy((uint8_t *)memPtr + sizeof(size_t), encodedJpgImage.data(),
+             encodedJpgImage.size());
+      if (sem_post(semPtr) != 0) {
         spdlog::error(
-            "[{}] sem_wait() failed: {}, the program will "
+            "[{}] sem_post() failed: {}, the program will "
             "continue to run but the semaphore mechanism could be broken",
             deviceName, errno);
-      } else {
-
-        memcpy(memPtr, &s, sizeof(size_t));
-        memcpy((uint8_t *)memPtr + sizeof(size_t), encodedJpgImage.data(),
-               encodedJpgImage.size());
-        if (sem_post(semPtr) != 0) {
-          spdlog::error(
-              "[{}] sem_post() failed: {}, the program will "
-              "continue to run but the semaphore mechanism could be broken",
-              deviceName, errno);
-        }
       }
     }
-  }
-
-  if (zmqEnabled) {
-    sendDataViaZeroMQ();
   }
 }
 
 void IPC::sendDataViaZeroMQ() {
+  // sending images with ProtoBuf over ZeroMQ is not cheap, profiling shows
+  // transfering one 1280x720 image takes time that ranges from a few to a few
+  // hundred milliseconds
   SnapshotMsg msg;
   auto epochNanoseconds =
       chrono::time_point_cast<chrono::nanoseconds>(chrono::system_clock::now())

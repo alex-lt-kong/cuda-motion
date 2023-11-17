@@ -240,7 +240,7 @@ void DeviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
 }
 
 void DeviceManager::getLiveImage(vector<uint8_t> &pl) {
-  if (ipc->encodedJpgImage.size() > 0) {
+  if (ipc->isHttpEnabled() && ipc->encodedJpgImage.size() > 0) {
     lock_guard<mutex> guard(mutexLiveImage);
     pl = ipc->encodedJpgImage;
   } else {
@@ -457,7 +457,7 @@ void DeviceManager::InternalThreadEntry() {
     }
 
     if ((retrievedFramesSinceStart - 1) % snapshotFrameInterval == 0) {
-      ipc->sendData(dispFrames.front());
+      ipc->enqueueData(dispFrames.front());
     }
 
     if (motionDetectionMode == MODE_DISABLED) {

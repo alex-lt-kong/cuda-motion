@@ -1,11 +1,14 @@
 #ifndef CS_IPC_H
 #define CS_IPC_H
 
+#include "readerwriterqueue/readerwritercircularbuffer.h"
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <zmq.hpp>
 
 #include <semaphore.h>
+#include <thread>
 
 #define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
 #define SEM_INITIAL_VALUE 1
@@ -20,10 +23,15 @@ public:
   void enableHttp();
   void enableFile(const std::string &filePathWithStaticVarEvaluated);
   ~IPC();
-  void sendData(cv::Mat &dispFrame);
+  void enqueueData(cv::Mat dispFrame);
   std::vector<uint8_t> encodedJpgImage;
+  std::thread consumer;
+  static void consume(IPC *);
+  void consumeCb(cv::Mat &disspFrame);
+  inline bool isHttpEnabled() { return httpEnabled; }
 
 private:
+  moodycamel::BlockingReaderWriterCircularBuffer<cv::Mat> q;
   size_t deviceIndex;
   std::string deviceName = "<unset>";
   // File variables
@@ -49,6 +57,7 @@ private:
   std::string semaphoreName;
 
   void sendDataViaZeroMQ();
+  void sendDataViaSharedMemory();
 };
 
-#endif /* CS_IPC_H */
+#endif // CS_IPC_H
