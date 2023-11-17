@@ -45,7 +45,10 @@ There are two main functions of this program:
 - `v4l-utils`: for manually examining and manipulating local video devices.
 - `cppzmq` for message queue, `apt install libzmq3-dev`
   - `cppzmq-dev` will be automatically installed with `libzmq3-dev`
-- `protobuf` for data serialization support: `apt install libprotobuf-dev protobuf-compiler`
+- `protobuf` for data serialization support:
+  `apt install libprotobuf-dev protobuf-compiler`
+- `readerwriterquque` for high-performance lock-free queue support:
+  `apt install libreaderwriterqueue-dev`
 - `FFmpeg` and `OpenCV`: image/video manipulation libraries that do all the
   heavy lifting.
   - Check build notes [here](./helper/build-notes.md) to build FFmpeg and
