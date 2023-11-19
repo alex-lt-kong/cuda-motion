@@ -6,10 +6,15 @@
 #include "ipc.h"
 #include "utils.h"
 
+
 #include <nlohmann/json.hpp>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wc11-extensions -Wdeprecated-anon-enum-enum-conversion"
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#pragma GCC diagnostic pop
 
 #include <linux/stat.h>
 #include <queue>

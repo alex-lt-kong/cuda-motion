@@ -3,9 +3,12 @@
 
 #include "readerwriterqueue/readerwritercircularbuffer.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wc11-extensions -Wdeprecated-anon-enum-enum-conversion"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <zmq.hpp>
+#pragma GCC diagnostic pop
 
 #include <semaphore.h>
 #include <thread>
