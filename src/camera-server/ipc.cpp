@@ -8,6 +8,7 @@
 
 #include <fstream>
 #include <regex>
+#include <sstream>
 #include <sys/mman.h>
 #include <zmq.hpp>
 
@@ -158,8 +159,13 @@ IPC::~IPC() {
                   errno, strerror(errno));
   }
 }
+
 void IPC::enqueueData(cv::Mat dispFrame) {
-  if (q.try_enqueue(dispFrame) == false) [[unlikely]] {
+  // cv::Mat operates with an internal reference-counter, so we need to clone()
+  // to increase the counter
+  // Another point is that try_enqueue() does std::move() internally, how does
+  // it interplay with cv::Mat's ref-counting model? Not 100% clear to me...
+  if (q.try_enqueue(dispFrame.clone()) == false) [[unlikely]] {
     spdlog::warn("IPC pcQueue is full, this dispFrame will be not be sent");
   }
 }
@@ -173,6 +179,18 @@ void IPC::consumeCb(cv::Mat &dispFrame) {
   } else if (fileEnabled || sharedMemEnabled || zmqEnabled) {
     cv::imencode(".jpg", dispFrame, encodedJpgImage, configs);
   }
+  /*
+    {
+      auto now = std::chrono::system_clock::now();
+      auto local_now = std::chrono::system_clock::to_time_t(now);
+      auto iso_time = put_time(localtime(&local_now), "%Y%m%dT%H%M%S.%f");
+      ostringstream oss;
+      oss << "/tmp/test_" << iso_time << ".jpg";
+      ofstream output_file(oss.str(), ios::binary);
+      output_file.write(reinterpret_cast<const char *>(encodedJpgImage.data()),
+                        encodedJpgImage.size());
+      output_file.close();
+    }*/
 
   // Profiling show that the above mutex section without actual
   // waiting takes ~30 ms to complete, means that the CPU can only
