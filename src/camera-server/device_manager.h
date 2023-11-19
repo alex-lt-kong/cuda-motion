@@ -7,7 +7,7 @@
 #include "utils.h"
 
 #include <nlohmann/json.hpp>
-
+#include <readerwriterqueue/readerwritercircularbuffer.h>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-anon-enum-enum-conversion"
 #include <opencv2/core/core.hpp>
@@ -75,6 +75,13 @@ private:
   std::string timestampOnVideoStarts;
   std::string timestampOnDeviceOffline;
   std::queue<int64_t> frameTimestamps;
+
+  VideoWriter vwriter;
+  std::thread dispFrameConsumer;
+  static void eventLoopConsumeDispFrame(DeviceManager *);
+  moodycamel::BlockingReaderWriterCircularBuffer<cv::Mat> videoWriterQueue;
+  void consumeDispFrameCb(cv::Mat &dispFrame);
+  void enqueueVideoWriterFrame(cv::Mat dispFrame);
 
   void setParameters(const size_t deviceIndex);
   void

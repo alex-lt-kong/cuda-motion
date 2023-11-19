@@ -62,21 +62,18 @@ void overlayStats(Mat &frame, const float changeRate, const int cd,
                   const long long int videoFrameCount, const double fontSacle,
                   const enum MotionDetectionMode mode, const float currentFps,
                   const uint32_t maxFramesPerVideo) {
-  ostringstream textToOverlay;
+  ostringstream oss;
   if (mode == MODE_DETECT_MOTION) {
-    textToOverlay << fixed << setprecision(2) << changeRate << "%, ";
+    oss << fixed << setprecision(2) << changeRate << "%, ";
   }
-  textToOverlay << fixed << setprecision(1) << currentFps << "fps ";
+  oss << fixed << setprecision(1) << currentFps << "fps ";
   if (mode != MODE_DISABLED) {
-    textToOverlay << "(" << cd << ", " << maxFramesPerVideo - videoFrameCount
-                  << ")";
+    oss << "(" << cd << ", " << maxFramesPerVideo - videoFrameCount << ")";
   }
-  putText(frame, textToOverlay.str(), Point(5, frame.rows - 5),
-          FONT_HERSHEY_DUPLEX, fontSacle, Scalar(0, 0, 0), 8 * fontSacle,
-          LINE_8, false);
-  putText(frame, textToOverlay.str(), Point(5, frame.rows - 5),
-          FONT_HERSHEY_DUPLEX, fontSacle, Scalar(255, 255, 255), 2 * fontSacle,
-          LINE_8, false);
+  putText(frame, oss.str(), Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX,
+          fontSacle, Scalar(0, 0, 0), 8 * fontSacle, LINE_8, false);
+  putText(frame, oss.str(), Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX,
+          fontSacle, Scalar(255, 255, 255), 2 * fontSacle, LINE_8, false);
 }
 
 float getFrameChanges(Mat &prevFrame, Mat &currFrame, Mat *diffFrame,

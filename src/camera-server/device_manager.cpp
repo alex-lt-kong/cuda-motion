@@ -14,7 +14,7 @@ using namespace std;
 
 namespace FH = FrameHandler;
 
-DeviceManager::DeviceManager(const size_t deviceIndex) {
+DeviceManager::DeviceManager(const size_t deviceIndex) : videoWriterQueue(256) {
 
   { // settings variable is used by multiple threads, possibly concurrently, is
     // reading it thread-safe? According to the below response from the library
@@ -50,6 +50,7 @@ DeviceManager::DeviceManager(const size_t deviceIndex) {
         evaluateStaticVariables(
             conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"]));
   }
+  dispFrameConsumer = std::thread(&eventLoopConsumeDispFrame, this);
 }
 
 string DeviceManager::evaluateVideoSpecficVariables(
@@ -131,7 +132,11 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
                deviceIndex, conf.dump(2));
 }
 
-DeviceManager::~DeviceManager() {}
+DeviceManager::~DeviceManager() {
+  if (dispFrameConsumer.joinable()) {
+    dispFrameConsumer.join();
+  }
+}
 
 float DeviceManager::getCurrentFps(int64_t msSinceEpoch) {
   float fps = FLT_MAX;
@@ -369,7 +374,7 @@ void DeviceManager::InternalThreadEntry() {
   uint32_t videoFrameCount = 0;
   Size actualFrameSize = Size(conf["frame"]["preferredInputWidth"],
                               conf["frame"]["preferredInputHeight"]);
-  VideoWriter vwriter;
+
   // cd: cooldown
   int64_t cd = 0;
   size_t openRetryDelay = 1;
@@ -482,17 +487,45 @@ void DeviceManager::InternalThreadEntry() {
     }
     if (dispFrames.front().size().width != outputWidth ||
         dispFrames.front().size().height != outputHeight) {
-      spdlog::warn("dispFrame.size() == (w{}, h{}) != Size(outputWidth, "
+      spdlog::warn("[{}] dispFrame.size() == (w{}, h{}) != Size(outputWidth, "
                    "outputHeight) == (w{}, h{}), "
                    "OpenCV::VideoWriter may fail silently",
-                   dispFrames.front().size().width,
+                   deviceName, dispFrames.front().size().width,
                    dispFrames.front().size().height, outputWidth, outputHeight);
     }
-    vwriter.write(dispFrames.front());
+    enqueueVideoWriterFrame(dispFrames.front());
   }
   if (cd > 0) {
     stopVideoRecording(vwriter, videoFrameCount, cd);
   }
   cap.release();
   spdlog::info("[{}] thread quits gracefully", deviceName);
+}
+
+void DeviceManager::eventLoopConsumeDispFrame(DeviceManager *This) {
+  cv::Mat msg;
+  while (ev_flag == 0) {
+    if (This->videoWriterQueue.wait_dequeue_timed(
+            msg, std::chrono::milliseconds(500))) {
+      This->consumeDispFrameCb(msg);
+    }
+  }
+  spdlog::info("[{}] eventLoopConsumeDispFrame exited gracefully",
+               This->deviceName);
+}
+
+void DeviceManager::consumeDispFrameCb(cv::Mat &dispFrame) {
+  if (vwriter.isOpened())
+    vwriter.write(dispFrame);
+}
+
+void DeviceManager::enqueueVideoWriterFrame(cv::Mat dispFrame) {
+  // cv::Mat operates with an internal reference-counter, so we need to clone()
+  // to increase the counter
+  // Another point is that try_enqueue() does std::move() internally, how does
+  // it interplay with cv::Mat's ref-counting model? Not 100% clear to me...
+  if (videoWriterQueue.try_enqueue(dispFrame.clone()) == false) [[unlikely]] {
+    spdlog::warn("videoWriterQueue pcQueue is full, this dispFrame will be not "
+                 "be saved to video");
+  }
 }

@@ -14,20 +14,22 @@
 
 using namespace std;
 
-void IPC::consume(IPC *This) {
+void IPC::eventLoopConsumeIPCQueue(IPC *This) {
   cv::Mat msg;
   while (ev_flag == 0) {
     if (This->q.wait_dequeue_timed(msg, std::chrono::milliseconds(100))) {
       This->consumeCb(msg);
     }
   }
+  spdlog::info("[{}] IPC::eventLoopConsumeIPCQueue exited gracefully",
+               This->deviceName);
 }
 
 IPC::IPC(const size_t deviceIndex, const string &deviceName)
     : q(1024), zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub) {
   this->deviceIndex = deviceIndex;
   this->deviceName = deviceName;
-  consumer = std::thread(&consume, this);
+  consumer = std::thread(&eventLoopConsumeIPCQueue, this);
 }
 
 void IPC::enableZeroMQ(const string &zeroMQEndpoint) {
