@@ -2,12 +2,17 @@
 #define CS_GLOBAL_VARS_H
 
 #include <nlohmann/json.hpp>
+#if defined(__clang__)
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
-#include <opencv2/core/core.hpp>
+#pragma GCC diagnostic ignored "-Wdeprecated-anon-enum-enum-conversion"
+#pragma GCC diagnostic ignored "-Wc11-extensions"
+#endif
 #include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
+#if defined(__clang__)
 #pragma GCC diagnostic pop
+#endif
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include <mutex>
 #include <signal.h>
