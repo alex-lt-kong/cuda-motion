@@ -1,5 +1,6 @@
 #include "device_manager.h"
 #include "frame_handler.h"
+#include "global_vars.h"
 
 #include <opencv2/videoio.hpp>
 #include <spdlog/spdlog.h>
@@ -15,7 +16,7 @@ using namespace std;
 
 namespace FH = FrameHandler;
 
-DeviceManager::DeviceManager(const size_t deviceIndex) : videoWriterQueue(128) {
+DeviceManager::DeviceManager(const size_t deviceIndex) {
 
   { // settings variable is used by multiple threads, possibly concurrently, is
     // reading it thread-safe? According to the below response from the library
@@ -133,9 +134,8 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
 }
 
 DeviceManager::~DeviceManager() {
-  if (dispFrameConsumer.joinable()) {
-    dispFrameConsumer.join();
-  }
+  ipc->wait();
+  vwPcQueue.wait();
 }
 
 float DeviceManager::getCurrentFps(int64_t msSinceEpoch) {
@@ -177,9 +177,8 @@ bool DeviceManager::shouldFrameBeThrottled() {
 void DeviceManager::stopVideoRecording(uint32_t &videoFrameCount, int cd) {
   if (videoWriting) {
     videoWriting = false;
-    if (dispFrameConsumer.joinable()) {
-      dispFrameConsumer.join();
-    }
+    vwPcQueue.wait();
+    spdlog::info("[{}] vwPcQueue thread exited gracefully", deviceName);
   }
 
   if (cd > 0) {
@@ -232,7 +231,15 @@ void DeviceManager::startOrKeepVideoRecording(int64_t &cd) {
 
   handleOnVideoStarts();
   videoWriting = true;
-  dispFrameConsumer = std::thread(&eventLoopConsumeDispFrame, this);
+
+  vwPcQueue.start(
+      {.fourcc =
+           conf["motionDetection"]["videoRecording"]["videoWriter"]["fourcc"],
+       .evaluatedVideoPath = evaluatedVideoPath,
+       .fps = conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"],
+       .outputWidth = outputWidth,
+       .outputHeight = outputHeight,
+       .videoWriting = videoWriting});
 }
 
 void DeviceManager::getLiveImage(vector<uint8_t> &pl) {
@@ -453,7 +460,7 @@ void DeviceManager::InternalThreadEntry() {
     }
 
     if ((retrievedFramesSinceStart - 1) % snapshotFrameInterval == 0) {
-      ipc->enqueueData(dispFrames.front());
+      ipc->enqueueData(dispFrames.front().clone());
     }
 
     if (motionDetectionMode == MODE_DISABLED) {
@@ -484,51 +491,14 @@ void DeviceManager::InternalThreadEntry() {
                    deviceName, dispFrames.front().size().width,
                    dispFrames.front().size().height, outputWidth, outputHeight);
     }
-    enqueueVideoWriterFrame(dispFrames.front());
+    if (!vwPcQueue.try_enqueue(dispFrames.front())) {
+      spdlog::warn("[{}] pcQueue is full", deviceName);
+    }
+    // enqueueVideoWriterFrame(dispFrames.front());
   }
   if (cd > 0) {
     stopVideoRecording(videoFrameCount, cd);
   }
   cap.release();
   spdlog::info("[{}] thread quits gracefully", deviceName);
-}
-
-void DeviceManager::eventLoopConsumeDispFrame(DeviceManager *This) {
-  // Use OpenCV to encode video
-  string fourcc =
-      This->conf["motionDetection"]["videoRecording"]["videoWriter"]["fourcc"]
-          .get<string>();
-  const int codec =
-      VideoWriter::fourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3]);
-  /* For VideoWriter, we have to use FFmpeg as we compiled FFmpeg with
-  Nvidia GPU*/
-  auto vw = VideoWriter(
-      This->evaluatedVideoPath, cv::CAP_FFMPEG, codec,
-      This->conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"],
-      Size(This->outputWidth, This->outputHeight),
-      {VIDEOWRITER_PROP_HW_ACCELERATION, cv::VIDEO_ACCELERATION_ANY});
-  cv::Mat msg;
-  while (ev_flag == 0 && This->videoWriting) {
-    if (This->videoWriterQueue.wait_dequeue_timed(
-            msg, std::chrono::milliseconds(500))) {
-      This->consumeDispFrameCb(msg, vw);
-    }
-  }
-  vw.release();
-}
-
-void DeviceManager::consumeDispFrameCb(const cv::Mat &dispFrame,
-                                       VideoWriter &vw) {
-  vw.write(dispFrame);
-}
-
-void DeviceManager::enqueueVideoWriterFrame(cv::Mat dispFrame) {
-  // cv::Mat operates with an internal reference-counter, so we need to clone()
-  // to increase the counter
-  // Another point is that try_enqueue() does std::move() internally, how does
-  // it interplay with cv::Mat's ref-counting model? Not 100% clear to me...
-  if (videoWriterQueue.try_enqueue(dispFrame.clone()) == false) [[unlikely]] {
-    spdlog::warn("videoWriterQueue pcQueue is full, this dispFrame will be not "
-                 "be saved to video");
-  }
 }

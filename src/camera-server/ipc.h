@@ -1,6 +1,8 @@
 #ifndef CS_IPC_H
 #define CS_IPC_H
 
+#include "pc_queue.h"
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-anon-enum-enum-conversion"
 #pragma GCC diagnostic ignored "-Wc11-extensions"
@@ -16,6 +18,13 @@
 #define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
 #define SEM_INITIAL_VALUE 1
 
+class IPC;
+
+struct ipcQueuePayload {
+  IPC *ipcInstance;
+  cv::Mat snapshot;
+};
+
 class IPC {
 public:
   IPC(const size_t deviceIndex, const std::string &deviceName);
@@ -28,13 +37,11 @@ public:
   ~IPC();
   void enqueueData(cv::Mat dispFrame);
   std::vector<uint8_t> encodedJpgImage;
-  std::thread consumer;
-  static void eventLoopConsumeIPCQueue(IPC *);
-  void consumeCb(cv::Mat &disspFrame);
+  void sendDataCb(cv::Mat &disspFrame);
   inline bool isHttpEnabled() { return httpEnabled; }
+  void wait();
 
 private:
-  moodycamel::BlockingReaderWriterCircularBuffer<cv::Mat> q;
   size_t deviceIndex;
   std::string deviceName = "<unset>";
   // File variables
@@ -59,6 +66,7 @@ private:
   int shmFd;
   std::string semaphoreName;
 
+  PcQueue<cv::Mat, ipcQueuePayload, ipcQueuePayload> ipcPcQueue;
   void sendDataViaZeroMQ();
   void sendDataViaSharedMemory();
 };

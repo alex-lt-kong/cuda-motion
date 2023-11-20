@@ -14,22 +14,11 @@
 
 using namespace std;
 
-void IPC::eventLoopConsumeIPCQueue(IPC *This) {
-  cv::Mat msg;
-  while (ev_flag == 0) {
-    if (This->q.wait_dequeue_timed(msg, std::chrono::milliseconds(100))) {
-      This->consumeCb(msg);
-    }
-  }
-  spdlog::info("[{}] IPC::eventLoopConsumeIPCQueue exited gracefully",
-               This->deviceName);
-}
-
 IPC::IPC(const size_t deviceIndex, const string &deviceName)
-    : q(1024), zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub) {
+    : zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub) {
   this->deviceIndex = deviceIndex;
   this->deviceName = deviceName;
-  consumer = std::thread(&eventLoopConsumeIPCQueue, this);
+  ipcPcQueue.start({.ipcInstance = this});
 }
 
 void IPC::enableZeroMQ(const string &zeroMQEndpoint) {
@@ -131,9 +120,6 @@ err_shmFd:
 
 IPC::~IPC() {
 
-  if (consumer.joinable()) {
-    consumer.join();
-  }
   if (!sharedMemEnabled)
     return;
   // unlink and close() are both needed: unlink only disassociates the
@@ -162,17 +148,23 @@ IPC::~IPC() {
   }
 }
 
+void IPC::wait() { ipcPcQueue.wait(); }
+
 void IPC::enqueueData(cv::Mat dispFrame) {
   // cv::Mat operates with an internal reference-counter, so we need to clone()
   // to increase the counter
   // Another point is that try_enqueue() does std::move() internally, how does
   // it interplay with cv::Mat's ref-counting model? Not 100% clear to me...
-  if (q.try_enqueue(dispFrame.clone()) == false) [[unlikely]] {
+  /*  if (q.try_enqueue(dispFrame.clone()) == false) [[unlikely]] {
     spdlog::warn("IPC pcQueue is full, this dispFrame will be not be sent");
+    }*/
+  if (!ipcPcQueue.try_enqueue(dispFrame)) [[unlikely]] {
+    spdlog::warn("[{}] IPC pcQueue is full, this dispFrame will be not be sent",
+                 deviceName);
   }
 }
 
-void IPC::consumeCb(cv::Mat &dispFrame) {
+void IPC::sendDataCb(cv::Mat &dispFrame) {
   // vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
   vector<int> configs = {};
   if (httpEnabled) {

@@ -4,6 +4,7 @@
 #include "event_loop.h"
 #include "global_vars.h"
 #include "ipc.h"
+#include "pc_queue.h"
 #include "utils.h"
 
 #include <atomic>
@@ -24,6 +25,20 @@
 
 using namespace cv;
 using njson = nlohmann::json;
+
+struct videoWritingInfo {
+  std::string fourcc;
+  std::string evaluatedVideoPath;
+  float fps;
+  ssize_t outputWidth;
+  ssize_t outputHeight;
+  std::atomic<bool> &videoWriting;
+};
+
+struct videoWritingPayload {
+  cv::Mat m;
+  cv::VideoWriter vw;
+};
 
 class DeviceManager : public EventLoop {
 
@@ -77,12 +92,10 @@ private:
   std::string timestampOnDeviceOffline;
   std::queue<int64_t> frameTimestamps;
 
+  // videoWritingPcQueue
+  PcQueue<cv::Mat, struct videoWritingInfo, struct videoWritingPayload>
+      vwPcQueue;
   std::atomic<bool> videoWriting;
-  std::thread dispFrameConsumer;
-  static void eventLoopConsumeDispFrame(DeviceManager *);
-  moodycamel::BlockingReaderWriterCircularBuffer<cv::Mat> videoWriterQueue;
-  void consumeDispFrameCb(const cv::Mat &dispFrame, VideoWriter &vw);
-  void enqueueVideoWriterFrame(cv::Mat dispFrame);
 
   void setParameters(const size_t deviceIndex);
   void
