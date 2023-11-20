@@ -7,16 +7,10 @@
 #include "pc_queue.h"
 #include "utils.h"
 
-#include <atomic>
 #include <nlohmann/json.hpp>
 #include <readerwriterqueue/readerwritercircularbuffer.h>
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#pragma GCC diagnostic pop
 
+#include <atomic>
 #include <linux/stat.h>
 #include <queue>
 #include <signal.h>
