@@ -491,7 +491,7 @@ void DeviceManager::InternalThreadEntry() {
                    deviceName, dispFrames.front().size().width,
                    dispFrames.front().size().height, outputWidth, outputHeight);
     }
-    if (!vwPcQueue.try_enqueue(dispFrames.front())) {
+    if (!vwPcQueue.try_enqueue(dispFrames.front().clone())) {
       spdlog::warn("[{}] pcQueue is full", deviceName);
     }
     // enqueueVideoWriterFrame(dispFrames.front());

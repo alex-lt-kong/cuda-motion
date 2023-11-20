@@ -18,7 +18,7 @@ IPC::IPC(const size_t deviceIndex, const string &deviceName)
     : zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub) {
   this->deviceIndex = deviceIndex;
   this->deviceName = deviceName;
-  ipcPcQueue.start({.ipcInstance = this});
+  ipcPcQueue.start({.ipcInstance = this, .snapshot = cv::Mat()});
 }
 
 void IPC::enableZeroMQ(const string &zeroMQEndpoint) {

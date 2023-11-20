@@ -3,7 +3,7 @@
 
 #include <nlohmann/json.hpp>
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-anon-enum-enum-conversion"
+#pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
