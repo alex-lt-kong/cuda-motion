@@ -6,6 +6,7 @@
 #include "ipc.h"
 #include "utils.h"
 
+#include <atomic>
 #include <nlohmann/json.hpp>
 #include <readerwriterqueue/readerwritercircularbuffer.h>
 #pragma GCC diagnostic push
@@ -76,11 +77,11 @@ private:
   std::string timestampOnDeviceOffline;
   std::queue<int64_t> frameTimestamps;
 
-  VideoWriter vwriter;
+  std::atomic<bool> videoWriting;
   std::thread dispFrameConsumer;
   static void eventLoopConsumeDispFrame(DeviceManager *);
   moodycamel::BlockingReaderWriterCircularBuffer<cv::Mat> videoWriterQueue;
-  void consumeDispFrameCb(cv::Mat &dispFrame);
+  void consumeDispFrameCb(const cv::Mat &dispFrame, VideoWriter &vw);
   void enqueueVideoWriterFrame(cv::Mat dispFrame);
 
   void setParameters(const size_t deviceIndex);
@@ -91,9 +92,8 @@ private:
   std::string evaluateStaticVariables(std::basic_string<char> originalString);
   std::string
   evaluateVideoSpecficVariables(std::basic_string<char> originalString);
-  void startOrKeepVideoRecording(VideoWriter &vwriter, int64_t &cd);
-  void stopVideoRecording(VideoWriter &vwriter, uint32_t &videoFrameCount,
-                          int cd);
+  void startOrKeepVideoRecording(int64_t &cd);
+  void stopVideoRecording(uint32_t &videoFrameCount, int cd);
   void markDeviceAsOffline(bool &isShowingBlankFrame);
   void deviceIsBackOnline(size_t &openRetryDelay, bool &isShowingBlankFrame);
   void initializeDevice(VideoCapture &cap, bool &result,

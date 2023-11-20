@@ -1,6 +1,7 @@
 #include "device_manager.h"
 #include "frame_handler.h"
 
+#include <opencv2/videoio.hpp>
 #include <spdlog/spdlog.h>
 
 #include <errno.h>
@@ -14,7 +15,7 @@ using namespace std;
 
 namespace FH = FrameHandler;
 
-DeviceManager::DeviceManager(const size_t deviceIndex) : videoWriterQueue(256) {
+DeviceManager::DeviceManager(const size_t deviceIndex) : videoWriterQueue(128) {
 
   { // settings variable is used by multiple threads, possibly concurrently, is
     // reading it thread-safe? According to the below response from the library
@@ -50,7 +51,6 @@ DeviceManager::DeviceManager(const size_t deviceIndex) : videoWriterQueue(256) {
         evaluateStaticVariables(
             conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"]));
   }
-  dispFrameConsumer = std::thread(&eventLoopConsumeDispFrame, this);
 }
 
 string DeviceManager::evaluateVideoSpecficVariables(
@@ -174,10 +174,13 @@ bool DeviceManager::shouldFrameBeThrottled() {
   return false;
 }
 
-void DeviceManager::stopVideoRecording(VideoWriter &vwriter,
-                                       uint32_t &videoFrameCount, int cd) {
-
-  vwriter.release();
+void DeviceManager::stopVideoRecording(uint32_t &videoFrameCount, int cd) {
+  if (videoWriting) {
+    videoWriting = false;
+    if (dispFrameConsumer.joinable()) {
+      dispFrameConsumer.join();
+    }
+  }
 
   if (cd > 0) {
     spdlog::warn("[{}] video recording stopped before cooldown reaches 0",
@@ -200,8 +203,7 @@ void DeviceManager::stopVideoRecording(VideoWriter &vwriter,
   videoFrameCount = 0;
 }
 
-void DeviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
-                                              int64_t &cd) {
+void DeviceManager::startOrKeepVideoRecording(int64_t &cd) {
 
   auto handleOnVideoStarts = [&]() {
     if (conf["events"]["onVideoStarts"].get<string>().size() > 0) {
@@ -221,7 +223,7 @@ void DeviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
   cd = minFramesPerVideo;
 
   // These two if's: video recording is in progress already.
-  if (vwriter.isOpened())
+  if (videoWriting)
     return;
 
   timestampOnVideoStarts = getCurrentTimestamp();
@@ -229,19 +231,8 @@ void DeviceManager::startOrKeepVideoRecording(VideoWriter &vwriter,
       conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"]);
 
   handleOnVideoStarts();
-  // Use OpenCV to encode video
-  string fourcc =
-      conf["motionDetection"]["videoRecording"]["videoWriter"]["fourcc"]
-          .get<string>();
-  const int codec =
-      VideoWriter::fourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3]);
-  /* For VideoWriter, we have to use FFmpeg as we compiled FFmpeg with
-  Nvidia GPU*/
-  vwriter = VideoWriter(
-      evaluatedVideoPath, cv::CAP_FFMPEG, codec,
-      conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"],
-      Size(outputWidth, outputHeight),
-      {VIDEOWRITER_PROP_HW_ACCELERATION, cv::VIDEO_ACCELERATION_ANY});
+  videoWriting = true;
+  dispFrameConsumer = std::thread(&eventLoopConsumeDispFrame, this);
 }
 
 void DeviceManager::getLiveImage(vector<uint8_t> &pl) {
@@ -473,7 +464,7 @@ void DeviceManager::InternalThreadEntry() {
         (rateOfChange > frameDiffPercentageLowerLimit &&
          rateOfChange < frameDiffPercentageUpperLimit &&
          motionDetectionMode == MODE_DETECT_MOTION)) {
-      startOrKeepVideoRecording(vwriter, cd);
+      startOrKeepVideoRecording(cd);
     }
 
     updateVideoCooldownAndVideoFrameCount(cd, videoFrameCount);
@@ -482,7 +473,7 @@ void DeviceManager::InternalThreadEntry() {
       continue;
     }
     if (cd == 0) {
-      stopVideoRecording(vwriter, videoFrameCount, cd);
+      stopVideoRecording(videoFrameCount, cd);
       continue;
     }
     if (dispFrames.front().size().width != outputWidth ||
@@ -496,27 +487,39 @@ void DeviceManager::InternalThreadEntry() {
     enqueueVideoWriterFrame(dispFrames.front());
   }
   if (cd > 0) {
-    stopVideoRecording(vwriter, videoFrameCount, cd);
+    stopVideoRecording(videoFrameCount, cd);
   }
   cap.release();
   spdlog::info("[{}] thread quits gracefully", deviceName);
 }
 
 void DeviceManager::eventLoopConsumeDispFrame(DeviceManager *This) {
+  // Use OpenCV to encode video
+  string fourcc =
+      This->conf["motionDetection"]["videoRecording"]["videoWriter"]["fourcc"]
+          .get<string>();
+  const int codec =
+      VideoWriter::fourcc(fourcc[0], fourcc[1], fourcc[2], fourcc[3]);
+  /* For VideoWriter, we have to use FFmpeg as we compiled FFmpeg with
+  Nvidia GPU*/
+  auto vw = VideoWriter(
+      This->evaluatedVideoPath, cv::CAP_FFMPEG, codec,
+      This->conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"],
+      Size(This->outputWidth, This->outputHeight),
+      {VIDEOWRITER_PROP_HW_ACCELERATION, cv::VIDEO_ACCELERATION_ANY});
   cv::Mat msg;
-  while (ev_flag == 0) {
+  while (ev_flag == 0 && This->videoWriting) {
     if (This->videoWriterQueue.wait_dequeue_timed(
             msg, std::chrono::milliseconds(500))) {
-      This->consumeDispFrameCb(msg);
+      This->consumeDispFrameCb(msg, vw);
     }
   }
-  spdlog::info("[{}] eventLoopConsumeDispFrame exited gracefully",
-               This->deviceName);
+  vw.release();
 }
 
-void DeviceManager::consumeDispFrameCb(cv::Mat &dispFrame) {
-  if (vwriter.isOpened())
-    vwriter.write(dispFrame);
+void DeviceManager::consumeDispFrameCb(const cv::Mat &dispFrame,
+                                       VideoWriter &vw) {
+  vw.write(dispFrame);
 }
 
 void DeviceManager::enqueueVideoWriterFrame(cv::Mat dispFrame) {
