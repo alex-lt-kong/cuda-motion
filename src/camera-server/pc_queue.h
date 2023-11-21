@@ -1,5 +1,5 @@
-#ifndef PC_QUEUE_H
-#define PC_QUEUE_H
+#ifndef CS_PC_QUEUE_H
+#define CS_PC_QUEUE_H
 
 #include <readerwriterqueue/readerwritercircularbuffer.h>
 
@@ -35,4 +35,4 @@ public:
   bool try_enqueue(T_ENQUEUE_PAYLOAD);
 };
 
-#endif // RS_PC_QUEUE_H
+#endif // CS_PC_QUEUE_H
