@@ -31,7 +31,7 @@ There are two main functions of this program:
     parallelable tasks to GPUs, achieving much better performace.
 
   - On the con side, [Motion](https://github.com/Motion-Project/motion) works
-    as long as you have a CPU (😉), but
+    as long as you have a CPU😉, but
     [Cuda motion](https://github.com/alex-lt-kong/cuda-motion) can only run if
     you have an Nvidia GPU and its closed source CUDA framework installed.
 

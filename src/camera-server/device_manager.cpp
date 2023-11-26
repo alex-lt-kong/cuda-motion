@@ -90,7 +90,8 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
   conf["videoFeed"]["uri"] = evaluateStaticVariables(conf["videoFeed"]["uri"]);
 
   // ===== frame =====
-  frameRotationAngle = conf["frame"]["rotationAngle"].get<double>();
+
+  frameRotationAngle = conf.value("/frame/rotationAngle"_json_pointer, 0.0);
   textOverlayEnabled = conf["frame"]["textOverlay"]["enabled"];
   textOverlayFontSacle = conf["frame"]["textOverlay"]["fontScale"];
   frameQueueSize = conf["frame"]["queueSize"];
@@ -436,7 +437,7 @@ void DeviceManager::InternalThreadEntry() {
       stopVideoRecording(videoFrameCount, cd);
       continue;
     }
-    
+
     if (hDispFrames.front().size().width != outputWidth ||
         hDispFrames.front().size().height != outputHeight) {
       throw new runtime_error("This is not supposed to happen");
