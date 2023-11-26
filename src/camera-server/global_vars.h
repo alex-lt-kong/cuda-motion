@@ -1,5 +1,5 @@
-#ifndef CS_GLOBAL_VARS_H
-#define CS_GLOBAL_VARS_H
+#ifndef CM_GLOBAL_VARS_H
+#define CM_GLOBAL_VARS_H
 
 #include <nlohmann/json.hpp>
 #pragma GCC diagnostic push
@@ -42,4 +42,4 @@ extern std::mutex mtxNjsonSettings;
 // The answer seems to be affirmative.
 extern nlohmann::json settings;
 
-#endif /* CS_GLOBAL_VARS_H */
+#endif /* CM_GLOBAL_VARS_H */

@@ -1,9 +1,10 @@
-#ifndef CS_FRAME_HANDLER_H
-#define CS_FRAME_HANDLER_H
+#ifndef CM_FRAME_HANDLER_H
+#define CM_FRAME_HANDLER_H
 
 #include "global_vars.h"
 
 #include <opencv2/core/core.hpp>
+#include <opencv2/cudacodec.hpp>
 
 namespace FrameHandler {
 
@@ -20,12 +21,13 @@ void overlayStats(cv::Mat &frame, const float changeRate, const int cd,
                   const enum MotionDetectionMode mode, const float currentFps,
                   const uint32_t maxFramesPerVideo);
 
-float getFrameChanges(cv::Mat &prevFrame, cv::Mat &currFrame,
-                      cv::Mat *diffFrame, double pixelDiffAbsThreshold);
+float getFrameChanges(cv::cuda::GpuMat &prevFrame, cv::cuda::GpuMat &currFrame,
+                      cv::cuda::GpuMat &diffFrame,
+                      double pixelDiffAbsThreshold);
 
-void generateBlankFrameAt1Fps(cv::Mat &currFrame,
+void generateBlankFrameAt1Fps(cv::cuda::GpuMat &currFrame,
                               const cv::Size &actualFrameSize);
 
 } // namespace FrameHandler
 
-#endif /* CS_FRAME_HANDLER_H */
+#endif /* CM_FRAME_HANDLER_H */

@@ -1,5 +1,5 @@
-#ifndef CS_DEVICE_MANAGER_H
-#define CS_DEVICE_MANAGER_H
+#ifndef CM_DEVICE_MANAGER_H
+#define CM_DEVICE_MANAGER_H
 
 #include "event_loop.h"
 #include "global_vars.h"
@@ -8,6 +8,8 @@
 #include "utils.h"
 
 #include <nlohmann/json.hpp>
+#include <opencv2/core/cuda.hpp>
+#include <opencv2/cudacodec.hpp>
 #include <readerwriterqueue/readerwritercircularbuffer.h>
 
 #include <atomic>
@@ -30,8 +32,8 @@ struct videoWritingInfo {
 };
 
 struct videoWritingPayload {
-  cv::Mat m;
-  cv::VideoWriter vw;
+  cv::cuda::GpuMat m;
+  Ptr<cudacodec::VideoWriter> vw;
 };
 
 class DeviceManager : public EventLoop {
@@ -54,8 +56,7 @@ private:
   // frame variables
   bool textOverlayEnabled;
   double textOverlayFontSacle;
-  float throttleFpsIfHigherThan;
-  int frameRotation;
+  double frameRotationAngle;
   ssize_t outputWidth;
   ssize_t outputHeight;
   std::string evaluatedVideoPath;
@@ -87,7 +88,7 @@ private:
   std::queue<int64_t> frameTimestamps;
 
   // videoWritingPcQueue
-  PcQueue<cv::Mat, struct videoWritingInfo, struct videoWritingPayload>
+  PcQueue<cv::cuda::GpuMat, struct videoWritingInfo, struct videoWritingPayload>
       vwPcQueue;
   std::atomic<bool> videoWriting;
 
@@ -103,12 +104,10 @@ private:
   void stopVideoRecording(uint32_t &videoFrameCount, int cd);
   void markDeviceAsOffline(bool &isShowingBlankFrame);
   void deviceIsBackOnline(size_t &openRetryDelay, bool &isShowingBlankFrame);
-  void initializeDevice(VideoCapture &cap, bool &result,
-                        const Size &actualFrameSize);
+  bool initializeDevice(cudacodec::VideoReader *reader);
   float getCurrentFps(int64_t msSinceEpoch);
-  void warnCPUResize(const Size &actualFrameSize);
 };
 
 extern std::vector<std::unique_ptr<DeviceManager>> myDevices;
 
-#endif /* CS_DEVICE_MANAGER_H */
+#endif /* CM_DEVICE_MANAGER_H */

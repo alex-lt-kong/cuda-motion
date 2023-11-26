@@ -2,6 +2,9 @@
 #include "frame_handler.h"
 #include "global_vars.h"
 
+#include <opencv2/core.hpp>
+#include <opencv2/core/cuda.hpp>
+#include <opencv2/cudawarping.hpp>
 #include <opencv2/videoio.hpp>
 #include <spdlog/spdlog.h>
 
@@ -87,10 +90,7 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
   conf["videoFeed"]["uri"] = evaluateStaticVariables(conf["videoFeed"]["uri"]);
 
   // ===== frame =====
-  frameRotation = conf["frame"]["rotation"];
-  outputWidth = conf["frame"]["outputWidth"];
-  outputHeight = conf["frame"]["outputHeight"];
-  throttleFpsIfHigherThan = conf["frame"]["throttleFpsIfHigherThan"];
+  frameRotationAngle = conf["frame"]["rotationAngle"].get<double>();
   textOverlayEnabled = conf["frame"]["textOverlay"]["enabled"];
   textOverlayFontSacle = conf["frame"]["textOverlay"]["fontScale"];
   frameQueueSize = conf["frame"]["queueSize"];
@@ -139,39 +139,21 @@ DeviceManager::~DeviceManager() {
 }
 
 float DeviceManager::getCurrentFps(int64_t msSinceEpoch) {
+
+  constexpr int sampleMsUpperLimit = 10 * 1000;
+  frameTimestamps.push(msSinceEpoch);
+  // time complexity of frameTimestamps.size()/front()/back()/push()/pop()
+  // are guaranteed to be O(1)
+  if (msSinceEpoch - frameTimestamps.front() > sampleMsUpperLimit) {
+    frameTimestamps.pop();
+  }
+
   float fps = FLT_MAX;
   if (msSinceEpoch - frameTimestamps.front() > 0) {
     fps = 1000.0 * frameTimestamps.size() /
           (msSinceEpoch - frameTimestamps.front());
   }
   return fps;
-}
-
-bool DeviceManager::shouldFrameBeThrottled() {
-
-  constexpr int sampleMsUpperLimit = 10 * 1000;
-  int64_t msSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
-                             chrono::system_clock::now().time_since_epoch())
-                             .count();
-  if (frameTimestamps.size() <= 1) {
-    frameTimestamps.push(msSinceEpoch);
-    return false;
-  }
-
-  // time complexity of frameTimestamps.size()/front()/back()/push()/pop()
-  // are guaranteed to be O(1)
-  if (msSinceEpoch - frameTimestamps.front() > sampleMsUpperLimit) {
-    frameTimestamps.pop();
-  }
-  // The logic is this:
-  // A timestamp is only added to the queue if it is not throttled.
-  // That is, if a frame is throttled, it will not be taking into account
-  // when we calculate Fps.
-  if (getCurrentFps(msSinceEpoch) > throttleFpsIfHigherThan) {
-    return true;
-  }
-  frameTimestamps.push(msSinceEpoch);
-  return false;
 }
 
 void DeviceManager::stopVideoRecording(uint32_t &videoFrameCount, int cd) {
@@ -302,76 +284,35 @@ void DeviceManager::deviceIsBackOnline(size_t &openRetryDelay,
   }
 }
 
-void DeviceManager::initializeDevice(VideoCapture &cap, bool &result,
-                                     const Size &actualFrameSize) {
-  result = cap.open(conf["videoFeed"]["uri"].get<string>(),
-                    conf["videoFeed"]["videoCaptureApi"],
-                    {CAP_PROP_HW_ACCELERATION, cv::VIDEO_ACCELERATION_ANY});
-  spdlog::info("[{}] cap.open({}): {}", deviceName,
-               conf["videoFeed"]["uri"].get<string>(), result);
-  if (!result) {
-    return;
+bool DeviceManager::initializeDevice(cudacodec::VideoReader *vr) {
+  try {
+    vr = cudacodec::createVideoReader(conf["videoFeed"]["uri"].get<string>());
+    vr->set(cudacodec::ColorFormat::BGR);
+    spdlog::info("[{}] VideoReader initialized ({})", deviceName,
+                 conf["videoFeed"]["uri"].get<string>());
+    return true;
+  } catch (const cv::Exception &e) {
+    spdlog::error("[{}] VideoReader initialization failed: {}", deviceName,
+                  e.what());
   }
-
-  int fourcc = cap.get(CAP_PROP_FOURCC);
-  string fourcc_str = format("%c%c%c%c", fourcc & 255, (fourcc >> 8) & 255,
-                             (fourcc >> 16) & 255, (fourcc >> 24) & 255);
-
-  if (all_of(fourcc_str.begin(), fourcc_str.end(),
-             [](char c) { return !isgraph(c); })) {
-    fourcc_str = "<non-printable>";
-  }
-  spdlog::info("[{}] cap.getBackendName(): {}, CAP_PROP_FOURCC: 0x{:x}({})",
-               deviceName, cap.getBackendName(), fourcc, fourcc_str);
-  string fcc = conf["videoFeed"]["fourcc"];
-  if (fcc.size() == 4) {
-    cap.set(CAP_PROP_FOURCC,
-            VideoWriter::fourcc(fcc[0], fcc[1], fcc[2], fcc[3]));
-  }
-  if (actualFrameSize.width > 0)
-    cap.set(CAP_PROP_FRAME_WIDTH, actualFrameSize.width);
-  if (actualFrameSize.height > 0)
-    cap.set(CAP_PROP_FRAME_HEIGHT, actualFrameSize.height);
-  if (conf["frame"]["preferredFps"] > 0)
-    cap.set(CAP_PROP_FPS, conf["frame"]["preferredFps"]);
-}
-
-void DeviceManager::warnCPUResize(const Size &actualFrameSize) {
-  if ((actualFrameSize.width != conf["frame"]["preferredInputWidth"] &&
-       conf["frame"]["preferredInputWidth"] != -1) ||
-      (actualFrameSize.height != conf["frame"]["preferredInputHeight"] &&
-       conf["frame"]["preferredInputHeight"] != -1)) {
-    spdlog::warn("[{}] actualFrameSize({}x{}) is different "
-                 "from preferredInputSize ({}x{}). (The program has "
-                 "no choice but using actualFrameSize)",
-                 deviceName, actualFrameSize.width, actualFrameSize.height,
-                 conf["frame"]["preferredInputWidth"].get<int>(),
-                 conf["frame"]["preferredInputHeight"].get<int>());
-  }
-  if (actualFrameSize.width != outputWidth ||
-      actualFrameSize.height != outputHeight) {
-    spdlog::warn("[{}] actualFrameSize({}x{}) is different "
-                 "from outputSize ({}x{}), so frame will have to be "
-                 "resized, this is a CPU-intensive operation.",
-                 deviceName, actualFrameSize.width, actualFrameSize.height,
-                 outputWidth, outputHeight);
-  }
+  return false;
 }
 
 void DeviceManager::InternalThreadEntry() {
 
-  queue<Mat> dispFrames;
-  Mat prevFrame, currFrame, diffFrame;
+  queue<Mat> hDispFrames;
+  cuda::GpuMat dPrevFrame, dCurrFrame, dDiffFrame;
   bool result = false;
   bool isShowingBlankFrame = false;
-  VideoCapture cap;
+  // VideoCapture cap;
+  Ptr<cudacodec::VideoReader> vr;
   float rateOfChange = 0.0;
 
   uint64_t retrievedFramesSinceLastOpen = 0;
   uint64_t retrievedFramesSinceStart = 0;
   uint32_t videoFrameCount = 0;
-  Size actualFrameSize = Size(conf["frame"]["preferredInputWidth"],
-                              conf["frame"]["preferredInputHeight"]);
+  // Will be updated after 1st actual frame is received
+  Size actualFrameSize = Size(1280, 720);
 
   // cd: cooldown
   int64_t cd = 0;
@@ -382,85 +323,97 @@ void DeviceManager::InternalThreadEntry() {
   goto entryPoint;
 
   while (ev_flag == 0) {
-    result = cap.read(currFrame);
-    if (shouldFrameBeThrottled()) {
-      /* Seems that sometimes OpenCV could grab() the same frame time
-      and time again, maxing out the CPU, so we make it sleep_for() a
-      little bit of time. */
-      this_thread::sleep_for(2ms);
-      continue;
-    }
+    result = vr->nextFrame(dCurrFrame);
     ++retrievedFramesSinceStart;
     ++retrievedFramesSinceLastOpen;
 
-    if (result == false || currFrame.empty() || cap.isOpened() == false) {
+    if (result == false || dCurrFrame.empty()) [[unlikely]] {
       markDeviceAsOffline(isShowingBlankFrame);
-      FH::generateBlankFrameAt1Fps(currFrame, actualFrameSize);
+      FH::generateBlankFrameAt1Fps(dCurrFrame, actualFrameSize);
       if (retrievedFramesSinceStart % openRetryDelay == 0) {
         openRetryDelay *= 2;
         spdlog::error("[{}] Unable to cap.read() a new frame. "
                       "Wait for {} frames than then re-open()...",
                       deviceName, openRetryDelay);
       entryPoint:
-        initializeDevice(cap, result, actualFrameSize);
-        retrievedFramesSinceLastOpen = 0;
-        continue;
+        try {
+          vr = cudacodec::createVideoReader(
+              conf["videoFeed"]["uri"].get<string>());
+          vr->set(cudacodec::ColorFormat::BGR);
+          spdlog::info("[{}] VideoReader initialized ({})", deviceName,
+                       conf["videoFeed"]["uri"].get<string>());
+          retrievedFramesSinceLastOpen = 0;
+          // If they are -1, we want to reload them
+          outputWidth = conf["frame"]["outputWidth"];
+          outputHeight = conf["frame"]["outputHeight"];
+          continue;
+        } catch (const cv::Exception &e) {
+          spdlog::error("[{}] VideoReader initialization failed: {}",
+                        deviceName, e.what());
+        }
       }
-    } else if (isShowingBlankFrame) {
+    } else if (isShowingBlankFrame) [[unlikely]] {
       deviceIsBackOnline(openRetryDelay, isShowingBlankFrame);
     }
-    if (frameRotation != -1 && isShowingBlankFrame == false) {
-      rotate(currFrame, currFrame, frameRotation);
+    if (frameRotationAngle != 0.0 && isShowingBlankFrame == false) {
+      cv::cuda::GpuMat gpuRotatedImage;
+      cv::cuda::rotate(dCurrFrame.clone(), dCurrFrame, dCurrFrame.size(),
+                       frameRotationAngle, static_cast<float>(dCurrFrame.cols),
+                       static_cast<float>(dCurrFrame.rows));
     }
     if (retrievedFramesSinceLastOpen == 1) {
-      actualFrameSize = currFrame.size();
+      actualFrameSize = dCurrFrame.size();
       outputWidth = outputWidth == -1 ? actualFrameSize.width : outputWidth;
       outputHeight = outputHeight == -1 ? actualFrameSize.height : outputHeight;
-      warnCPUResize(actualFrameSize);
     }
 
     if (motionDetectionMode == MODE_DETECT_MOTION &&
         retrievedFramesSinceStart % diffEveryNthFrame == 0) {
       if (isShowingBlankFrame == false) {
         // profiling shows this if() block takes around 1-2 ms
-        rateOfChange = FH::getFrameChanges(prevFrame, currFrame, &diffFrame,
+        rateOfChange = FH::getFrameChanges(dPrevFrame, dCurrFrame, dDiffFrame,
                                            pixelDiffAbsThreshold);
       } else {
         rateOfChange = -1;
       }
       /* Can't just assign like prevFrame = currFrame, otherwise two
       objects will share the same copy of underlying image data */
-      prevFrame = currFrame.clone();
+      // dPrevFrame = dCurrFrame;
+      dCurrFrame.copyTo(dPrevFrame);
     }
     if (actualFrameSize.width != outputWidth ||
         actualFrameSize.height != outputHeight) {
-      resize(currFrame, currFrame, cv::Size(outputWidth, outputHeight));
+      cuda::resize(dCurrFrame, dCurrFrame, cv::Size(outputWidth, outputHeight));
     }
-    dispFrames.push(currFrame);
-    if (dispFrames.size() > frameQueueSize) {
-      dispFrames.pop();
+    Mat hFrame;
+    dCurrFrame.download(hFrame);
+    hDispFrames.push(hFrame);
+    if (hDispFrames.size() > frameQueueSize) {
+      hDispFrames.pop();
     }
     if (drawContours && motionDetectionMode == MODE_DETECT_MOTION &&
         isShowingBlankFrame == false) {
-      FH::overlayContours(dispFrames.back(), diffFrame);
+      Mat hDiffFrame;
+      dDiffFrame.download(hDiffFrame);
+      FH::overlayContours(hDispFrames.back(), hDiffFrame);
       // CPU-intensive! Use with care!
     }
     if (textOverlayEnabled) {
       FH::overlayStats(
-          dispFrames.back(), rateOfChange, cd, videoFrameCount,
+          hDispFrames.back(), rateOfChange, cd, videoFrameCount,
           textOverlayFontSacle, motionDetectionMode,
           getCurrentFps(chrono::duration_cast<chrono::milliseconds>(
                             chrono::system_clock::now().time_since_epoch())
                             .count()),
           maxFramesPerVideo);
-      FH::overlayDatetime(dispFrames.back(), textOverlayFontSacle,
+      FH::overlayDatetime(hDispFrames.back(), textOverlayFontSacle,
                           timestampOnDeviceOffline);
-      FH::overlayDeviceName(dispFrames.back(), textOverlayFontSacle,
+      FH::overlayDeviceName(hDispFrames.back(), textOverlayFontSacle,
                             deviceName);
     }
 
     if ((retrievedFramesSinceStart - 1) % snapshotFrameInterval == 0) {
-      ipc->enqueueData(dispFrames.front().clone());
+      ipc->enqueueData(hDispFrames.front().clone());
     }
 
     if (motionDetectionMode == MODE_DISABLED) {
@@ -483,15 +436,14 @@ void DeviceManager::InternalThreadEntry() {
       stopVideoRecording(videoFrameCount, cd);
       continue;
     }
-    if (dispFrames.front().size().width != outputWidth ||
-        dispFrames.front().size().height != outputHeight) {
-      spdlog::warn("[{}] dispFrame.size() == (w{}, h{}) != Size(outputWidth, "
-                   "outputHeight) == (w{}, h{}), "
-                   "OpenCV::VideoWriter may fail silently",
-                   deviceName, dispFrames.front().size().width,
-                   dispFrames.front().size().height, outputWidth, outputHeight);
+    
+    if (hDispFrames.front().size().width != outputWidth ||
+        hDispFrames.front().size().height != outputHeight) {
+      throw new runtime_error("This is not supposed to happen");
     }
-    if (!vwPcQueue.try_enqueue(dispFrames.front().clone())) {
+    cuda::GpuMat dDispFrame;
+    dDispFrame.upload(hDispFrames.front());
+    if (!vwPcQueue.try_enqueue(dDispFrame)) {
       spdlog::warn("[{}] pcQueue is full", deviceName);
     }
     // enqueueVideoWriterFrame(dispFrames.front());
@@ -499,6 +451,6 @@ void DeviceManager::InternalThreadEntry() {
   if (cd > 0) {
     stopVideoRecording(videoFrameCount, cd);
   }
-  cap.release();
+  vr.release();
   spdlog::info("[{}] thread quits gracefully", deviceName);
 }

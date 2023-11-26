@@ -1,5 +1,5 @@
-#ifndef CS_UTILS_H
-#define CS_UTILS_H
+#ifndef CM_UTILS_H
+#define CM_UTILS_H
 
 #include <spdlog/spdlog.h>
 
@@ -13,4 +13,4 @@ std::string getCurrentTimestamp() noexcept;
 
 void install_signal_handler();
 
-#endif /* CS_UTILS_H */
+#endif /* CM_UTILS_H */

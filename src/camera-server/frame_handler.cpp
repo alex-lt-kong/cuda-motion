@@ -1,6 +1,8 @@
 #include "frame_handler.h"
 #include "utils.h"
 
+#include <opencv2/cudaarithm.hpp>
+#include <opencv2/cudaimgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
@@ -76,7 +78,8 @@ void overlayStats(Mat &frame, const float changeRate, const int cd,
           fontSacle, Scalar(255, 255, 255), 2 * fontSacle, LINE_8, false);
 }
 
-float getFrameChanges(Mat &prevFrame, Mat &currFrame, Mat *diffFrame,
+float getFrameChanges(cv::cuda::GpuMat &prevFrame, cv::cuda::GpuMat &currFrame,
+                      cv::cuda::GpuMat &diffFrame,
                       double pixelDiffAbsThreshold) {
   if (prevFrame.empty() || currFrame.empty()) {
     return -1;
@@ -88,14 +91,16 @@ float getFrameChanges(Mat &prevFrame, Mat &currFrame, Mat *diffFrame,
     return -1;
   }
 
-  absdiff(prevFrame, currFrame, *diffFrame);
-  cvtColor(*diffFrame, *diffFrame, COLOR_BGR2GRAY);
-  threshold(*diffFrame, *diffFrame, pixelDiffAbsThreshold, 255, THRESH_BINARY);
-  int nonZeroPixels = countNonZero(*diffFrame);
-  return 100.0 * nonZeroPixels / (diffFrame->rows * diffFrame->cols);
+  cuda::absdiff(prevFrame, currFrame, diffFrame);
+  cuda::cvtColor(diffFrame, diffFrame, COLOR_BGR2GRAY);
+  cuda::threshold(diffFrame, diffFrame, pixelDiffAbsThreshold, 255,
+                  THRESH_BINARY);
+  int nonZeroPixels = cuda::countNonZero(diffFrame);
+  return 100.0 * nonZeroPixels / (diffFrame.rows * diffFrame.cols);
 }
 
-void generateBlankFrameAt1Fps(Mat &currFrame, const Size &actualFrameSize) {
+void generateBlankFrameAt1Fps(cv::cuda::GpuMat &currFrame,
+                              const Size &actualFrameSize) {
   this_thread::sleep_for(999ms); // Throttle the generation at 1 fps.
 
   /* Even if we generate nothing but a blank screen, we cant just use some
@@ -108,10 +113,10 @@ void generateBlankFrameAt1Fps(Mat &currFrame, const Size &actualFrameSize) {
   the original resolution to write one frame, causing screen tearing
   */
   if (actualFrameSize.width > 0 && actualFrameSize.height > 0) {
-    currFrame = Mat(actualFrameSize.height, actualFrameSize.width, CV_8UC3,
-                    Scalar(128, 128, 128));
+    currFrame = cv::cuda::GpuMat(actualFrameSize.height, actualFrameSize.width,
+                                 CV_8UC3, Scalar(128, 128, 128));
   } else {
-    currFrame = Mat(540, 960, CV_8UC3, Scalar(128, 128, 128));
+    currFrame = cv::cuda::GpuMat(540, 960, CV_8UC3, Scalar(128, 128, 128));
     // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
   }
 }

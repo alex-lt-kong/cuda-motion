@@ -18,45 +18,11 @@
   "devicesDefault": {
     "name": "Device-{{deviceIndex}}",
     "videoFeed": {
-      "uri": "/dev/video{{deviceIndex}}",
-      /* This will be directly passed to OpenCV. OpenCV will make it guess
-      if left empty; otherwise, it is users responsibility
-      to make sure the supplied parameter is correct/compatible with the
-      video feed. Some methods to query supported fourcc:
-
-      * For v4l2 device: v4l2-ctl --get-fmt-video --device <videoUri>
-      * For RTSP device: use the IPCam's dashboard to check
-
-      ./helper/opencv.py accompanied by the project can provide OpenCV's
-      best guess, but this is not guaranteed to be the most accurate one.
-      */
-      "fourcc": "",
-      /* an enum value of cv::VideoCaptureAPIs from here:
-      https://docs.opencv.org/4.5.4/d4/d15/group__videoio__flags__base.html
-      Typically one may try:
-        cv::CAP_ANY = 0,
-        cv::CAP_V4L = 200,
-        cv::CAP_V4L2 = CAP_V4L,
-        cv::CAP_GSTREAMER = 1800, 
-        cv::CAP_FFMPEG = 1900,
-        cv::CAP_OPENCV_MJPEG = 2200, 
-      */
-      "videoCaptureApi": 0
+      "uri": "/dev/video{{deviceIndex}}"
     },
     "frame": {
-      /* Setting this to a lower value to limit CPU usage. For example,
-      if the program can read 60 frames per sec from a deivce and
-      throttleFpsIfHigherThan is set to 10, the program roughly discards
-      5 in every 6 frames. Discarded frames are neither decompressed nor
-      decoded, saving a lot of CPU resource. */
-      "throttleFpsIfHigherThan": 10.0,
-      /*
-        cv::ROTATE_90_CLOCKWISE = 0,
-        cv::ROTATE_180 = 1,
-        cv::ROTATE_90_COUNTERCLOCKWISE = 2 
-      Profiling shows that rotation is a pretty CPU intensive task,
-      use with care! */
-      "rotation": -1,
+      /* Typically 0 - 360 degrees*/
+      "rotationAngle": 0.0,
       "textOverlay": {
         /* By default, Camera Server writes some basic information, such as
         timestamp and device name, to each frame. Disable it if it is
@@ -65,18 +31,9 @@
         "enabled": true,
         "fontScale": 1.0
       },
-      /* The below preferred values are directly sent to OpenCV. OpenCV (and
-      its back-end) may or may not hornor our request. Note that these
-      parameters do not control how frames are written to snapshot and saved
-      to videos.*/
-      "preferredInputWidth": -1,
-      "preferredInputHeight": -1,
-      "preferredFps": 30,
-      /* The output frame dimensions are configured separately below. Leaving
-      them to -1 means we output the frames in their original sizes. If input
-      frame size (regardless the same as preferred size or not) and output
-      frame settings are not consistent, frames will be resized. Profiling
-      shows that frame resizing is a CPU-intensive task. Note that if input
+      /* Leaving outputWidth/outputHeight to -1 means we output the frames 
+      in their original sizes. If input frame size and output frame settings
+      are not consistent, frames will be resized. Note that if input
       frames are rotated, outputWidth and outputHeight should match the input
       frame AFTER rotation to avoid resize. */
       "outputWidth": -1,
@@ -177,8 +134,10 @@
             * If a GPU is used, one needs to check if a given fourcc is
             supported by the GPU--it is possible that some formats are
             supported by OpenCV/FFmpeg but not supported by the GPU*/
-          "fourcc": "x264",
           "fps": 30,
+          /* Hardware encoders usually only support a few codecs, H264 is
+          currently hardcoded so make sure videoPath is set to a value
+          that is compatible to it. */
           "videoPath": "/tmp/{{deviceIndex}}-{{deviceName}}-{{timestampOnVideoStarts}}.mp4"
         }
       }

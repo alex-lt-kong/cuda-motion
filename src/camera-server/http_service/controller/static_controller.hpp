@@ -1,6 +1,6 @@
 
-#ifndef CS_STATIC_CONTROLLER_HPP
-#define CS_STATIC_CONTROLLER_HPP
+#ifndef CM_STATIC_CONTROLLER_HPP
+#define CM_STATIC_CONTROLLER_HPP
 
 #include "../../device_manager.h"
 #include "../auth_handler.h"
@@ -104,4 +104,4 @@ public:
 
 #include OATPP_CODEGEN_END(ApiController) //<- End Codegen
 
-#endif /* CS_STATIC_CONTROLLER_HPP */
+#endif /* CM_STATIC_CONTROLLER_HPP */

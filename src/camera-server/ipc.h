@@ -1,5 +1,5 @@
-#ifndef CS_IPC_H
-#define CS_IPC_H
+#ifndef CM_IPC_H
+#define CM_IPC_H
 
 #include "pc_queue.h"
 
@@ -70,4 +70,4 @@ private:
   void sendDataViaSharedMemory();
 };
 
-#endif // CS_IPC_H
+#endif // CM_IPC_H

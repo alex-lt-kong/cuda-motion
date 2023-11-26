@@ -1,5 +1,5 @@
-#ifndef CS_ERROR_HANDLER_HPP
-#define CS_ERROR_HANDLER_HPP
+#ifndef CM_ERROR_HANDLER_HPP
+#define CM_ERROR_HANDLER_HPP
 
 #include <oatpp/web/protocol/http/outgoing/ResponseFactory.hpp>
 #include <oatpp/web/server/handler/ErrorHandler.hpp>
@@ -22,4 +22,4 @@ public:
               const Headers &headers) override;
 };
 
-#endif // CS_ERROR_HANDLER_HPP
+#endif // CM_ERROR_HANDLER_HPP

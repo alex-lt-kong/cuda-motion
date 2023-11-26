@@ -1,8 +1,8 @@
-# Camera server
+# Cuda motion
 
 A C++20 project inspired by
 [Motion](https://github.com/Motion-Project/motion)
-but with hardware acceleration (i.e., CUDA) in mind.
+but is GPU-accelerated.
 
 There are two main functions of this program:
 
@@ -22,12 +22,13 @@ There are two main functions of this program:
 - In [Motion](https://github.com/Motion-Project/motion), hardware acceleration
   can only be achieved by piping data to external libraries such as FFmpeg,
   and some computationally expensive tasks such as motion detection just
-  can't be offloaded to a GPU. This greatly limits the practical use of
-  Motion as we won't be able to handle even just a few (say, five) video feeds
-  with an average CPU.
+  can't be offloaded to a GPU (as it is beyond the capability of FFmpeg).
+  This greatly limits the practical use of Motion as we won't be able to
+  handle even just a few (say, five) video feeds with an average CPU.
 
-  - In contrast, this project is designed with CUDA support in mind, and it
-    tries to offload all parallelable tasks to GPUs.
+  - In contrast, this project is designed to work only if a CUDA-compatible
+    device (e.g., an Nvidia GPU) is in place, and it offloads all
+    parallelable tasks to GPUs, achieving much better performace.
 
 ## Dependencies
 
@@ -49,10 +50,9 @@ There are two main functions of this program:
   `apt install libprotobuf-dev protobuf-compiler`
 - `readerwriterquque` for high-performance lock-free queue support:
   `apt install libreaderwriterqueue-dev`
-- `FFmpeg` and `OpenCV`: image/video manipulation libraries that do all the
+- `OpenCV`: image/video manipulation libraries that do all the
   heavy lifting.
-  - Check build notes [here](./helper/build-notes.md) to build FFmpeg and
-    OpenCV properly.
+  - Check build notes [here](./helper/build-notes.md)
 
 ## Build and deployment
 

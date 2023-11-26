@@ -1,5 +1,5 @@
-#ifndef CS_APP_COMPONENT_HPP
-#define CS_APP_COMPONENT_HPP
+#ifndef CM_APP_COMPONENT_HPP
+#define CM_APP_COMPONENT_HPP
 
 #include "../global_vars.h"
 #include "error_handler.hpp"
@@ -89,4 +89,4 @@ public:
   }());
 };
 
-#endif /* CS_APP_COMPONENT_HPP */
+#endif /* CM_APP_COMPONENT_HPP */

@@ -1,5 +1,5 @@
-#ifndef CS_AUTH_HANDLER_H
-#define CS_AUTH_HANDLER_H
+#ifndef CM_AUTH_HANDLER_H
+#define CM_AUTH_HANDLER_H
 
 #include "../global_vars.h"
 
@@ -70,4 +70,4 @@ public:
   }
 };
 
-#endif /* CS_AUTH_HANDLER_H */
+#endif /* CM_AUTH_HANDLER_H */

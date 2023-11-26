@@ -1,5 +1,5 @@
-#ifndef CS_EVENT_LOOP_H
-#define CS_EVENT_LOOP_H
+#ifndef CM_EVENT_LOOP_H
+#define CM_EVENT_LOOP_H
 
 #include <thread>
 // This multithreading model is inspired by:
@@ -38,4 +38,4 @@ private:
   std::thread evThread;
 };
 
-#endif /* CS_EVENT_LOOP_H */
+#endif /* CM_EVENT_LOOP_H */
