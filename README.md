@@ -30,6 +30,11 @@ There are two main functions of this program:
     device (e.g., an Nvidia GPU) is in place, and it offloads all
     parallelable tasks to GPUs, achieving much better performace.
 
+  - On the con side, [Motion](https://github.com/Motion-Project/motion) works
+    as long as you have a CPU (😉), but
+    [Cuda motion](https://github.com/alex-lt-kong/cuda-motion) can only run if
+    you have an Nvidia GPU and its closed source CUDA framework installed.
+
 ## Dependencies
 
 - [Oat++](https://github.com/oatpp/) for HTTP service support:
