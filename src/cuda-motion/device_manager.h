@@ -10,7 +10,7 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/cudacodec.hpp>
-#include <readerwriterqueue/readerwritercircularbuffer.h>
+#include <readerwriterqueue/readerwriterqueue.h>
 
 #include <atomic>
 #include <linux/stat.h>
@@ -85,7 +85,7 @@ private:
 
   std::string timestampOnVideoStarts;
   std::string timestampOnDeviceOffline;
-  std::queue<int64_t> frameTimestamps;
+  moodycamel::ReaderWriterQueue<uint64_t> frameTimestamps;
 
   // videoWritingPcQueue
   PcQueue<cv::cuda::GpuMat, struct videoWritingInfo, struct videoWritingPayload>
@@ -105,7 +105,7 @@ private:
   void markDeviceAsOffline(bool &isShowingBlankFrame);
   void deviceIsBackOnline(size_t &openRetryDelay, bool &isShowingBlankFrame);
   bool initializeDevice(cudacodec::VideoReader *reader);
-  float getCurrentFps(int64_t msSinceEpoch);
+  float getCurrentFps();
 };
 
 extern std::vector<std::unique_ptr<DeviceManager>> myDevices;

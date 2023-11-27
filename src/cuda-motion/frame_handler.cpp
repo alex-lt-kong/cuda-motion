@@ -17,25 +17,30 @@ void overlayDatetime(Mat &frame, const double fontSacle,
                      const string &timestampOnDeviceOffline) {
   time_t now;
   time(&now);
-  // char buf[sizeof "1970-01-01 00:00:00"];
-  // strftime(buf, sizeof buf, "%F %T", localtime(&now));
-  string ts = getCurrentTimestamp();
-  if (timestampOnDeviceOffline.size() > 0) {
-    ts += " (Offline since " + timestampOnDeviceOffline + ")";
+  char buf[256];
+  strftime(buf, sizeof buf, "%Y%m%d-%H%M%S", localtime(&now));
+  // This function is on the critical path and profiling shows it is slow
+  // let's revert to good old C to make it faster!
+  // string ts = getCurrentTimestamp();
+  if (timestampOnDeviceOffline.size() > 0) [[unlikely]] {
+    strcat(buf, " (Offline since ");
+    strcat(buf, timestampOnDeviceOffline.c_str());
+    strcat(buf, ")");
+    // ts += " (Offline since " + timestampOnDeviceOffline + ")";
   }
-  cv::Size textSize =
-      getTextSize(ts, FONT_HERSHEY_DUPLEX, fontSacle, 8 * fontSacle, nullptr);
-  putText(frame, ts, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
+  Size textSize =
+      getTextSize(buf, FONT_HERSHEY_DUPLEX, fontSacle, 8 * fontSacle, nullptr);
+  putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
           fontSacle, Scalar(0, 0, 0), 8 * fontSacle, LINE_8, false);
-  putText(frame, ts, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
+  putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
           fontSacle, Scalar(255, 255, 255), 2 * fontSacle, LINE_8, false);
 }
 
 void overlayDeviceName(Mat &frame, const double fontSacle,
                        const string &deviceName) {
 
-  cv::Size textSize = getTextSize(deviceName, FONT_HERSHEY_DUPLEX, fontSacle,
-                                  8 * fontSacle, nullptr);
+  Size textSize = getTextSize(deviceName, FONT_HERSHEY_DUPLEX, fontSacle,
+                              8 * fontSacle, nullptr);
   putText(frame, deviceName,
           Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
           FONT_HERSHEY_DUPLEX, fontSacle, Scalar(0, 0, 0), 8 * fontSacle,
@@ -55,8 +60,8 @@ void overlayContours(Mat &dispFrame, Mat &diffFrame) {
   findContours(diffFrame, contours, hierarchy, RETR_CCOMP, CHAIN_APPROX_SIMPLE);
 
   for (int idx = 0; idx >= 0; idx = hierarchy[idx][0]) {
-    cv::drawContours(dispFrame, contours, idx, Scalar(255, 255, 255), 1, LINE_8,
-                     hierarchy);
+    drawContours(dispFrame, contours, idx, Scalar(255, 255, 255), 1, LINE_8,
+                 hierarchy);
   }
 }
 
@@ -64,18 +69,24 @@ void overlayStats(Mat &frame, const float changeRate, const int cd,
                   const long long int videoFrameCount, const double fontSacle,
                   const enum MotionDetectionMode mode, const float currentFps,
                   const uint32_t maxFramesPerVideo) {
-  ostringstream oss;
+  // Profiling shows this function is a performance-critical one, reverting to
+  // C gives us much better performance
+  char buff[256] = {0};
+  snprintf(buff, sizeof(buff) / sizeof(buff[0]) - 1,
+           "%.2f%%, %.1ffps (%d, %lld)", changeRate, currentFps, cd,
+           maxFramesPerVideo - videoFrameCount);
+  /*ostringstream oss;
   if (mode == MODE_DETECT_MOTION) {
     oss << fixed << setprecision(2) << changeRate << "%, ";
   }
   oss << fixed << setprecision(1) << currentFps << "fps ";
   if (mode != MODE_DISABLED) {
     oss << "(" << cd << ", " << maxFramesPerVideo - videoFrameCount << ")";
-  }
-  putText(frame, oss.str(), Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX,
-          fontSacle, Scalar(0, 0, 0), 8 * fontSacle, LINE_8, false);
-  putText(frame, oss.str(), Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX,
-          fontSacle, Scalar(255, 255, 255), 2 * fontSacle, LINE_8, false);
+  }*/
+  putText(frame, buff, Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX, fontSacle,
+          Scalar(0, 0, 0), 8 * fontSacle, LINE_8, false);
+  putText(frame, buff, Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX, fontSacle,
+          Scalar(255, 255, 255), 2 * fontSacle, LINE_8, false);
 }
 
 float getFrameChanges(cv::cuda::GpuMat &prevFrame, cv::cuda::GpuMat &currFrame,

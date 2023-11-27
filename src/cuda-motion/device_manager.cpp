@@ -19,7 +19,7 @@ using namespace std;
 
 namespace FH = FrameHandler;
 
-DeviceManager::DeviceManager(const size_t deviceIndex) {
+DeviceManager::DeviceManager(const size_t deviceIndex) : frameTimestamps(256) {
 
   { // settings variable is used by multiple threads, possibly concurrently, is
     // reading it thread-safe? According to the below response from the library
@@ -95,6 +95,7 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
   textOverlayEnabled = conf["frame"]["textOverlay"]["enabled"];
   textOverlayFontSacle = conf["frame"]["textOverlay"]["fontScale"];
   frameQueueSize = conf["frame"]["queueSize"];
+  assert(frameQueueSize > 0);
 
   // =====  snapshot =====
   snapshotFrameInterval = conf["snapshot"]["frameInterval"];
@@ -139,20 +140,25 @@ DeviceManager::~DeviceManager() {
   vwPcQueue.wait();
 }
 
-float DeviceManager::getCurrentFps(int64_t msSinceEpoch) {
+float DeviceManager::getCurrentFps() {
 
-  constexpr int sampleMsUpperLimit = 10 * 1000;
-  frameTimestamps.push(msSinceEpoch);
-  // time complexity of frameTimestamps.size()/front()/back()/push()/pop()
-  // are guaranteed to be O(1)
-  if (msSinceEpoch - frameTimestamps.front() > sampleMsUpperLimit) {
-    frameTimestamps.pop();
+  // std::queue seems to be causing performance issue, let give
+  // moodycamel::ReaderWriterQueue<uint64_t> a try!
+  constexpr int sampleMsUpperLimit = 30 * 1000;
+  auto msSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
+                          chrono::system_clock::now().time_since_epoch())
+                          .count();
+  frameTimestamps.try_enqueue(msSinceEpoch);
+  uint64_t front;
+  if (msSinceEpoch - *frameTimestamps.peek() > sampleMsUpperLimit) {
+    frameTimestamps.try_dequeue(front);
+  } else {
+    front = *frameTimestamps.peek();
   }
 
   float fps = FLT_MAX;
-  if (msSinceEpoch - frameTimestamps.front() > 0) {
-    fps = 1000.0 * frameTimestamps.size() /
-          (msSinceEpoch - frameTimestamps.front());
+  if (msSinceEpoch - front > 0) {
+    fps = 1000.0 * frameTimestamps.size_approx() / (msSinceEpoch - front);
   }
   return fps;
 }
@@ -386,6 +392,7 @@ void DeviceManager::InternalThreadEntry() {
         actualFrameSize.height != outputHeight) {
       cuda::resize(dCurrFrame, dCurrFrame, cv::Size(outputWidth, outputHeight));
     }
+    // cv::Mat behaves like a std::shared_ptr<T>
     Mat hFrame;
     dCurrFrame.download(hFrame);
     hDispFrames.push(hFrame);
@@ -396,21 +403,16 @@ void DeviceManager::InternalThreadEntry() {
         isShowingBlankFrame == false) {
       Mat hDiffFrame;
       dDiffFrame.download(hDiffFrame);
-      FH::overlayContours(hDispFrames.back(), hDiffFrame);
+      FH::overlayContours(hFrame, hDiffFrame);
       // CPU-intensive! Use with care!
     }
     if (textOverlayEnabled) {
-      FH::overlayStats(
-          hDispFrames.back(), rateOfChange, cd, videoFrameCount,
-          textOverlayFontSacle, motionDetectionMode,
-          getCurrentFps(chrono::duration_cast<chrono::milliseconds>(
-                            chrono::system_clock::now().time_since_epoch())
-                            .count()),
-          maxFramesPerVideo);
-      FH::overlayDatetime(hDispFrames.back(), textOverlayFontSacle,
+      FH::overlayStats(hFrame, rateOfChange, cd, videoFrameCount,
+                       textOverlayFontSacle, motionDetectionMode,
+                       getCurrentFps(), maxFramesPerVideo);
+      FH::overlayDatetime(hFrame, textOverlayFontSacle,
                           timestampOnDeviceOffline);
-      FH::overlayDeviceName(hDispFrames.back(), textOverlayFontSacle,
-                            deviceName);
+      FH::overlayDeviceName(hFrame, textOverlayFontSacle, deviceName);
     }
 
     if ((retrievedFramesSinceStart - 1) % snapshotFrameInterval == 0) {

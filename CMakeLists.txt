@@ -13,4 +13,4 @@ include(cmake/compiler-flags.cmake)
 include(cmake/sanitizers.cmake)
 
 
-add_subdirectory(src/camera-server)
+add_subdirectory(src/cuda-motion)

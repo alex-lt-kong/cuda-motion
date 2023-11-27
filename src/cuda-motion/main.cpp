@@ -3,6 +3,7 @@
 #include "http_service/oatpp_entry.h"
 #include "utils.h"
 
+#include <boost/program_options.hpp>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -13,44 +14,38 @@
 
 using namespace std;
 using json = nlohmann::json;
+namespace po = boost::program_options;
 
 vector<unique_ptr<DeviceManager>> myDevices;
 string configPath =
     string(getenv("HOME")) + "/.config/ak-studio/camera-server.jsonc";
 
-void print_usage(string binary_name) {
+void parse_arguments(int argc, char *argv[]) {
 
-  cerr << "Usage: " << binary_name << " [OPTION]\n\n";
+  po::options_description desc("Allowed options");
+  // clang-format off
+  desc.add_options()
+    ("help,h", "print help message")
+    ("config-path,c", po::value<std::string>()->default_value(configPath), "config file path");
+  // clang-format on
+  po::variables_map vm;
+  try {
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
+  } catch (po::error &e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+    exit(EXIT_FAILURE);
+  }
 
-  cerr << "Options:\n"
-       << "  --help,        -h        Display this help and exit\n"
-       << "  --config-path, -c        JSON configuration file path, default to "
-       << configPath << endl;
-}
-
-void parse_arguments(int argc, char **argv) {
-  static struct option long_options[] = {
-      {"config-path", required_argument, 0, 'c'},
-      {"help", optional_argument, 0, 'h'},
-      {0, 0, 0, 0}};
-
-  int opt, option_index = 0;
-
-  while ((opt = getopt_long(argc, argv, "c:h", long_options, &option_index)) !=
-         -1) {
-    switch (opt) {
-    case 'c':
-      if (optarg != NULL) {
-        configPath = string(optarg);
-      }
-      break;
-    default:
-      print_usage(argv[0]);
-      exit(EXIT_FAILURE);
-    }
+  if (vm.count("help")) {
+    cout << desc << endl;
+    exit(EXIT_SUCCESS);
+  }
+  if (vm.count("config-path")) {
+    configPath = vm["config-path"].as<std::string>();
   }
   if (configPath.empty()) {
-    print_usage(argv[0]);
+    cout << desc << endl;
     exit(EXIT_FAILURE);
   }
 }

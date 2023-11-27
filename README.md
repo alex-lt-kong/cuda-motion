@@ -55,6 +55,7 @@ There are two main functions of this program:
   `apt install libprotobuf-dev protobuf-compiler`
 - `readerwriterquque` for high-performance lock-free queue support:
   `apt install libreaderwriterqueue-dev`
+- `boost::program_options` for parsing arguments: `apt install libboost-all-dev`
 - `OpenCV`: image/video manipulation libraries that do all the
   heavy lifting.
   - Check build notes [here](./helper/build-notes.md)
@@ -76,3 +77,12 @@ make -j2
 
 - The repo is also tested with `Valgrind` from time to time:
   `valgrind --leak-check=yes --log-file=valgrind.rpt ./build/cs`.
+
+## Profiling
+
+- ```bash
+  cmake -DCMAKE_CXX_FLAGS=-pg -DCMAKE_EXE_LINKER_FLAGS=-pg -DCMAKE_SHARED_LINKER_FLAGS=-pg  ../
+  make -j4
+  ./build/cs
+  prof ./build/cs gmon.out
+  ```

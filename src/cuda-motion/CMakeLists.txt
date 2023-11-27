@@ -20,6 +20,7 @@ endif()
 
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(Boost REQUIRED COMPONENTS program_options)
 
 find_package(Protobuf REQUIRED)
 
@@ -54,6 +55,7 @@ target_link_libraries(cs
   http_service
   ${OpenCV_LIBS} rt ssl crypto spdlog fmt zmq
   ${Protobuf_LIBRARIES}
+  ${Boost_PROGRAM_OPTIONS_LIBRARY}
 )
 
 add_custom_command(
