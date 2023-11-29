@@ -53,7 +53,8 @@ void parse_arguments(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
   parse_arguments(argc, argv);
   // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
-  spdlog::set_pattern("%Y-%m-%dT%T.%e%z|%5t|%8l| %v");
+  // Including microseconds is handy for naive profiling
+  spdlog::set_pattern("%Y-%m-%dT%T.%f%z|%5t|%8l| %v");
   spdlog::info("Camera Server started");
   install_signal_handler();
 

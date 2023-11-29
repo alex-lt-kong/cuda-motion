@@ -169,6 +169,8 @@ void IPC::sendDataCb(cv::Mat &dispFrame) {
   vector<int> configs = {};
   if (httpEnabled) {
     lock_guard<mutex> guard(mutexLiveImage);
+    // As of 2023-11-28, cv::imencode does not appear to have CUDA equivalent in
+    // OpenCV
     cv::imencode(".jpg", dispFrame, encodedJpgImage, configs);
   } else if (fileEnabled || sharedMemEnabled || zmqEnabled) {
     cv::imencode(".jpg", dispFrame, encodedJpgImage, configs);

@@ -84,5 +84,5 @@ make -j2
   cmake -DCMAKE_CXX_FLAGS=-pg -DCMAKE_EXE_LINKER_FLAGS=-pg -DCMAKE_SHARED_LINKER_FLAGS=-pg  ../
   make -j4
   ./build/cs
-  prof ./build/cs gmon.out
+  gprof ./build/cs gmon.out
   ```

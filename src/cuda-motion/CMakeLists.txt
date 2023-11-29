@@ -38,7 +38,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 set(PROTO_FILE ${CMAKE_CURRENT_SOURCE_DIR}/proto/snapshot.proto)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILE})
 
-add_executable(cs
+add_executable(cm
   main.cpp
   device_manager.cpp
   pc_queue_vw.cpp
@@ -51,7 +51,7 @@ add_executable(cs
   ${PROTO_SRCS} ${PROTO_HDRS}
 )
 
-target_link_libraries(cs
+target_link_libraries(cm
   http_service
   ${OpenCV_LIBS} rt ssl crypto spdlog fmt zmq
   ${Protobuf_LIBRARIES}
@@ -59,10 +59,10 @@ target_link_libraries(cs
 )
 
 add_custom_command(
-  TARGET cs POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:cs> ../../
+  TARGET cm POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:cm> ../../
 )
 
 # So that Python bindings will always be generated, even if it is not used
 add_custom_target(GeneratePythonBindings DEPENDS ${PROTO_PY})
-add_dependencies(cs GeneratePythonBindings)
+add_dependencies(cm GeneratePythonBindings)

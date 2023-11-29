@@ -5,6 +5,7 @@
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <spdlog/spdlog.h>
 
 #include <iomanip>
 
@@ -13,45 +14,82 @@ using namespace std;
 
 namespace FrameHandler {
 
-void overlayDatetime(Mat &frame, const double fontSacle,
-                     const string &timestampOnDeviceOffline) {
-  time_t now;
-  time(&now);
-  char buf[256];
-  strftime(buf, sizeof buf, "%Y%m%d-%H%M%S", localtime(&now));
+FrameHandler::FrameHandler(const double fontScale, const string &deviceName)
+    : pt(10000) {
+  count = 0;
+  overlayDatetimeBufLen = UINT_MAX;
+  this->fontScale = fontScale;
+  this->deviceName = deviceName;
+}
+
+void FrameHandler::overlayDatetime(Mat &frame,
+                                   const string &timestampOnDeviceOffline) {
+
   // This function is on the critical path and profiling shows it is slow
   // let's revert to good old C to make it faster!
-  // string ts = getCurrentTimestamp();
+
+  // strlen(19700101-000000) == 15
+  time_t now;
+  time(&now);
+  char buf[15 * 4] = {0};
+  strftime(buf, sizeof buf, "%Y%m%d-%H%M%S", localtime(&now));
   if (timestampOnDeviceOffline.size() > 0) [[unlikely]] {
     strcat(buf, " (Offline since ");
     strcat(buf, timestampOnDeviceOffline.c_str());
     strcat(buf, ")");
-    // ts += " (Offline since " + timestampOnDeviceOffline + ")";
   }
-  Size textSize =
-      getTextSize(buf, FONT_HERSHEY_DUPLEX, fontSacle, 8 * fontSacle, nullptr);
-  putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
-          fontSacle, Scalar(0, 0, 0), 8 * fontSacle, LINE_8, false);
-  putText(frame, buf, Point(5, textSize.height * 1.05), FONT_HERSHEY_DUPLEX,
-          fontSacle, Scalar(255, 255, 255), 2 * fontSacle, LINE_8, false);
+  // int64 start = chrono::duration_cast<chrono::microseconds>(
+  //                   chrono::system_clock::now().time_since_epoch())
+  //                   .count();
+  size_t buf_len = strlen(buf);
+  if (overlayDatetimeBufLen != buf_len) {
+    overlayDatetimeTextSize = getTextSize(buf, FONT_HERSHEY_DUPLEX, fontScale,
+                                          8 * fontScale, nullptr);
+    overlayDatetimeBufLen = buf_len;
+  }
+
+  putText(frame, buf, Point(5, overlayDatetimeTextSize.height * 1.05),
+          FONT_HERSHEY_DUPLEX, fontScale, Scalar(0, 0, 0), 8 * fontScale,
+          LINE_8, false);
+  putText(frame, buf, Point(5, overlayDatetimeTextSize.height * 1.05),
+          FONT_HERSHEY_DUPLEX, fontScale, Scalar(255, 255, 255), 2 * fontScale,
+          LINE_8, false);
+  // int64 end = chrono::duration_cast<chrono::microseconds>(
+  //                 chrono::system_clock::now().time_since_epoch())
+  //                 .count();
+  //++count;
+  // pt.addNumber(end - start);
+  // if (count % 1000 == 0) {
+  // pt.refreshStats();
+  // double percentiles[] = {50, 66, 90, 95, 100};
+  // spdlog::info("Percentiles (sampleCount: {})", pt.sampleCount());
+  // for (size_t i = 0; i < sizeof(percentiles) / sizeof(percentiles[0]); ++i) {
+  //   spdlog::info("{:3}-th: {:6}", percentiles[i],
+  //                pt.getPercentile(percentiles[i]));
+  // }
+  // Percentiles (sampleCount: 10000)
+  //  50-th:   1844
+  //  66-th:   2141
+  //  90-th:   4915
+  //  95-th:   9989
+  // 100-th: 133689
 }
 
-void overlayDeviceName(Mat &frame, const double fontSacle,
-                       const string &deviceName) {
+void FrameHandler::overlayDeviceName(Mat &frame) {
 
-  Size textSize = getTextSize(deviceName, FONT_HERSHEY_DUPLEX, fontSacle,
-                              8 * fontSacle, nullptr);
+  Size textSize = getTextSize(deviceName, FONT_HERSHEY_DUPLEX, fontScale,
+                              8 * fontScale, nullptr);
   putText(frame, deviceName,
           Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
-          FONT_HERSHEY_DUPLEX, fontSacle, Scalar(0, 0, 0), 8 * fontSacle,
+          FONT_HERSHEY_DUPLEX, fontScale, Scalar(0, 0, 0), 8 * fontScale,
           LINE_8, false);
   putText(frame, deviceName,
           Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
-          FONT_HERSHEY_DUPLEX, fontSacle, Scalar(255, 255, 255), 2 * fontSacle,
+          FONT_HERSHEY_DUPLEX, fontScale, Scalar(255, 255, 255), 2 * fontScale,
           LINE_8, false);
 }
 
-void overlayContours(Mat &dispFrame, Mat &diffFrame) {
+void FrameHandler::overlayContours(Mat &dispFrame, Mat &diffFrame) {
   if (diffFrame.empty())
     return;
   vector<vector<Point>> contours;
@@ -65,10 +103,12 @@ void overlayContours(Mat &dispFrame, Mat &diffFrame) {
   }
 }
 
-void overlayStats(Mat &frame, const float changeRate, const int cd,
-                  const long long int videoFrameCount, const double fontSacle,
-                  const enum MotionDetectionMode mode, const float currentFps,
-                  const uint32_t maxFramesPerVideo) {
+void FrameHandler::overlayStats(Mat &frame, const float changeRate,
+                                const int cd,
+                                const long long int videoFrameCount,
+                                const enum MotionDetectionMode mode,
+                                const float currentFps,
+                                const uint32_t maxFramesPerVideo) {
   // Profiling shows this function is a performance-critical one, reverting to
   // C gives us much better performance
   char buff[256] = {0};
@@ -83,15 +123,16 @@ void overlayStats(Mat &frame, const float changeRate, const int cd,
   if (mode != MODE_DISABLED) {
     oss << "(" << cd << ", " << maxFramesPerVideo - videoFrameCount << ")";
   }*/
-  putText(frame, buff, Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX, fontSacle,
-          Scalar(0, 0, 0), 8 * fontSacle, LINE_8, false);
-  putText(frame, buff, Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX, fontSacle,
-          Scalar(255, 255, 255), 2 * fontSacle, LINE_8, false);
+  putText(frame, buff, Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX, fontScale,
+          Scalar(0, 0, 0), 8 * fontScale, LINE_8, false);
+  putText(frame, buff, Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX, fontScale,
+          Scalar(255, 255, 255), 2 * fontScale, LINE_8, false);
 }
 
-float getFrameChanges(cv::cuda::GpuMat &prevFrame, cv::cuda::GpuMat &currFrame,
-                      cv::cuda::GpuMat &diffFrame,
-                      double pixelDiffAbsThreshold) {
+float FrameHandler::getFrameChanges(cv::cuda::GpuMat &prevFrame,
+                                    cv::cuda::GpuMat &currFrame,
+                                    cv::cuda::GpuMat &diffFrame,
+                                    double pixelDiffAbsThreshold) {
   if (prevFrame.empty() || currFrame.empty()) {
     return -1;
   }
@@ -110,8 +151,8 @@ float getFrameChanges(cv::cuda::GpuMat &prevFrame, cv::cuda::GpuMat &currFrame,
   return 100.0 * nonZeroPixels / (diffFrame.rows * diffFrame.cols);
 }
 
-void generateBlankFrameAt1Fps(cv::cuda::GpuMat &currFrame,
-                              const Size &actualFrameSize) {
+void FrameHandler::generateBlankFrameAt1Fps(cv::cuda::GpuMat &currFrame,
+                                            const Size &actualFrameSize) {
   this_thread::sleep_for(999ms); // Throttle the generation at 1 fps.
 
   /* Even if we generate nothing but a blank screen, we cant just use some

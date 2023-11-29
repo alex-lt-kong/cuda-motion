@@ -17,8 +17,6 @@
 
 using namespace std;
 
-namespace FH = FrameHandler;
-
 DeviceManager::DeviceManager(const size_t deviceIndex) : frameTimestamps(256) {
 
   { // settings variable is used by multiple threads, possibly concurrently, is
@@ -55,6 +53,8 @@ DeviceManager::DeviceManager(const size_t deviceIndex) : frameTimestamps(256) {
         evaluateStaticVariables(
             conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"]));
   }
+  fh = make_unique<FrameHandler::FrameHandler>(
+      conf["frame"]["textOverlay"]["fontScale"].get<double>(), deviceName);
 }
 
 string DeviceManager::evaluateVideoSpecficVariables(
@@ -93,7 +93,6 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
 
   frameRotationAngle = conf.value("/frame/rotationAngle"_json_pointer, 0.0);
   textOverlayEnabled = conf["frame"]["textOverlay"]["enabled"];
-  textOverlayFontSacle = conf["frame"]["textOverlay"]["fontScale"];
   frameQueueSize = conf["frame"]["queueSize"];
   assert(frameQueueSize > 0);
 
@@ -336,7 +335,7 @@ void DeviceManager::InternalThreadEntry() {
 
     if (result == false || dCurrFrame.empty()) [[unlikely]] {
       markDeviceAsOffline(isShowingBlankFrame);
-      FH::generateBlankFrameAt1Fps(dCurrFrame, actualFrameSize);
+      fh->generateBlankFrameAt1Fps(dCurrFrame, actualFrameSize);
       if (retrievedFramesSinceStart % openRetryDelay == 0) {
         openRetryDelay *= 2;
         spdlog::error("[{}] Unable to cap.read() a new frame. "
@@ -378,7 +377,7 @@ void DeviceManager::InternalThreadEntry() {
         retrievedFramesSinceStart % diffEveryNthFrame == 0) {
       if (isShowingBlankFrame == false) {
         // profiling shows this if() block takes around 1-2 ms
-        rateOfChange = FH::getFrameChanges(dPrevFrame, dCurrFrame, dDiffFrame,
+        rateOfChange = fh->getFrameChanges(dPrevFrame, dCurrFrame, dDiffFrame,
                                            pixelDiffAbsThreshold);
       } else {
         rateOfChange = -1;
@@ -403,16 +402,14 @@ void DeviceManager::InternalThreadEntry() {
         isShowingBlankFrame == false) {
       Mat hDiffFrame;
       dDiffFrame.download(hDiffFrame);
-      FH::overlayContours(hFrame, hDiffFrame);
+      fh->overlayContours(hFrame, hDiffFrame);
       // CPU-intensive! Use with care!
     }
     if (textOverlayEnabled) {
-      FH::overlayStats(hFrame, rateOfChange, cd, videoFrameCount,
-                       textOverlayFontSacle, motionDetectionMode,
-                       getCurrentFps(), maxFramesPerVideo);
-      FH::overlayDatetime(hFrame, textOverlayFontSacle,
-                          timestampOnDeviceOffline);
-      FH::overlayDeviceName(hFrame, textOverlayFontSacle, deviceName);
+      fh->overlayStats(hFrame, rateOfChange, cd, videoFrameCount,
+                       motionDetectionMode, getCurrentFps(), maxFramesPerVideo);
+      fh->overlayDatetime(hFrame, timestampOnDeviceOffline);
+      fh->overlayDeviceName(hFrame);
     }
 
     if ((retrievedFramesSinceStart - 1) % snapshotFrameInterval == 0) {

@@ -2,6 +2,7 @@
 #define CM_DEVICE_MANAGER_H
 
 #include "event_loop.h"
+#include "frame_handler.h"
 #include "global_vars.h"
 #include "ipc.h"
 #include "pc_queue.h"
@@ -60,6 +61,7 @@ private:
   ssize_t outputWidth;
   ssize_t outputHeight;
   std::string evaluatedVideoPath;
+  std::unique_ptr<FrameHandler::FrameHandler> fh;
 
   // motionDetection variables
   enum MotionDetectionMode motionDetectionMode;
