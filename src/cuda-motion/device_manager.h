@@ -53,6 +53,7 @@ private:
   njson conf;
   size_t deviceIndex = 0;
   std::string deviceName;
+  PercentileTracker<int64_t> pt;
 
   // frame variables
   bool textOverlayEnabled;
@@ -87,7 +88,8 @@ private:
 
   std::string timestampOnVideoStarts;
   std::string timestampOnDeviceOffline;
-  moodycamel::ReaderWriterQueue<uint64_t> frameTimestamps;
+  // moodycamel::ReaderWriterQueue<uint64_t> frameTimestamps;
+  std::deque<uint64_t> frameTimestamps;
 
   // videoWritingPcQueue
   PcQueue<cv::cuda::GpuMat, struct videoWritingInfo, struct videoWritingPayload>

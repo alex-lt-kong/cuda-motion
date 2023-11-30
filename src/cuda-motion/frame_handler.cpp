@@ -20,6 +20,8 @@ FrameHandler::FrameHandler(const double fontScale, const string &deviceName)
   overlayDatetimeBufLen = UINT_MAX;
   this->fontScale = fontScale;
   this->deviceName = deviceName;
+  overlayDeviceNameTextSize = getTextSize(this->deviceName, FONT_HERSHEY_DUPLEX,
+                                          fontScale, 8 * fontScale, nullptr);
 }
 
 void FrameHandler::overlayDatetime(Mat &frame,
@@ -77,14 +79,14 @@ void FrameHandler::overlayDatetime(Mat &frame,
 
 void FrameHandler::overlayDeviceName(Mat &frame) {
 
-  Size textSize = getTextSize(deviceName, FONT_HERSHEY_DUPLEX, fontScale,
-                              8 * fontScale, nullptr);
   putText(frame, deviceName,
-          Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
+          Point(frame.cols - overlayDeviceNameTextSize.width * 1.05,
+                frame.rows - 5),
           FONT_HERSHEY_DUPLEX, fontScale, Scalar(0, 0, 0), 8 * fontScale,
           LINE_8, false);
   putText(frame, deviceName,
-          Point(frame.cols - textSize.width * 1.05, frame.rows - 5),
+          Point(frame.cols - overlayDeviceNameTextSize.width * 1.05,
+                frame.rows - 5),
           FONT_HERSHEY_DUPLEX, fontScale, Scalar(255, 255, 255), 2 * fontScale,
           LINE_8, false);
 }

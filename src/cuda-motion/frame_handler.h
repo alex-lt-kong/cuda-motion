@@ -18,6 +18,7 @@ class FrameHandler {
   std::atomic<uint32_t> count;
   size_t overlayDatetimeBufLen;
   cv::Size overlayDatetimeTextSize;
+  cv::Size overlayDeviceNameTextSize;
 
 public:
   FrameHandler();

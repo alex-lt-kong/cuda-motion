@@ -17,7 +17,7 @@
 
 using namespace std;
 
-DeviceManager::DeviceManager(const size_t deviceIndex) : frameTimestamps(256) {
+DeviceManager::DeviceManager(const size_t deviceIndex) : pt(10000) {
 
   { // settings variable is used by multiple threads, possibly concurrently, is
     // reading it thread-safe? According to the below response from the library
@@ -143,22 +143,68 @@ float DeviceManager::getCurrentFps() {
 
   // std::queue seems to be causing performance issue, let give
   // moodycamel::ReaderWriterQueue<uint64_t> a try!
+  // int64 start = chrono::duration_cast<chrono::microseconds>(
+  //                  chrono::system_clock::now().time_since_epoch())
+  //                  .count();
   constexpr int sampleMsUpperLimit = 30 * 1000;
   auto msSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
                           chrono::system_clock::now().time_since_epoch())
                           .count();
-  frameTimestamps.try_enqueue(msSinceEpoch);
-  uint64_t front;
-  if (msSinceEpoch - *frameTimestamps.peek() > sampleMsUpperLimit) {
-    frameTimestamps.try_dequeue(front);
-  } else {
-    front = *frameTimestamps.peek();
+  frameTimestamps.push_back(msSinceEpoch);
+  uint64_t front = frameTimestamps.front();
+  if (msSinceEpoch - front > sampleMsUpperLimit) {
+    frameTimestamps.pop_front();
   }
 
-  float fps = FLT_MAX;
+  float fps = 0;
   if (msSinceEpoch - front > 0) {
-    fps = 1000.0 * frameTimestamps.size_approx() / (msSinceEpoch - front);
+    fps = 1000.0 * frameTimestamps.size() / (msSinceEpoch - front);
   }
+  /*int64 end = chrono::duration_cast<chrono::microseconds>(
+                  chrono::system_clock::now().time_since_epoch())
+                  .count();
+  pt.addSample(end - start);
+  if (pt.totalSampleCount() % 1000 == 0) {
+    pt.refreshStats();
+    double percentiles[] = {50, 66, 90, 95, 100};
+    spdlog::info("[{}] Percentiles in us (sampleCount: {})", deviceName,
+                 pt.sampleCount());
+    for (size_t i = 0; i < sizeof(percentiles) / sizeof(percentiles[0]); ++i) {
+      spdlog::info("{:3}-th: {:6}", percentiles[i],
+                   pt.getPercentile(percentiles[i]));
+    }
+    spdlog::info("Average: {:5}", (long)pt.getAverage());
+  }
+  */
+  // Profiling result is not conslusive: std::queue<T> is nothing but a wrapper
+  // over std::deque<T> so it is impossible for std::queue<T> to be faster than
+  // std::deque<T>
+
+  // moodycamel::ReaderWriterQueue<uint64_t> frameTimestamps;
+  //  Percentiles in us (sampleCount: 10000)
+  //   50-th:     49
+  //   66-th:     57
+  //   90-th:     78
+  //   95-th:    122
+  //  100-th:  12730
+
+  // std::queue<uint64_t>
+  // Percentiles in us (sampleCount: 10000)
+  //  50-th:     55
+  //  66-th:     59
+  //  90-th:     73
+  //  95-th:     86
+  //  100-th:   4845
+  //  Average:    58
+
+  // std::deque<uint64_t>
+  //  Percentiles in us (sampleCount: 10000)
+  //  50-th:     55
+  //  66-th:     61
+  //  90-th:     89
+  //  95-th:    169
+  //  100-th:  12707
+  //  Average:    86
   return fps;
 }
 
