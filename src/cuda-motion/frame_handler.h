@@ -31,8 +31,7 @@ public:
   void overlayContours(cv::Mat &dispFrame, cv::Mat &diffFrame);
 
   void overlayStats(cv::Mat &frame, const float changeRate, const int cd,
-                    const long long int videoFrameCount,
-                    const enum MotionDetectionMode mode, const float currentFps,
+                    const long long int videoFrameCount, const float currentFps,
                     const uint32_t maxFramesPerVideo);
 
   float getFrameChanges(cv::cuda::GpuMat &prevFrame,

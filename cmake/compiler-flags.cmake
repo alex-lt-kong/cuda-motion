@@ -13,9 +13,8 @@ add_compile_options("-pedantic")
 
 # Silence many OATPP's marco-related warnings
 add_compile_options("-Wno-gnu-zero-variadic-macro-arguments")
-add_compile_options("-O2")
-
-# add_compile_options("-g")
+add_compile_options("-O3")
+add_compile_options("-g")
 
 #
 # Allow the linker to remove unused data and functions

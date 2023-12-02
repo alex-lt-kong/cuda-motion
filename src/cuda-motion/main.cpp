@@ -3,7 +3,7 @@
 #include "http_service/oatpp_entry.h"
 #include "utils.h"
 
-#include <boost/program_options.hpp>
+#include <cxxopts.hpp>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -14,44 +14,25 @@
 
 using namespace std;
 using json = nlohmann::json;
-namespace po = boost::program_options;
 
 vector<unique_ptr<DeviceManager>> myDevices;
 string configPath =
     string(getenv("HOME")) + "/.config/ak-studio/camera-server.jsonc";
 
-void parse_arguments(int argc, char *argv[]) {
-
-  po::options_description desc("Allowed options");
-  // clang-format off
-  desc.add_options()
-    ("help,h", "print help message")
-    ("config-path,c", po::value<std::string>()->default_value(configPath), "config file path");
-  // clang-format on
-  po::variables_map vm;
-  try {
-    po::store(po::parse_command_line(argc, argv, desc), vm);
-    po::notify(vm);
-  } catch (po::error &e) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
-  if (vm.count("help")) {
-    cout << desc << endl;
-    exit(EXIT_SUCCESS);
-  }
-  if (vm.count("config-path")) {
-    configPath = vm["config-path"].as<std::string>();
-  }
-  if (configPath.empty()) {
-    cout << desc << endl;
-    exit(EXIT_FAILURE);
-  }
-}
-
 int main(int argc, char *argv[]) {
-  parse_arguments(argc, argv);
+  cxxopts::Options options("cuda-motion", "video feed handler that uses CUDA");
+  // clang-format off
+  options.add_options()
+    ("help,h", "print help message")
+    ("config-path,c", "path of the config file", cxxopts::value<string>()->default_value(configPath));
+  // clang-format on
+  auto result = options.parse(argc, argv);
+  if (result.count("help") || !result.count("config-file")) {
+    std::cout << options.help() << "\n";
+    return 0;
+  }
+  configPath = result["config-path"].as<std::string>();
+
   // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
   // Including microseconds is handy for naive profiling
   spdlog::set_pattern("%Y-%m-%dT%T.%f%z|%5t|%8l| %v");

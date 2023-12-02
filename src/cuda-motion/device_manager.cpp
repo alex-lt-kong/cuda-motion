@@ -2,6 +2,7 @@
 #include "frame_handler.h"
 #include "global_vars.h"
 
+#include <cstddef>
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/cudawarping.hpp>
@@ -336,20 +337,6 @@ void DeviceManager::deviceIsBackOnline(size_t &openRetryDelay,
   }
 }
 
-bool DeviceManager::initializeDevice(cudacodec::VideoReader *vr) {
-  try {
-    vr = cudacodec::createVideoReader(conf["videoFeed"]["uri"].get<string>());
-    vr->set(cudacodec::ColorFormat::BGR);
-    spdlog::info("[{}] VideoReader initialized ({})", deviceName,
-                 conf["videoFeed"]["uri"].get<string>());
-    return true;
-  } catch (const cv::Exception &e) {
-    spdlog::error("[{}] VideoReader initialization failed: {}", deviceName,
-                  e.what());
-  }
-  return false;
-}
-
 void DeviceManager::InternalThreadEntry() {
 
   queue<Mat> hDispFrames;
@@ -375,7 +362,13 @@ void DeviceManager::InternalThreadEntry() {
   goto entryPoint;
 
   while (ev_flag == 0) {
-    result = vr->nextFrame(dCurrFrame);
+    if (vr != nullptr) [[likely]] {
+      result = vr->nextFrame(dCurrFrame);
+    } else {
+      result = false;
+      // assume the video source is at 30fps
+      this_thread::sleep_for(chrono::milliseconds(1000 / 30));
+    }
     ++retrievedFramesSinceStart;
     ++retrievedFramesSinceLastOpen;
 
@@ -395,14 +388,14 @@ void DeviceManager::InternalThreadEntry() {
           spdlog::info("[{}] VideoReader initialized ({})", deviceName,
                        conf["videoFeed"]["uri"].get<string>());
           retrievedFramesSinceLastOpen = 0;
-          // If they are -1, we want to reload them
-          outputWidth = conf["frame"]["outputWidth"];
-          outputHeight = conf["frame"]["outputHeight"];
-          continue;
         } catch (const cv::Exception &e) {
           spdlog::error("[{}] VideoReader initialization failed: {}",
                         deviceName, e.what());
         }
+        // If they are -1, we want to reload them
+        outputWidth = conf.value("/frame/outputWidth"_json_pointer, 1280);
+        outputHeight = conf.value("/frame/outputHeight"_json_pointer, 720);
+        continue;
       }
     } else if (isShowingBlankFrame) [[unlikely]] {
       deviceIsBackOnline(openRetryDelay, isShowingBlankFrame);
@@ -453,7 +446,7 @@ void DeviceManager::InternalThreadEntry() {
     }
     if (textOverlayEnabled) {
       fh->overlayStats(hFrame, rateOfChange, cd, videoFrameCount,
-                       motionDetectionMode, getCurrentFps(), maxFramesPerVideo);
+                       getCurrentFps(), maxFramesPerVideo);
       fh->overlayDatetime(hFrame, timestampOnDeviceOffline);
       fh->overlayDeviceName(hFrame);
     }
@@ -481,11 +474,6 @@ void DeviceManager::InternalThreadEntry() {
     if (cd == 0) {
       stopVideoRecording(videoFrameCount, cd);
       continue;
-    }
-
-    if (hDispFrames.front().size().width != outputWidth ||
-        hDispFrames.front().size().height != outputHeight) {
-      throw new runtime_error("This is not supposed to happen");
     }
     cuda::GpuMat dDispFrame;
     dDispFrame.upload(hDispFrames.front());

@@ -108,23 +108,15 @@ void FrameHandler::overlayContours(Mat &dispFrame, Mat &diffFrame) {
 void FrameHandler::overlayStats(Mat &frame, const float changeRate,
                                 const int cd,
                                 const long long int videoFrameCount,
-                                const enum MotionDetectionMode mode,
                                 const float currentFps,
                                 const uint32_t maxFramesPerVideo) {
   // Profiling shows this function is a performance-critical one, reverting to
   // C gives us much better performance
-  char buff[256] = {0};
+  char buff[128] = {0};
   snprintf(buff, sizeof(buff) / sizeof(buff[0]) - 1,
            "%.2f%%, %.1ffps (%d, %lld)", changeRate, currentFps, cd,
            maxFramesPerVideo - videoFrameCount);
-  /*ostringstream oss;
-  if (mode == MODE_DETECT_MOTION) {
-    oss << fixed << setprecision(2) << changeRate << "%, ";
-  }
-  oss << fixed << setprecision(1) << currentFps << "fps ";
-  if (mode != MODE_DISABLED) {
-    oss << "(" << cd << ", " << maxFramesPerVideo - videoFrameCount << ")";
-  }*/
+
   putText(frame, buff, Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX, fontScale,
           Scalar(0, 0, 0), 8 * fontScale, LINE_8, false);
   putText(frame, buff, Point(5, frame.rows - 5), FONT_HERSHEY_DUPLEX, fontScale,
@@ -153,25 +145,10 @@ float FrameHandler::getFrameChanges(cv::cuda::GpuMat &prevFrame,
   return 100.0 * nonZeroPixels / (diffFrame.rows * diffFrame.cols);
 }
 
-void FrameHandler::generateBlankFrameAt1Fps(cv::cuda::GpuMat &currFrame,
+void FrameHandler::generateBlankFrameAt1Fps(cv::cuda::GpuMat &dCurrFrame,
                                             const Size &actualFrameSize) {
   this_thread::sleep_for(999ms); // Throttle the generation at 1 fps.
-
-  /* Even if we generate nothing but a blank screen, we cant just use some
-  hardcoded values and skip framepreferredInputWidth/actualFrameSize.width and
-  framepreferredInputHeight/actualFrameSize.height.
-  The problem will occur when piping frames to ffmpeg: In ffmpeg, we
-  pre-define the frame size, which is mostly framepreferredInputWidth x
-  framepreferredInputHeight. If the video device is down and we supply a
-  smaller frame, ffmpeg will wait until there are enough pixels filling
-  the original resolution to write one frame, causing screen tearing
-  */
-  if (actualFrameSize.width > 0 && actualFrameSize.height > 0) {
-    currFrame = cv::cuda::GpuMat(actualFrameSize.height, actualFrameSize.width,
-                                 CV_8UC3, Scalar(128, 128, 128));
-  } else {
-    currFrame = cv::cuda::GpuMat(540, 960, CV_8UC3, Scalar(128, 128, 128));
-    // 960x540, 1280x760, 1920x1080 all have 16:9 aspect ratio.
-  }
+  dCurrFrame = cv::cuda::GpuMat(actualFrameSize.height, actualFrameSize.width,
+                                CV_8UC3, Scalar(128, 128, 128));
 }
 } // namespace FrameHandler

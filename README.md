@@ -46,7 +46,7 @@ There are two main functions of this program:
   sudo make install
   ```
 - [libmycrypto](https://github.com/alex-lt-kong/libmycrypto) for hash functions
-- `nlohmann-json3 (>= 3.9)`, JSON support: `apt install nlohmann-json3-dev`
+- `nlohmann-json3`, JSON support: `apt install nlohmann-json3-dev`
 - `spdlog` for logging: `apt install libspdlog-dev`
 - `v4l-utils`: for manually examining and manipulating local video devices.
 - `cppzmq` for message queue, `apt install libzmq3-dev`
@@ -55,7 +55,7 @@ There are two main functions of this program:
   `apt install libprotobuf-dev protobuf-compiler`
 - `readerwriterquque` for high-performance lock-free queue support:
   `apt install libreaderwriterqueue-dev`
-- `boost::program_options` for parsing arguments: `apt install libboost-all-dev`
+- `cxxopts` for parsing arguments: `apt install libcxxopts-dev`
 - `OpenCV`: image/video manipulation libraries that do all the
   heavy lifting.
   - Check build notes [here](./helper/build-notes.md)
