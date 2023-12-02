@@ -347,8 +347,8 @@ void DeviceManager::InternalThreadEntry() {
   Ptr<cudacodec::VideoReader> vr;
   float rateOfChange = 0.0;
 
-  uint64_t retrievedFramesSinceLastOpen = 0;
-  uint64_t retrievedFramesSinceStart = 0;
+  uint64_t frameCountSinceLastOpen = 0;
+  uint64_t frameCountSinceStart = 0;
   uint32_t videoFrameCount = 0;
   // Will be updated after 1st actual frame is received
   Size actualFrameSize = Size(1280, 720);
@@ -369,16 +369,16 @@ void DeviceManager::InternalThreadEntry() {
       // assume the video source is at 30fps
       this_thread::sleep_for(chrono::milliseconds(1000 / 30));
     }
-    ++retrievedFramesSinceStart;
-    ++retrievedFramesSinceLastOpen;
+    ++frameCountSinceStart;
+    ++frameCountSinceLastOpen;
 
     if (result == false || dCurrFrame.empty()) [[unlikely]] {
       markDeviceAsOffline(isShowingBlankFrame);
       fh->generateBlankFrameAt1Fps(dCurrFrame, actualFrameSize);
-      if (retrievedFramesSinceStart % openRetryDelay == 0) {
+      if (frameCountSinceStart % openRetryDelay == 0) {
         openRetryDelay *= 2;
-        spdlog::error("[{}] Unable to cap.read() a new frame. "
-                      "Wait for {} frames than then re-open()...",
+        spdlog::error("[{}] VideoReader failed to read a new frame, "
+                      "waiting for {} reading attempts then retry...",
                       deviceName, openRetryDelay);
       entryPoint:
         try {
@@ -387,11 +387,11 @@ void DeviceManager::InternalThreadEntry() {
           vr->set(cudacodec::ColorFormat::BGR);
           spdlog::info("[{}] VideoReader initialized ({})", deviceName,
                        conf["videoFeed"]["uri"].get<string>());
-          retrievedFramesSinceLastOpen = 0;
         } catch (const cv::Exception &e) {
           spdlog::error("[{}] VideoReader initialization failed: {}",
                         deviceName, e.what());
         }
+        frameCountSinceLastOpen = 0;
         // If they are -1, we want to reload them
         outputWidth = conf.value("/frame/outputWidth"_json_pointer, 1280);
         outputHeight = conf.value("/frame/outputHeight"_json_pointer, 720);
@@ -406,14 +406,14 @@ void DeviceManager::InternalThreadEntry() {
                        frameRotationAngle, static_cast<float>(dCurrFrame.cols),
                        static_cast<float>(dCurrFrame.rows));
     }
-    if (retrievedFramesSinceLastOpen == 1) {
+    if (frameCountSinceLastOpen == 1) {
       actualFrameSize = dCurrFrame.size();
       outputWidth = outputWidth == -1 ? actualFrameSize.width : outputWidth;
       outputHeight = outputHeight == -1 ? actualFrameSize.height : outputHeight;
     }
 
     if (motionDetectionMode == MODE_DETECT_MOTION &&
-        retrievedFramesSinceStart % diffEveryNthFrame == 0) {
+        frameCountSinceStart % diffEveryNthFrame == 0) {
       if (isShowingBlankFrame == false) {
         // profiling shows this if() block takes around 1-2 ms
         rateOfChange = fh->getFrameChanges(dPrevFrame, dCurrFrame, dDiffFrame,
@@ -428,6 +428,10 @@ void DeviceManager::InternalThreadEntry() {
     }
     if (actualFrameSize.width != outputWidth ||
         actualFrameSize.height != outputHeight) {
+      spdlog::info(
+          "cuda::resize()ing, {}vs{}, {}vs{}, retrievedFramesSinceLastOpen: {}",
+          actualFrameSize.width, outputWidth, actualFrameSize.height,
+          outputHeight, frameCountSinceLastOpen);
       cuda::resize(dCurrFrame, dCurrFrame, cv::Size(outputWidth, outputHeight));
     }
     // cv::Mat behaves like a std::shared_ptr<T>
@@ -451,7 +455,7 @@ void DeviceManager::InternalThreadEntry() {
       fh->overlayDeviceName(hFrame);
     }
 
-    if ((retrievedFramesSinceStart - 1) % snapshotFrameInterval == 0) {
+    if ((frameCountSinceStart - 1) % snapshotFrameInterval == 0) {
       ipc->enqueueData(hDispFrames.front().clone());
     }
 
