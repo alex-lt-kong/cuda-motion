@@ -20,11 +20,11 @@ string configPath =
     string(getenv("HOME")) + "/.config/ak-studio/camera-server.jsonc";
 
 int main(int argc, char *argv[]) {
-  cxxopts::Options options("cuda-motion", "video feed handler that uses CUDA");
+  cxxopts::Options options(argv[0], "video feed handler that uses CUDA");
   // clang-format off
   options.add_options()
-    ("help,h", "print help message")
-    ("config-path,c", "path of the config file", cxxopts::value<string>()->default_value(configPath));
+    ("h,help", "print help message")
+    ("c,config-path", "path of the config file", cxxopts::value<string>()->default_value(configPath));
   // clang-format on
   auto result = options.parse(argc, argv);
   if (result.count("help") || !result.count("config-file")) {
