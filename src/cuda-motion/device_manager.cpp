@@ -93,8 +93,9 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
   // ===== frame =====
 
   frameRotationAngle = conf.value("/frame/rotationAngle"_json_pointer, 0.0);
-  textOverlayEnabled = conf["frame"]["textOverlay"]["enabled"];
-  frameQueueSize = conf["frame"]["queueSize"];
+  textOverlayEnabled =
+      conf.value("/frame/textOverlay/enabled"_json_pointer, false);
+  frameQueueSize = conf.value("/frame/queueSize"_json_pointer, 5);
   assert(frameQueueSize > 0);
 
   // =====  snapshot =====
@@ -268,9 +269,7 @@ void DeviceManager::startOrKeepVideoRecording(int64_t &cd) {
   videoWriting = true;
 
   vwPcQueue.start(
-      {.fourcc =
-           conf["motionDetection"]["videoRecording"]["videoWriter"]["fourcc"],
-       .evaluatedVideoPath = evaluatedVideoPath,
+      {.evaluatedVideoPath = evaluatedVideoPath,
        .fps = conf["motionDetection"]["videoRecording"]["videoWriter"]["fps"],
        .outputWidth = outputWidth,
        .outputHeight = outputHeight,
@@ -428,10 +427,6 @@ void DeviceManager::InternalThreadEntry() {
     }
     if (actualFrameSize.width != outputWidth ||
         actualFrameSize.height != outputHeight) {
-      spdlog::info(
-          "cuda::resize()ing, {}vs{}, {}vs{}, retrievedFramesSinceLastOpen: {}",
-          actualFrameSize.width, outputWidth, actualFrameSize.height,
-          outputHeight, frameCountSinceLastOpen);
       cuda::resize(dCurrFrame, dCurrFrame, cv::Size(outputWidth, outputHeight));
     }
     // cv::Mat behaves like a std::shared_ptr<T>

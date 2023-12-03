@@ -24,7 +24,6 @@ using namespace cv;
 using njson = nlohmann::json;
 
 struct videoWritingInfo {
-  std::string fourcc;
   std::string evaluatedVideoPath;
   float fps;
   ssize_t outputWidth;
