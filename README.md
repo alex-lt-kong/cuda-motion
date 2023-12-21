@@ -80,7 +80,7 @@ make -j2
 
 ## Profiling
 
-- gprod:
+- gprof:
 
 ```bash
 cmake -DCMAKE_CXX_FLAGS=-pg -DCMAKE_EXE_LINKER_FLAGS=-pg -DCMAKE_SHARED_LINKER_FLAGS=-pg  ../
