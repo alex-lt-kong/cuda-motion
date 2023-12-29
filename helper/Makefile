@@ -3,7 +3,7 @@ CXX = g++
 CFLAGS = -O2 -Wall -Wc++-compat -pedantic -Wextra
 CXXFLAGS = -O2 -Wall -pedantic -Wextra
 LDFLAGS_SHM = -lrt -lpthread
-LDFLAGS_VIDEO_WRITER = -lopencv_videoio -lopencv_core
+LDFLAGS_VIDEO_WRITER = -lopencv_videoio -lopencv_core -lopencv_cudacodec
 INC = -I/usr/local/include/opencv4/
 
 # TARGETS = shm-reader test-video-writer
