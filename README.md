@@ -58,7 +58,8 @@ There are two main functions of this program:
 - `cxxopts` for parsing arguments: `apt install libcxxopts-dev`
 - `OpenCV`: image/video manipulation libraries that do all the
   heavy lifting.
-  - Check build notes [here](./helper/build-notes.md)
+  - Check build notes [here](./helper/build-notes.md) and
+    [here](https://github.com/alex-lt-kong/the-nitty-gritty/tree/main/c-cpp/cpp-only/06_poc/05_cuda-vs-ffmpeg).
 
 ## Build and deployment
 
