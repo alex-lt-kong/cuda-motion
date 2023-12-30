@@ -69,10 +69,13 @@
   ..
   ```
 
-  and the `cmake` report should show lines that indicate the inclusion of
+  and the `cmake` output should show lines that indicate the inclusion of
   NVCUVID / NVCUVENC:
 
   ```
+  -- Found NVCUVID: /usr/lib/x86_64-linux-gnu/libnvcuvid.so
+  -- Found NVCUVENC:  /usr/lib/x86_64-linux-gnu/nvidia/current/libnvidia-encode.so
+  ...
   --   NVIDIA CUDA:                   YES (ver 11.8, CUFFT CUBLAS NVCUVID NVCUVENC)
   --     NVIDIA GPU arch:             35 37 50 52 60 61 70 75 80 86
   --     NVIDIA PTX archs:
