@@ -123,9 +123,9 @@ void FrameHandler::overlayStats(Mat &frame, const float changeRate,
           Scalar(255, 255, 255), 2 * fontScale, LINE_8, false);
 }
 
-float FrameHandler::getFrameChanges(cv::cuda::GpuMat &prevFrame,
-                                    cv::cuda::GpuMat &currFrame,
-                                    cv::cuda::GpuMat &diffFrame,
+float FrameHandler::getFrameChanges(cuda::GpuMat &prevFrame,
+                                    cuda::GpuMat &currFrame,
+                                    cuda::GpuMat &diffFrame,
                                     double pixelDiffAbsThreshold) {
   if (prevFrame.empty() || currFrame.empty()) {
     return -1;
@@ -145,10 +145,10 @@ float FrameHandler::getFrameChanges(cv::cuda::GpuMat &prevFrame,
   return 100.0 * nonZeroPixels / (diffFrame.rows * diffFrame.cols);
 }
 
-void FrameHandler::generateBlankFrameAt1Fps(cv::cuda::GpuMat &dCurrFrame,
+void FrameHandler::generateBlankFrameAt1Fps(cuda::GpuMat &dCurrFrame,
                                             const Size &actualFrameSize) {
   this_thread::sleep_for(999ms); // Throttle the generation at 1 fps.
-  dCurrFrame = cv::cuda::GpuMat(actualFrameSize.height, actualFrameSize.width,
-                                CV_8UC3, Scalar(128, 128, 128));
+  dCurrFrame = cuda::GpuMat(actualFrameSize.height, actualFrameSize.width,
+                            CV_8UC3, Scalar(128, 128, 128));
 }
 } // namespace FrameHandler

@@ -214,7 +214,9 @@ void DeviceManager::stopVideoRecording(uint32_t &videoFrameCount, int cd) {
   if (videoWriting) {
     videoWriting = false;
     vwPcQueue.wait();
-    spdlog::info("[{}] vwPcQueue thread exited gracefully", deviceName);
+    spdlog::info(
+        "[{}]  vwPcQueue thread exited, video recording stopped gracefully",
+        deviceName);
   }
 
   if (cd > 0) {

@@ -23,9 +23,16 @@ void execExternalProgramAsync(mutex &mtx, const string cmd,
       spdlog::info("[{}] Calling external program: [{}] in a separate child "
                    "process. (executionId: {})",
                    deviceName, cmd, executionId);
-      int retval = system(cmd.c_str());
-      spdlog::info("[{}] External program: [{}] returned {} (executionId: {})",
-                   deviceName, cmd, retval, executionId);
+      int retval = 0;
+      try {
+        retval = system(cmd.c_str());
+        spdlog::info(
+            "[{}] External program: [{}] returned {} (executionId: {})",
+            deviceName, cmd, retval, executionId);
+      } catch (const exception &e) {
+        spdlog::error("[{}] Failed calling {}: {}", deviceName, cmd, e.what());
+      }
+
       mtx.unlock();
     } else {
       spdlog::warn("[{}] mutex is locked, meaning that another [{}] "
