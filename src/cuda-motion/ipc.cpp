@@ -278,8 +278,6 @@ void IPC::sendDataViaZeroMQ() {
   msg.set_unixepochns(epochNanoseconds);
   if (zmqSendCVMat) {
     msg.set_payload(mat.data, mat.total() * mat.elemSize());
-    spdlog::info("mat.total() * mat.elemSize(): {}",
-                 mat.total() * mat.elemSize());
   } else {
     msg.set_payload(encodedJpgImage.data(), encodedJpgImage.size());
   }
