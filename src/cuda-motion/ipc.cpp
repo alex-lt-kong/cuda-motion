@@ -21,8 +21,9 @@ IPC::IPC(const size_t deviceIndex, const string &deviceName)
   ipcPcQueue.start({.ipcInstance = this, .snapshot = cv::Mat()});
 }
 
-void IPC::enableZeroMQ(const string &zeroMQEndpoint) {
+void IPC::enableZeroMQ(const string &zeroMQEndpoint, const bool sendCVMat) {
   zmqEnabled = true;
+  zmqSendCVMat = sendCVMat;
   try {
     zmqSocket.bind(zeroMQEndpoint);
     spdlog::info("[{}] ZeroMQ IPC enabled, endpoint is {}", deviceName,
@@ -169,12 +170,13 @@ void IPC::sendDataCb(cv::Mat &dispFrame) {
   vector<int> configs = {};
   if (httpEnabled) {
     lock_guard<mutex> guard(mutexLiveImage);
-    // As of 2023-11-28, cv::imencode does not appear to have CUDA equivalent in
-    // OpenCV
-    cv::imencode(".jpg", dispFrame, encodedJpgImage, configs);
+    mat = dispFrame.clone();
   } else if (fileEnabled || sharedMemEnabled || zmqEnabled) {
-    cv::imencode(".jpg", dispFrame, encodedJpgImage, configs);
+    mat = dispFrame.clone();
   }
+  // As of 2023-11-28, cv::imencode does not appear to have CUDA equivalent in
+  // OpenCV
+  cv::imencode(".jpg", mat, encodedJpgImage, configs);
   /*
     {
       auto now = std::chrono::system_clock::now();
@@ -195,27 +197,7 @@ void IPC::sendDataCb(cv::Mat &dispFrame) {
   // https://stackoverflow.com/questions/7054844/is-rename-atomic
   // https://stackoverflow.com/questions/29261648/atomic-writing-to-file-on-linux
   if (fileEnabled) {
-    string sp =
-        regex_replace(filePathWithStaticVarEvaluated,
-                      regex(R"(\{\{timestamp\}\})"), getCurrentTimestamp());
-    ofstream fout(sp + ".tmp", ios::out | ios::binary);
-    if (!fout.good()) {
-      spdlog::error("[{}] Failed to open file [{}]: {}", deviceName,
-                    sp + ".tmp", strerror(errno));
-    } else {
-      fout.write((char *)encodedJpgImage.data(), encodedJpgImage.size());
-      if (!fout.good()) {
-        spdlog::error("[{}] Failed to write to file [{}]: {}", deviceName,
-                      sp + ".tmp", strerror(errno));
-      }
-      fout.close();
-      if (rename((sp + ".tmp").c_str(), sp.c_str()) != 0) {
-        spdlog::error("[{}] Failed to rename [{}] tp [{}]: {}", deviceName,
-                      sp + ".tmp", sp, strerror(errno));
-      }
-    }
-    // profiling shows from ofstream fout()... to rename() takes
-    // less than 1 ms.
+    sendDataViaFile();
   }
 
   if (sharedMemEnabled) {
@@ -230,6 +212,30 @@ void IPC::sendDataCb(cv::Mat &dispFrame) {
     //     "{}us",
     //    chrono::duration_cast<chrono::microseconds>(end - start).count());
   }
+}
+
+void IPC::sendDataViaFile() {
+  string sp =
+      regex_replace(filePathWithStaticVarEvaluated,
+                    regex(R"(\{\{timestamp\}\})"), getCurrentTimestamp());
+  ofstream fout(sp + ".tmp", ios::out | ios::binary);
+  if (!fout.good())
+    spdlog::error("[{}] Failed to open file [{}]: {}", deviceName, sp + ".tmp",
+                  strerror(errno));
+  return;
+
+  fout.write((char *)encodedJpgImage.data(), encodedJpgImage.size());
+  if (!fout.good()) {
+    spdlog::error("[{}] Failed to write to file [{}]: {}", deviceName,
+                  sp + ".tmp", strerror(errno));
+  }
+  fout.close();
+  if (rename((sp + ".tmp").c_str(), sp.c_str()) != 0) {
+    spdlog::error("[{}] Failed to rename [{}] tp [{}]: {}", deviceName,
+                  sp + ".tmp", sp, strerror(errno));
+  }
+  // profiling shows from ofstream fout()... to rename() takes
+  // less than 1 ms.}
 }
 
 void IPC::sendDataViaSharedMemory() {
@@ -270,7 +276,14 @@ void IPC::sendDataViaZeroMQ() {
           .time_since_epoch()
           .count();
   msg.set_unixepochns(epochNanoseconds);
-  msg.set_payload(encodedJpgImage.data(), encodedJpgImage.size());
+  if (zmqSendCVMat) {
+    msg.set_payload(mat.data, mat.total() * mat.elemSize());
+    spdlog::info("mat.total() * mat.elemSize(): {}",
+                 mat.total() * mat.elemSize());
+  } else {
+    msg.set_payload(encodedJpgImage.data(), encodedJpgImage.size());
+  }
+
   auto serializedMsg = msg.SerializeAsString();
   try {
     if (auto ret =

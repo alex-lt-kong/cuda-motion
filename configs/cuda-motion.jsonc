@@ -91,6 +91,11 @@
         /* Publush the snapshot with zeroMQ. */
         "zeroMQ": {
           "enabled": true,
+          /* Should the program directly send an OpenCV's cv::Mat object
+             instead of an encoded JPEG object. Sending cv::Mat means the
+             downstream data user does not need to decode the JPEG back to
+             cv::Mat again. */
+          "sendCVMat": false,
           /* {{deviceName}} is also supported by "endpoint", but it usually
           doesn't make sense, so it is not included in the default settings */
           "endpoint": "tcp://127.0.0.1:424{{deviceIndex}}"

@@ -27,7 +27,7 @@ struct ipcQueuePayload {
 class IPC {
 public:
   IPC(const size_t deviceIndex, const std::string &deviceName);
-  void enableZeroMQ(const std::string &zeroMQEndpoint);
+  void enableZeroMQ(const std::string &zeroMQEndpoint, const bool sendCVMat);
   void enableSharedMemory(const std::string &sharedMemoryName,
                           size_t sharedMemSize,
                           const std::string &semaphoreName);
@@ -36,7 +36,8 @@ public:
   ~IPC();
   void enqueueData(cv::Mat dispFrame);
   std::vector<uint8_t> encodedJpgImage;
-  void sendDataCb(cv::Mat &disspFrame);
+  cv::Mat mat;
+  void sendDataCb(cv::Mat &dispFrame);
   inline bool isHttpEnabled() { return httpEnabled; }
   void wait();
 
@@ -52,6 +53,7 @@ private:
 
   // ZeroMQ variables
   bool zmqEnabled = false;
+  bool zmqSendCVMat = false;
   std::string zeroMQEndpoint;
   zmq::context_t zmqContext;
   zmq::socket_t zmqSocket;
@@ -68,6 +70,7 @@ private:
   PcQueue<cv::Mat, ipcQueuePayload, ipcQueuePayload> ipcPcQueue;
   void sendDataViaZeroMQ();
   void sendDataViaSharedMemory();
+  void sendDataViaFile();
 };
 
 #endif // CM_IPC_H
