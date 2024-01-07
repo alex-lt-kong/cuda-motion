@@ -8,6 +8,9 @@
 - Set pixel format to `MJPG` to a video device: `v4l2-ctl --set-fmt-video=pixelformat=MJPG --device <videoUri>`
 - Get all parameters `v4l2-ctl --get-parm --all --device <videoUri>`
 - Set a parameter: `v4l2-ctl --set-ctrl=<parameterName>=<parameterValue> --device <videoUri>`
+  - Note that some parameters may depend on the status of other parameters.
+    For example, if `auto_exposure` is set to true and one may not be able to
+    set `exposure_time_absolute` manually.
 - Get framerate: `v4l2-ctl --get-parm --device <videoUri>`
 - Set framerate: `v4l2-ctl --set-parm=30 --device <videoUri>`
 
