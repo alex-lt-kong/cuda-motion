@@ -367,7 +367,13 @@ void DeviceManager::InternalThreadEntry() {
 
   while (ev_flag == 0) {
     if (vr != nullptr) [[likely]] {
-      result = vr->nextFrame(dCurrFrame);
+      try {
+        result = vr->nextFrame(dCurrFrame);
+      } catch (const cv::Exception &e) {
+        result = false;
+        spdlog::error("[{}] VideoReader nextFrame() failed: {}", deviceName,
+                      e.what());
+      }
     } else {
       result = false;
       // assume the video source is at 30fps
