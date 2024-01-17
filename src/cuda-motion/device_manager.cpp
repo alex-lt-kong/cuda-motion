@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda.hpp>
+#include <opencv2/cudacodec.hpp>
 #include <opencv2/cudawarping.hpp>
 #include <opencv2/videoio.hpp>
 #include <spdlog/spdlog.h>
@@ -392,8 +393,11 @@ void DeviceManager::InternalThreadEntry() {
                       deviceName, openRetryDelay);
       entryPoint:
         try {
+          auto params = cudacodec::VideoReaderInitParams();
+          // https://docs.opencv.org/4.9.0/dd/d7d/structcv_1_1cudacodec_1_1VideoReaderInitParams.html#a9b73352d9bc1a23ccf3bf06517f978c7
+          params.allowFrameDrop = true;
           vr = cudacodec::createVideoReader(
-              conf["videoFeed"]["uri"].get<string>());
+              conf["videoFeed"]["uri"].get<string>(), {}, params);
           vr->set(cudacodec::ColorFormat::BGR);
           spdlog::info("[{}] VideoReader initialized ({})", deviceName,
                        conf["videoFeed"]["uri"].get<string>());

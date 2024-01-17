@@ -43,8 +43,6 @@
       OPENCV_FFMPEG_DEBUG=1
       OPENCV_LOG_LEVEL=DEBUG
 
-  export OPENCV_FFMPEG_CAPTURE_OPTIONS="hwaccel;cuvid|video_codec;mjpeg_cuvid|video_codec;h264_cuvid|vsync;0"
-
 ## POSIX-related
 
 - Check the status of shared memory/semaphore: `ls -alh /dev/shm`
