@@ -20,7 +20,6 @@ endif()
 
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-find_package(Boost REQUIRED COMPONENTS program_options)
 
 find_package(Protobuf REQUIRED)
 

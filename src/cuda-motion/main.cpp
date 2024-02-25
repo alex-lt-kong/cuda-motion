@@ -17,7 +17,7 @@ using json = nlohmann::json;
 
 vector<unique_ptr<DeviceManager>> myDevices;
 string configPath =
-    string(getenv("HOME")) + "/.config/ak-studio/camera-server.jsonc";
+    string(getenv("HOME")) + "/.config/ak-studio/cuda-motion.jsonc";
 
 int main(int argc, char *argv[]) {
   cxxopts::Options options(argv[0], "video feed handler that uses CUDA");
@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
   // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
   // Including microseconds is handy for naive profiling
   spdlog::set_pattern("%Y-%m-%dT%T.%f%z|%5t|%8l| %v");
-  spdlog::info("Camera Server started");
+  spdlog::info("Cuda Motion started");
   install_signal_handler();
 
   spdlog::info("cv::getBuildInformation(): {}", string(getBuildInformation()));

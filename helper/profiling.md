@@ -39,7 +39,7 @@
 
 - While not strictly a profiler, this trick provides some very useful insight.
 
-- Build Camera Server will debug symbols: `make -DCMAKE_BUILD_TYPE=RelWithDebInfo ..`
+- Build Cuda Motion will debug symbols: `make -DCMAKE_BUILD_TYPE=RelWithDebInfo ..`
 
   - And just run it: `./cs`
 

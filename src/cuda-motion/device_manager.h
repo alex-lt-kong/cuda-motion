@@ -57,7 +57,7 @@ private:
   // frame variables
   bool textOverlayEnabled;
   double textOverlayFontSacle;
-  double frameRotationAngle;
+  int frameRotationAngle;
   ssize_t outputWidth;
   ssize_t outputHeight;
   std::string evaluatedVideoPath;

@@ -21,10 +21,10 @@
       "uri": "/dev/video{{deviceIndex}}"
     },
     "frame": {
-      /* Typically 0 - 360 degrees*/
+      /* Valid values are 0,90,180,270, any other values will be treated as 0 */
       "rotationAngle": 0.0,
       "textOverlay": {
-        /* By default, Camera Server writes some basic information, such as
+        /* By default, Cuda Motion writes some basic information, such as
         timestamp and device name, to each frame. Disable it if it is
         undesired. Profiling shows that putting text on frames is a
         CPU-intensive operation. */

@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda.hpp>
+#include <opencv2/core/types.hpp>
 #include <opencv2/cudacodec.hpp>
 #include <opencv2/cudawarping.hpp>
 #include <opencv2/videoio.hpp>
@@ -96,7 +97,7 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
 
   // ===== frame =====
 
-  frameRotationAngle = conf.value("/frame/rotationAngle"_json_pointer, 0.0);
+  frameRotationAngle = conf.value("/frame/rotationAngle"_json_pointer, 0);
   textOverlayEnabled =
       conf.value("/frame/textOverlay/enabled"_json_pointer, false);
   frameQueueSize = conf.value("/frame/queueSize"_json_pointer, 5);
@@ -414,12 +415,29 @@ void DeviceManager::InternalThreadEntry() {
     } else if (isShowingBlankFrame) [[unlikely]] {
       deviceIsBackOnline(openRetryDelay, isShowingBlankFrame);
     }
-    if (frameRotationAngle != 0.0 && isShowingBlankFrame == false) {
-      cv::cuda::GpuMat gpuRotatedImage;
-      cv::cuda::rotate(dCurrFrame.clone(), dCurrFrame, dCurrFrame.size(),
-                       frameRotationAngle, static_cast<float>(dCurrFrame.cols),
-                       static_cast<float>(dCurrFrame.rows));
+    if (!isShowingBlankFrame) [[likely]] {
+      switch (frameRotationAngle) {
+      case 90:
+        cv::cuda::rotate(
+            dCurrFrame.clone(), dCurrFrame,
+            cv::Size(dCurrFrame.size().height, dCurrFrame.size().width),
+            frameRotationAngle, 0, dCurrFrame.size().height * 2);
+        break;
+      case 180:
+        cv::cuda::rotate(dCurrFrame.clone(), dCurrFrame, dCurrFrame.size(),
+                         frameRotationAngle, dCurrFrame.size().width,
+                         dCurrFrame.size().height);
+        break;
+      case 270:
+        cv::cuda::rotate(
+            dCurrFrame.clone(), dCurrFrame,
+            cv::Size(dCurrFrame.size().height, dCurrFrame.size().width),
+            frameRotationAngle, dCurrFrame.size().height, 0);
+        break;
+      default:;
+      }
     }
+
     if (frameCountSinceLastOpen == 1) {
       actualFrameSize = dCurrFrame.size();
       outputWidth = outputWidth == -1 ? actualFrameSize.width : outputWidth;
