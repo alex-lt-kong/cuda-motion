@@ -421,7 +421,7 @@ void DeviceManager::InternalThreadEntry() {
         cv::cuda::rotate(
             dCurrFrame.clone(), dCurrFrame,
             cv::Size(dCurrFrame.size().height, dCurrFrame.size().width),
-            frameRotationAngle, 0, dCurrFrame.size().height * 2);
+            frameRotationAngle, 0, dCurrFrame.size().width);
         break;
       case 180:
         cv::cuda::rotate(dCurrFrame.clone(), dCurrFrame, dCurrFrame.size(),
