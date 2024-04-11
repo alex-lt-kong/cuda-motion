@@ -30,7 +30,8 @@
   - Long story short, we need to download Nvidia's Video Codec SDK
     [here](https://developer.nvidia.com/video-codec-sdk) and copy all header files
     in `./Interface/` directory to corresponding CUDA's include directory
-    (e.g., `/usr/local/cuda/targets/x86_64-linux/include/`)
+    (e.g., `/usr/local/cuda/targets/x86_64-linux/include/` or any directory that
+    follows the `-- NVCUVID: Header not found` complaint)
 
   - Without this step, `OpenCV`'s `cmake`/`make` could still work, but the
     compiled code will complain:
