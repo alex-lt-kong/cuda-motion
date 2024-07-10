@@ -1,5 +1,6 @@
 #include "device_manager.h"
 #include "pc_queue.h"
+#include <spdlog/spdlog.h>
 
 using namespace std;
 
@@ -12,7 +13,8 @@ template <>
 void PcQueue<cv::cuda::GpuMat, struct videoWritingInfo,
              struct videoWritingPayload>::consumeCb(struct videoWritingPayload
                                                         pl) {
-  pl.vw->write(pl.m);
+  if (pl.vw != nullptr)
+    pl.vw->write(pl.m);
 }
 
 template <>
@@ -21,9 +23,16 @@ void PcQueue<cv::cuda::GpuMat, struct videoWritingInfo,
     evConsume(PcQueue<cv::cuda::GpuMat, struct videoWritingInfo,
                       struct videoWritingPayload> *This,
               struct videoWritingInfo inf) {
-  auto vw = cudacodec::createVideoWriter(
-      inf.evaluatedVideoPath, Size(inf.outputWidth, inf.outputHeight),
-      cudacodec::Codec::H264, inf.fps, cudacodec::ColorFormat::BGR);
+  Ptr<cudacodec::VideoWriter> vw = nullptr;
+  try {
+    vw = cudacodec::createVideoWriter(
+        inf.evaluatedVideoPath, Size(inf.outputWidth, inf.outputHeight),
+        cudacodec::Codec::H264, inf.fps, cudacodec::ColorFormat::BGR);
+  } catch (const cv::Exception &e) {
+    spdlog::error(
+        "cudacodec::createVideoWriter() failed to initialize for file {}: {}",
+        inf.evaluatedVideoPath, e.what());
+  }
   struct videoWritingPayload pl;
   pl.vw = vw;
   while (ev_flag == 0 && inf.videoWriting) {
@@ -31,8 +40,8 @@ void PcQueue<cv::cuda::GpuMat, struct videoWritingInfo,
       This->consumeCb(pl);
     }
   }
-  // vw.release();
-  vw->release();
+  if (vw != nullptr)
+    vw->release();
 }
 
 template <>
