@@ -171,12 +171,19 @@ void IPC::sendDataCb(cv::Mat &dispFrame) {
   if (httpEnabled) {
     lock_guard<mutex> guard(mutexLiveImage);
     mat = dispFrame.clone();
+    // As of 2023-11-28, cv::imencode does not appear to have CUDA equivalent in
+    // OpenCV
+    cv::imencode(".jpg", mat, encodedJpgImage, configs);
   } else if (fileEnabled || sharedMemEnabled || zmqEnabled) {
     mat = dispFrame.clone();
+    cv::imencode(".jpg", mat, encodedJpgImage, configs);
   }
-  // As of 2023-11-28, cv::imencode does not appear to have CUDA equivalent in
-  // OpenCV
-  cv::imencode(".jpg", mat, encodedJpgImage, configs);
+
+  // Due to some reason, lock_guard<mutex> guard(mutexLiveImage); only
+  // mat = dispFrame.clone(); is not enough, we must also lock cv::imencode()
+  // to avoid race condition.
+  // cv::imencode(".jpg", mat, encodedJpgImage, configs);
+
   /*
     {
       auto now = std::chrono::system_clock::now();
