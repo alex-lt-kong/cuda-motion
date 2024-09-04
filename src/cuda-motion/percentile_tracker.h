@@ -33,6 +33,8 @@ public:
     }
 
     int index = percent / 100.0 * samples.size() - 1;
+    if (index < 0)
+      index = 0;
     return samples[index];
   }
 

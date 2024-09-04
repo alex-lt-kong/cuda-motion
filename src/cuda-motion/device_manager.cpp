@@ -388,7 +388,8 @@ void DeviceManager::InternalThreadEntry() {
       markDeviceAsOffline(isShowingBlankFrame);
       fh->generateBlankFrameAt1Fps(dCurrFrame, actualFrameSize);
       if (frameCountSinceStart % openRetryDelay == 0) {
-        openRetryDelay *= 2;
+        if (openRetryDelay < 360)
+          openRetryDelay *= 2;
         spdlog::error("[{}] VideoReader failed to read a new frame, "
                       "waiting for {} reading attempts then retry...",
                       deviceName, openRetryDelay);
