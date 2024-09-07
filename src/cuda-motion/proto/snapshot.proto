@@ -2,5 +2,8 @@ syntax = "proto3";
 
 message SnapshotMsg {
   int64 unixEpochNs = 1;
-  bytes payload = 2;
+  bytes jpegBytes = 2;
+  bytes cvMatBytes = 3;
+  float rateOfChange = 4;
+  int64 cooldown = 5;
 }

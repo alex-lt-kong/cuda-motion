@@ -1,18 +1,10 @@
 #ifndef CM_IPC_H
 #define CM_IPC_H
 
-#include "pc_queue.h"
-
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
 #include <opencv2/core/core.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <zmq.hpp>
 #pragma GCC diagnostic pop
-#include <readerwriterqueue/readerwritercircularbuffer.h>
-
-#include <semaphore.h>
-#include <thread>
 
 #define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
 #define SEM_INITIAL_VALUE 1
@@ -42,41 +34,13 @@ public:
   ~IPC();
   void enqueueData(ipcQueueElement &eqpl);
   std::vector<uint8_t> encodedJpgImage;
-  cv::Mat mat;
   void sendDataCb(ipcQueueElement &eqpl);
-  inline bool isHttpEnabled() { return httpEnabled; }
+  bool isHttpEnabled();
   void wait();
 
 private:
-  size_t deviceIndex;
-  std::string deviceName = "<unset>";
-  // File variables
-  bool fileEnabled = false;
-  std::string filePathWithStaticVarEvaluated;
-
-  // HTTP variables
-  bool httpEnabled = false;
-
-  // ZeroMQ variables
-  bool zmqEnabled = false;
-  bool zmqSendCVMat = false;
-  std::string zeroMQEndpoint;
-  zmq::context_t zmqContext;
-  zmq::socket_t zmqSocket;
-
-  // POSIX shared memory variables
-  bool sharedMemEnabled = false;
-  std::string sharedMemoryName;
-  size_t sharedMemSize;
-  void *memPtr;
-  sem_t *semPtr;
-  int shmFd;
-  std::string semaphoreName;
-
-  PcQueue<ipcQueueElement, ipcDequeueContext> ipcPcQueue;
-  void sendDataViaZeroMQ();
-  void sendDataViaSharedMemory();
-  void sendDataViaFile();
+  class impl;
+  std::unique_ptr<impl> pimpl;
 };
 
 #endif // CM_IPC_H

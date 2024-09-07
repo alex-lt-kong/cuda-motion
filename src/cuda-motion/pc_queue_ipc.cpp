@@ -7,11 +7,6 @@
 
 using namespace std;
 
-/*
-template <>
-PcQueue<ipcQueueElement, ipcDequeueContext>::PcQueue(volatile sig_atomic_t *)
-    : q(512) {}*/
-
 template <>
 bool PcQueue<ipcQueueElement, ipcDequeueContext>::try_enqueue(
     ipcQueueElement eqpl) {

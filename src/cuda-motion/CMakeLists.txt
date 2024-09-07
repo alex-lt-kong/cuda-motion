@@ -1,5 +1,3 @@
-add_subdirectory(http_service/)
-
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include_directories(http_service/)
 
@@ -20,7 +18,6 @@ endif()
 
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-
 find_package(Protobuf REQUIRED)
 
 if(Protobuf_FOUND)
@@ -49,6 +46,8 @@ add_executable(cm
   utils.cpp
   ${PROTO_SRCS} ${PROTO_HDRS}
 )
+
+add_subdirectory(http_service/)
 
 target_link_libraries(cm
   http_service
