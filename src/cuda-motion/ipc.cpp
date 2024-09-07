@@ -13,8 +13,11 @@
 #include <sys/mman.h>
 #include <zmq.hpp>
 
-using namespace std;
+#define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
+#define SEM_INITIAL_VALUE 1
 
+using namespace std;
+namespace CudaMotion {
 // PIMPL idiom
 class IPC::impl {
 public:
@@ -49,12 +52,10 @@ public:
   PcQueue<ipcQueueElement, ipcDequeueContext> ipcPcQueue =
       PcQueue<ipcQueueElement, ipcDequeueContext>(&ev_flag, 128);
 
-  impl(const size_t deviceIndex, string deviceName,
-       std::vector<uint8_t> &encodedJpgImage, IPC *parent)
+  impl(const size_t deviceIndex, string deviceName, IPC *parent)
       : zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub) {
     this->deviceName = deviceName;
     this->deviceIndex = deviceIndex;
-    this->encodedJpgImage = encodedJpgImage;
     ipcDequeueContext ctx = {.ipcInstance = parent, .ele = {-1, -1, cv::Mat()}};
     ipcPcQueue.start(ctx);
   }
@@ -343,14 +344,10 @@ public:
   }
 
   void wait() { ipcPcQueue.wait(); }
-
-private:
-  int internal_data = 0;
 };
 
 IPC::IPC(const size_t deviceIndex, const string &deviceName)
-    : pimpl{std::make_unique<impl>(deviceIndex, deviceName, encodedJpgImage,
-                                   this)} {}
+    : pimpl{std::make_unique<impl>(deviceIndex, deviceName, this)} {}
 
 void IPC::enableZeroMQ(const string &zeroMQEndpoint, const bool sendCVMat) {
   pimpl->enableZeroMQ(zeroMQEndpoint, sendCVMat);
@@ -377,3 +374,8 @@ void IPC::enableSharedMemory(const string &sharedMemoryName,
                              const std::string &semaphoreName) {
   pimpl->enableSharedMemory(sharedMemoryName, sharedMemSize, semaphoreName);
 }
+
+std::vector<uint8_t> IPC::getEncodedJpgImage() {
+  return pimpl->encodedJpgImage;
+}
+} // namespace CudaMotion

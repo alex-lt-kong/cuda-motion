@@ -10,9 +10,6 @@ string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_LOWER)
 add_compile_options("-Wall")
 add_compile_options("-Wextra")
 add_compile_options("-pedantic")
-
-# Silence many OATPP's marco-related warnings
-add_compile_options("-Wno-gnu-zero-variadic-macro-arguments")
 add_compile_options("-O3")
 add_compile_options("-g")
 

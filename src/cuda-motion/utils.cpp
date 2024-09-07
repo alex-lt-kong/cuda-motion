@@ -1,9 +1,9 @@
 #include "utils.h"
 #include "device_manager.h"
 
+#include <drogon/drogon.h>
 #include <spdlog/spdlog.h>
 
-//#include <fcntl.h>
 #include <atomic>
 #include <thread>
 #include <time.h>
@@ -60,6 +60,7 @@ static void signal_handler(int signum) noexcept {
     return;
   }
   ev_flag = 1;
+  drogon::app().quit();
   char msg[] = "Signal [  ] caught\n";
   msg[8] = '0' + signum / 10;
   msg[9] = '0' + signum % 10;

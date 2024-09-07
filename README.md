@@ -37,15 +37,7 @@ There are two main functions of this program:
 
 ## Dependencies
 
-- [Oat++](https://github.com/oatpp/) for HTTP service support:
-  ```
-  git clone https://github.com/oatpp/oatpp.git
-  cd oatpp && mkdir build && cd build
-  cmake -DCMAKE_BUILD_TYPE=Release ../
-  make -j4
-  sudo make install
-  ```
-- [libmycrypto](https://github.com/alex-lt-kong/libmycrypto) for hash functions
+- [Drogon](https://github.com/drogonframework/drogon) for HTTP service
 - `nlohmann-json3`, JSON support: `apt install nlohmann-json3-dev`
 - `spdlog` for logging: `apt install libspdlog-dev`
 - `v4l-utils`: for manually examining and manipulating local video devices.

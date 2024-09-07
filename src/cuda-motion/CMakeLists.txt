@@ -19,6 +19,7 @@ endif()
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Protobuf REQUIRED)
+find_package(Drogon CONFIG REQUIRED)
 
 if(Protobuf_FOUND)
   message(STATUS "Protobuf version: ${Protobuf_VERSION}")
@@ -47,13 +48,13 @@ add_executable(cm
   ${PROTO_SRCS} ${PROTO_HDRS}
 )
 
-add_subdirectory(http_service/)
+# add_subdirectory(http_service/)
 
 target_link_libraries(cm
-  http_service
   ${OpenCV_LIBS} rt ssl crypto spdlog fmt zmq
   ${Protobuf_LIBRARIES}
   ${Boost_PROGRAM_OPTIONS_LIBRARY}
+  Drogon::Drogon
 )
 
 add_custom_command(

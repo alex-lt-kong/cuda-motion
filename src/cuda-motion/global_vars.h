@@ -42,4 +42,6 @@ extern std::mutex mtxNjsonSettings;
 // The answer seems to be affirmative.
 extern nlohmann::json settings;
 
+class DeviceManager;
+extern std::vector<std::unique_ptr<DeviceManager>> myDevices;
 #endif /* CM_GLOBAL_VARS_H */

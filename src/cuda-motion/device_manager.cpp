@@ -20,6 +20,7 @@
 #include <sys/socket.h>
 
 using namespace std;
+using namespace CudaMotion;
 
 DeviceManager::DeviceManager(const size_t deviceIndex)
     : pt(10000), vwPcQueue(&ev_flag, 512) {
@@ -286,9 +287,9 @@ void DeviceManager::startOrKeepVideoRecording(int64_t &cd) {
 }
 
 void DeviceManager::getLiveImage(vector<uint8_t> &pl) {
-  if (ipc->isHttpEnabled() && ipc->encodedJpgImage.size() > 0) {
+  if (ipc->isHttpEnabled() && ipc->getEncodedJpgImage().size() > 0) {
     lock_guard<mutex> guard(mutexLiveImage);
-    pl = ipc->encodedJpgImage;
+    pl = ipc->getEncodedJpgImage();
   } else {
     pl = vector<uint8_t>();
   }

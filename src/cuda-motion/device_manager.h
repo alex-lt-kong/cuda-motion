@@ -43,7 +43,7 @@ protected:
   void InternalThreadEntry();
 
 private:
-  std::unique_ptr<IPC> ipc = nullptr;
+  std::unique_ptr<CudaMotion::IPC> ipc = nullptr;
   njson conf;
   size_t deviceIndex = 0;
   std::string deviceName;
@@ -104,7 +104,5 @@ private:
   bool initializeDevice(cudacodec::VideoReader *reader);
   float getCurrentFps();
 };
-
-extern std::vector<std::unique_ptr<DeviceManager>> myDevices;
 
 #endif /* CM_DEVICE_MANAGER_H */

@@ -1,23 +1,59 @@
 #include "device_manager.h"
 #include "global_vars.h"
-#include "http_service/oatpp_entry.h"
 #include "utils.h"
 
 #include <cxxopts.hpp>
+#include <drogon/HttpResponse.h>
+#include <drogon/HttpTypes.h>
+#include <drogon/drogon.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
 #include <fstream>
-#include <getopt.h>
 #include <iostream>
 #include <vector>
 
+using namespace drogon;
 using namespace std;
 using json = nlohmann::json;
 
 vector<unique_ptr<DeviceManager>> myDevices;
 string configPath =
     string(getenv("HOME")) + "/.config/ak-studio/cuda-motion.jsonc";
+
+void initialize_http_service(std::string host, int port) {
+
+  app()
+      .setLogPath("./")
+      .setLogLevel(trantor::Logger::kWarn)
+      .addListener(host, port)
+      .setThreadNum(16)
+      .disableSigtermHandling()
+      .registerHandler(
+          "/live_image/?deviceId={deviceId}",
+          [](const HttpRequestPtr &req,
+             std::function<void(const HttpResponsePtr &)> &&callback,
+             const size_t deviceId) {
+            drogon::HttpResponsePtr resp;
+            if (deviceId < myDevices.size()) {
+              resp = HttpResponse::newHttpResponse(HttpStatusCode::k200OK,
+                                                   ContentType::CT_IMAGE_JPG);
+              std::vector<uint8_t> encodedImg;
+              myDevices[deviceId]->getLiveImage(encodedImg);
+              resp->setBody(
+                  String((const char *)encodedImg.data(), encodedImg.size()));
+            } else {
+              Json::Value json;
+              json["result"] = "error";
+              json["reason"] =
+                  fmt::format("deviceId {} out of range", deviceId);
+              resp = HttpResponse::newHttpJsonResponse(json);
+            }
+            callback(resp);
+          },
+          {Get, "Realtime CCTV"})
+      .run();
+}
 
 int main(int argc, char *argv[]) {
   cxxopts::Options options(argv[0], "video feed handler that uses CUDA");
@@ -39,7 +75,8 @@ int main(int argc, char *argv[]) {
   spdlog::info("Cuda Motion started (git commit: {})", GIT_COMMIT_HASH);
   install_signal_handler();
 
-  spdlog::info("cv::getBuildInformation(): {}", string(getBuildInformation()));
+  spdlog::info("cv::getBuildInformation(): {}",
+               string(cv::getBuildInformation()));
 
   spdlog::info("Loading json settings from {}", configPath);
   ifstream is(configPath);
@@ -56,11 +93,13 @@ int main(int argc, char *argv[]) {
   initialize_http_service(settings["httpService"]["interface"].get<string>(),
                           settings["httpService"]["port"].get<int>());
 
+  spdlog::info("Drogon exited");
+
   for (size_t i = 0; i < myDevices.size(); ++i) {
     myDevices[i]->JoinEv();
     spdlog::info("{}-th device event loop thread exited gracefully", i);
   }
-  stop_http_service();
+  // stop_http_service();
   spdlog::info("All device event loop threads exited gracefully");
 
   return 0;

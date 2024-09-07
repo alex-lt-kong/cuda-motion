@@ -8,6 +8,7 @@
 using namespace std;
 using namespace cv::cuda;
 using namespace cv;
+
 typedef struct videoWritingContext vwc;
 
 /*

@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 
 using namespace std;
+using namespace CudaMotion;
 
 template <>
 bool PcQueue<ipcQueueElement, ipcDequeueContext>::try_enqueue(
