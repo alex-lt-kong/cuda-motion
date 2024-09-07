@@ -19,9 +19,15 @@
 
 class IPC;
 
-struct ipcQueuePayload {
-  IPC *ipcInstance;
+struct ipcQueueElement {
+  float rateOfChange;
+  int64_t cooldown;
   cv::Mat snapshot;
+};
+
+struct ipcDequeueContext {
+  IPC *ipcInstance;
+  ipcQueueElement ele;
 };
 
 class IPC {
@@ -34,10 +40,10 @@ public:
   void enableHttp();
   void enableFile(const std::string &filePathWithStaticVarEvaluated);
   ~IPC();
-  void enqueueData(cv::Mat dispFrame);
+  void enqueueData(ipcQueueElement &eqpl);
   std::vector<uint8_t> encodedJpgImage;
   cv::Mat mat;
-  void sendDataCb(cv::Mat &dispFrame);
+  void sendDataCb(ipcQueueElement &eqpl);
   inline bool isHttpEnabled() { return httpEnabled; }
   void wait();
 
@@ -67,7 +73,7 @@ private:
   int shmFd;
   std::string semaphoreName;
 
-  PcQueue<cv::Mat, ipcQueuePayload, ipcQueuePayload> ipcPcQueue;
+  PcQueue<ipcQueueElement, ipcDequeueContext> ipcPcQueue;
   void sendDataViaZeroMQ();
   void sendDataViaSharedMemory();
   void sendDataViaFile();

@@ -161,3 +161,4 @@ build/
 .cache/#
 nohup.out
 build/
+compile_commands.json

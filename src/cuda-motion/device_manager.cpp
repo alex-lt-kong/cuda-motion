@@ -1,6 +1,7 @@
 #include "device_manager.h"
 #include "frame_handler.h"
 #include "global_vars.h"
+#include "ipc.h"
 
 #include <cstddef>
 #include <opencv2/core.hpp>
@@ -20,7 +21,8 @@
 
 using namespace std;
 
-DeviceManager::DeviceManager(const size_t deviceIndex) : pt(10000) {
+DeviceManager::DeviceManager(const size_t deviceIndex)
+    : pt(10000), vwPcQueue(&ev_flag, 512) {
 
   { // settings variable is used by multiple threads, possibly concurrently, is
     // reading it thread-safe? According to the below response from the library
@@ -485,7 +487,10 @@ void DeviceManager::InternalThreadEntry() {
     }
 
     if ((frameCountSinceStart - 1) % snapshotFrameInterval == 0) {
-      ipc->enqueueData(hDispFrames.front().clone());
+      struct ipcQueueElement pl = {.rateOfChange = rateOfChange,
+                                   .cooldown = cd,
+                                   .snapshot = hDispFrames.front().clone()};
+      ipc->enqueueData(pl);
     }
 
     if (motionDetectionMode == MODE_DISABLED) {

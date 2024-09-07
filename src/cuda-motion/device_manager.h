@@ -23,17 +23,12 @@
 using namespace cv;
 using njson = nlohmann::json;
 
-struct videoWritingInfo {
+struct videoWritingContext {
   std::string evaluatedVideoPath;
   float fps;
   ssize_t outputWidth;
   ssize_t outputHeight;
   std::atomic<bool> &videoWriting;
-};
-
-struct videoWritingPayload {
-  cv::cuda::GpuMat m;
-  Ptr<cudacodec::VideoWriter> vw;
 };
 
 class DeviceManager : public EventLoop {
@@ -91,8 +86,7 @@ private:
   std::deque<uint64_t> frameTimestamps;
 
   // videoWritingPcQueue
-  PcQueue<cv::cuda::GpuMat, struct videoWritingInfo, struct videoWritingPayload>
-      vwPcQueue;
+  PcQueue<cv::cuda::GpuMat, struct videoWritingContext> vwPcQueue;
   std::atomic<bool> videoWriting;
 
   void setParameters(const size_t deviceIndex);

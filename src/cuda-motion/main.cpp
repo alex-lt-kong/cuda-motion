@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
   // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
   // Including microseconds is handy for naive profiling
   spdlog::set_pattern("%Y-%m-%dT%T.%f%z|%5t|%8l| %v");
-  spdlog::info("Cuda Motion started");
+  spdlog::info("Cuda Motion started (git commit: {})", GIT_COMMIT_HASH);
   install_signal_handler();
 
   spdlog::info("cv::getBuildInformation(): {}", string(getBuildInformation()));

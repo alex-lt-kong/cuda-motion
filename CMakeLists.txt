@@ -11,6 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(cmake/compiler-flags.cmake)
 include(cmake/sanitizers.cmake)
+include(cmake/git.cmake)
 
 
 add_subdirectory(src/cuda-motion)

@@ -15,10 +15,11 @@
 using namespace std;
 
 IPC::IPC(const size_t deviceIndex, const string &deviceName)
-    : zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub) {
+    : zmqContext(1), zmqSocket(zmqContext, zmq::socket_type::pub),
+      ipcPcQueue(&ev_flag, 32) {
   this->deviceIndex = deviceIndex;
   this->deviceName = deviceName;
-  ipcPcQueue.start({.ipcInstance = this, .snapshot = cv::Mat()});
+  ipcPcQueue.start({.ipcInstance = this, .ele = {-1, -1, cv::Mat()}});
 }
 
 void IPC::enableZeroMQ(const string &zeroMQEndpoint, const bool sendCVMat) {
@@ -151,7 +152,7 @@ IPC::~IPC() {
 
 void IPC::wait() { ipcPcQueue.wait(); }
 
-void IPC::enqueueData(cv::Mat dispFrame) {
+void IPC::enqueueData(ipcQueueElement &eqpl) {
   // cv::Mat operates with an internal reference-counter, so we need to clone()
   // to increase the counter
   // Another point is that try_enqueue() does std::move() internally, how does
@@ -159,23 +160,23 @@ void IPC::enqueueData(cv::Mat dispFrame) {
   /*  if (q.try_enqueue(dispFrame.clone()) == false) [[unlikely]] {
     spdlog::warn("IPC pcQueue is full, this dispFrame will be not be sent");
     }*/
-  if (!ipcPcQueue.try_enqueue(dispFrame)) [[unlikely]] {
+  if (!ipcPcQueue.try_enqueue(eqpl)) [[unlikely]] {
     spdlog::warn("[{}] IPC pcQueue is full, this dispFrame will be not be sent",
                  deviceName);
   }
 }
 
-void IPC::sendDataCb(cv::Mat &dispFrame) {
+void IPC::sendDataCb(ipcQueueElement &eqpl) {
   // vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
   vector<int> configs = {};
   if (httpEnabled) {
     lock_guard<mutex> guard(mutexLiveImage);
-    mat = dispFrame.clone();
+    mat = eqpl.snapshot.clone();
     // As of 2023-11-28, cv::imencode does not appear to have CUDA equivalent in
     // OpenCV
     cv::imencode(".jpg", mat, encodedJpgImage, configs);
   } else if (fileEnabled || sharedMemEnabled || zmqEnabled) {
-    mat = dispFrame.clone();
+    mat = eqpl.snapshot.clone();
     cv::imencode(".jpg", mat, encodedJpgImage, configs);
   }
 
