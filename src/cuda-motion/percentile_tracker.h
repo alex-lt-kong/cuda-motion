@@ -2,6 +2,7 @@
 #include <deque>
 #include <stdexcept>
 
+namespace CudaMotion::Utils {
 template <class T> class PercentileTracker {
   static_assert(std::is_arithmetic<T>::value, "T must be a numeric type");
 
@@ -49,3 +50,5 @@ private:
   size_t total_sample_count;
   bool refreshStatsCalled;
 };
+
+} // namespace CudaMotion::Utils

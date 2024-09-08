@@ -3,8 +3,6 @@
 #include "utils.h"
 
 #include <cxxopts.hpp>
-#include <drogon/HttpResponse.h>
-#include <drogon/HttpTypes.h>
 #include <drogon/drogon.h>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -21,27 +19,29 @@ vector<unique_ptr<DeviceManager>> myDevices;
 string configPath =
     string(getenv("HOME")) + "/.config/ak-studio/cuda-motion.jsonc";
 
+void signal_handler_cb(__attribute__((unused)) int signum) {
+  drogon::app().quit();
+  ev_flag = 1;
+}
+
 void initialize_http_service(std::string host, int port) {
 
   app()
-      .setLogPath("./")
+      .setLogPath("")
       .setLogLevel(trantor::Logger::kWarn)
       .addListener(host, port)
-      .setThreadNum(16)
+      .setThreadNum(4)
       .disableSigtermHandling()
       .registerHandler(
-          "/live_image/?deviceId={deviceId}",
-          [](const HttpRequestPtr &req,
+          HTTP_IPC_URL "?deviceId={deviceId}",
+          [](__attribute__((unused)) const HttpRequestPtr &req,
              std::function<void(const HttpResponsePtr &)> &&callback,
              const size_t deviceId) {
             drogon::HttpResponsePtr resp;
             if (deviceId < myDevices.size()) {
               resp = HttpResponse::newHttpResponse(HttpStatusCode::k200OK,
                                                    ContentType::CT_IMAGE_JPG);
-              std::vector<uint8_t> encodedImg;
-              myDevices[deviceId]->getLiveImage(encodedImg);
-              resp->setBody(
-                  String((const char *)encodedImg.data(), encodedImg.size()));
+              resp->setBody(myDevices[deviceId]->getLiveImageBytes());
             } else {
               Json::Value json;
               json["result"] = "error";
@@ -53,6 +53,8 @@ void initialize_http_service(std::string host, int port) {
           },
           {Get, "Realtime CCTV"})
       .run();
+  spdlog::info("Drogon HTTP service started, listening at http://{}:{}", host,
+               port);
 }
 
 int main(int argc, char *argv[]) {
@@ -73,7 +75,7 @@ int main(int argc, char *argv[]) {
   // Including microseconds is handy for naive profiling
   spdlog::set_pattern("%Y-%m-%dT%T.%f%z|%5t|%8l| %v");
   spdlog::info("Cuda Motion started (git commit: {})", GIT_COMMIT_HASH);
-  install_signal_handler();
+  CudaMotion::Utils::install_signal_handler(signal_handler_cb);
 
   spdlog::info("cv::getBuildInformation(): {}",
                string(cv::getBuildInformation()));
@@ -99,7 +101,7 @@ int main(int argc, char *argv[]) {
     myDevices[i]->JoinEv();
     spdlog::info("{}-th device event loop thread exited gracefully", i);
   }
-  // stop_http_service();
+
   spdlog::info("All device event loop threads exited gracefully");
 
   return 0;

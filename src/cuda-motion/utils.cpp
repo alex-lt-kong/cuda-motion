@@ -1,14 +1,17 @@
 #include "utils.h"
-#include "device_manager.h"
 
-#include <drogon/drogon.h>
 #include <spdlog/spdlog.h>
 
 #include <atomic>
+#include <signal.h>
 #include <thread>
 #include <time.h>
 
 using namespace std;
+
+namespace CudaMotion::Utils {
+
+signal_handler_callback sh_callback;
 
 atomic<ssize_t> executionCounter = -1;
 
@@ -59,8 +62,6 @@ static void signal_handler(int signum) noexcept {
     // process. The default response to the signal is to ignore it.
     return;
   }
-  ev_flag = 1;
-  drogon::app().quit();
   char msg[] = "Signal [  ] caught\n";
   msg[8] = '0' + signum / 10;
   msg[9] = '0' + signum % 10;
@@ -74,12 +75,14 @@ static void signal_handler(int signum) noexcept {
     }
     written += ret;
   }
+  sh_callback(signum);
 }
 
-void install_signal_handler() {
+void install_signal_handler(signal_handler_callback cb) {
   static_assert(_NSIG < 99,
                 "signal_handler() can't handle more than 99 signals");
 
+  sh_callback = cb;
   struct sigaction act;
   // Initialize the signal set to empty, similar to memset(0)
   if (sigemptyset(&act.sa_mask) == -1) {
@@ -103,3 +106,4 @@ void install_signal_handler() {
                         strerror(errno) + ")");
   }
 }
+} // namespace CudaMotion::Utils

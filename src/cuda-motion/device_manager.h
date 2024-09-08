@@ -36,7 +36,7 @@ class DeviceManager : public EventLoop {
 public:
   DeviceManager(const size_t deviceIndex);
   ~DeviceManager();
-  void getLiveImage(std::vector<uint8_t> &pl);
+  std::string getLiveImageBytes();
   std::string getDeviceName() { return this->deviceName; }
 
 protected:
@@ -47,7 +47,7 @@ private:
   njson conf;
   size_t deviceIndex = 0;
   std::string deviceName;
-  PercentileTracker<int64_t> pt;
+  CudaMotion::Utils::PercentileTracker<int64_t> pt;
 
   // frame variables
   bool textOverlayEnabled;
@@ -56,7 +56,7 @@ private:
   ssize_t outputWidth;
   ssize_t outputHeight;
   std::string evaluatedVideoPath;
-  std::unique_ptr<FrameHandler::FrameHandler> fh;
+  std::unique_ptr<CudaMotion::Utils::FrameHandler> fh;
 
   // motionDetection variables
   enum MotionDetectionMode motionDetectionMode;

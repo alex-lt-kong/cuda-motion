@@ -62,7 +62,7 @@ DeviceManager::DeviceManager(const size_t deviceIndex)
         evaluateStaticVariables(
             conf["snapshot"]["ipc"]["sharedMem"]["semaphoreName"]));
   }
-  fh = make_unique<FrameHandler::FrameHandler>(
+  fh = make_unique<Utils::FrameHandler>(
       conf["frame"]["textOverlay"]["fontScale"].get<double>(), deviceName);
 }
 
@@ -75,7 +75,7 @@ string DeviceManager::evaluateVideoSpecficVariables(
       regex_replace(filledString, regex(R"(\{\{timestampOnDeviceOffline\}\})"),
                     timestampOnDeviceOffline);
   filledString = regex_replace(filledString, regex(R"(\{\{timestamp\}\})"),
-                               getCurrentTimestamp());
+                               Utils::getCurrentTimestamp());
   return filledString;
 }
 
@@ -234,10 +234,11 @@ void DeviceManager::stopVideoRecording(uint32_t &videoFrameCount, int cd) {
 
   if (conf["events"]["onVideoEnds"].get<string>().size() > 0 && cd == 0) {
     spdlog::info("[{}] onVideoEnds triggered", deviceName);
-    execExternalProgramAsync(mtxOnVideoEnds,
-                             evaluateVideoSpecficVariables(
-                                 conf["events"]["onVideoEnds"].get<string>()),
-                             deviceName);
+    Utils::execExternalProgramAsync(
+        mtxOnVideoEnds,
+        evaluateVideoSpecficVariables(
+            conf["events"]["onVideoEnds"].get<string>()),
+        deviceName);
   } else if (conf["events"]["onVideoEnds"].get<string>().size() > 0 && cd > 0) {
     spdlog::warn("[{}] onVideoEnds event defined but it won't be triggered",
                  deviceName);
@@ -253,7 +254,7 @@ void DeviceManager::startOrKeepVideoRecording(int64_t &cd) {
   auto handleOnVideoStarts = [&]() {
     if (conf["events"]["onVideoStarts"].get<string>().size() > 0) {
       spdlog::info("[{}] motion detected, video recording begins", deviceName);
-      execExternalProgramAsync(
+      Utils::execExternalProgramAsync(
           mtxOnVideoStarts,
           evaluateVideoSpecficVariables(
               conf["events"]["onVideoStarts"].get<string>()),
@@ -271,7 +272,7 @@ void DeviceManager::startOrKeepVideoRecording(int64_t &cd) {
   if (videoWriting)
     return;
 
-  timestampOnVideoStarts = getCurrentTimestamp();
+  timestampOnVideoStarts = Utils::getCurrentTimestamp();
   evaluatedVideoPath = evaluateVideoSpecficVariables(
       conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"]);
 
@@ -286,12 +287,12 @@ void DeviceManager::startOrKeepVideoRecording(int64_t &cd) {
        .videoWriting = videoWriting});
 }
 
-void DeviceManager::getLiveImage(vector<uint8_t> &pl) {
-  if (ipc->isHttpEnabled() && ipc->getEncodedJpgImage().size() > 0) {
+string DeviceManager::getLiveImageBytes() {
+  if (ipc->isHttpEnabled()) {
     lock_guard<mutex> guard(mutexLiveImage);
-    pl = ipc->getEncodedJpgImage();
+    return ipc->getJpegBytes();
   } else {
-    pl = vector<uint8_t>();
+    return string();
   }
 }
 
@@ -311,11 +312,11 @@ void DeviceManager::updateVideoCooldownAndVideoFrameCount(
 void DeviceManager::markDeviceAsOffline(bool &isShowingBlankFrame) {
 
   if (isShowingBlankFrame == false) {
-    timestampOnDeviceOffline = getCurrentTimestamp();
+    timestampOnDeviceOffline = Utils::getCurrentTimestamp();
     isShowingBlankFrame = true;
     if (conf["events"]["onDeviceOffline"].get<string>().size() > 0) {
       spdlog::info("[{}] onDeviceOffline triggered", deviceName);
-      execExternalProgramAsync(
+      Utils::execExternalProgramAsync(
           mtxOnDeviceOffline,
           evaluateVideoSpecficVariables(
               conf["events"]["onDeviceOffline"].get<string>()),
@@ -335,7 +336,7 @@ void DeviceManager::deviceIsBackOnline(size_t &openRetryDelay,
   isShowingBlankFrame = false;
   if (conf["events"]["onDeviceBackOnline"].get<string>().size() > 0) {
     spdlog::info("[{}] onDeviceBackOnline triggered", deviceName);
-    execExternalProgramAsync(
+    Utils::execExternalProgramAsync(
         mtxOnDeviceBackOnline,
         evaluateVideoSpecficVariables(
             conf["events"]["onDeviceBackOnline"].get<string>()),

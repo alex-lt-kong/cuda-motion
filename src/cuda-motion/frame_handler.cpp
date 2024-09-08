@@ -12,7 +12,7 @@
 using namespace cv;
 using namespace std;
 
-namespace FrameHandler {
+namespace CudaMotion::Utils {
 
 FrameHandler::FrameHandler(const double fontScale, const string &deviceName)
     : pt(10000) {
@@ -151,4 +151,4 @@ void FrameHandler::generateBlankFrameAt1Fps(cuda::GpuMat &dCurrFrame,
   dCurrFrame = cuda::GpuMat(actualFrameSize.height, actualFrameSize.width,
                             CV_8UC3, Scalar(128, 128, 128));
 }
-} // namespace FrameHandler
+} // namespace CudaMotion::Utils

@@ -1,10 +1,9 @@
 #ifndef CM_IPC_H
 #define CM_IPC_H
 
-//#pragma GCC diagnostic push
-//#pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
 #include <opencv2/core/core.hpp>
-//#pragma GCC diagnostic pop
+
+#define HTTP_IPC_URL "/live_image/"
 
 namespace CudaMotion {
 class IPC;
@@ -31,7 +30,7 @@ public:
   void enableFile(const std::string &filePathWithStaticVarEvaluated);
   ~IPC();
   void enqueueData(ipcQueueElement &eqpl);
-  std::vector<uint8_t> getEncodedJpgImage();
+  std::string getJpegBytes();
   void sendDataCb(ipcQueueElement &eqpl);
   bool isHttpEnabled();
   void wait();

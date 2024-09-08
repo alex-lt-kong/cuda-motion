@@ -1,19 +1,8 @@
 {
   "httpService": {
     "interface": "127.0.0.1",
-    "port": 54321,
-    /* Dont include a trailing slash at the end of the it*/
-    "advertisedAddress": "https://localhost:54321",
-    "ssl": {
-      "enabled": false,
-      "keyPath": "",
-      "pemPath": ""
-    },
-    /* Define a list of (username, SHA256-hashed password) key-value pairs here */
-    "httpAuthentication": {
-      // defaultPassword
-      "defaultUser": "48c0b4ec512adf9820a77187cc8b55b4da280c1a192d05ac458b3e0535100c0b"
-    }
+    "port": 54321
+    // For more HTTP-related function, consider using a reverse proxy   
   },
   "devicesDefault": {
     "name": "Device-{{deviceIndex}}",

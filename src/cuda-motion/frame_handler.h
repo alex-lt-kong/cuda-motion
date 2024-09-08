@@ -9,7 +9,7 @@
 
 #include <atomic>
 
-namespace FrameHandler {
+namespace CudaMotion::Utils {
 
 class FrameHandler {
   double fontScale;
@@ -42,6 +42,6 @@ public:
   void generateBlankFrameAt1Fps(cv::cuda::GpuMat &currFrame,
                                 const cv::Size &actualFrameSize);
 };
-} // namespace FrameHandler
+} // namespace CudaMotion::Utils
 
 #endif /* CM_FRAME_HANDLER_H */

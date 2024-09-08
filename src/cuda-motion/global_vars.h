@@ -2,22 +2,9 @@
 #define CM_GLOBAL_VARS_H
 
 #include <nlohmann/json.hpp>
-#pragma GCC diagnostic push
-#if defined(__clang__)
-#pragma GCC diagnostic ignored "-Wdeprecated-anon-enum-enum-conversion"
-#pragma GCC diagnostic ignored "-Wc11-extensions"
-#elif defined(__GNUC__) || defined(__GNUG__)
-#pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
-#endif
-#include <opencv2/highgui/highgui.hpp>
-#pragma GCC diagnostic pop
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
 
 #include <mutex>
 #include <signal.h>
-
-#define HTTP_IPC_URL "/live_image/"
 
 /* The extern keyword tells the compiler that please dont generate any
 definition for it when compiling the source files that include the header.
@@ -42,6 +29,4 @@ extern std::mutex mtxNjsonSettings;
 // The answer seems to be affirmative.
 extern nlohmann::json settings;
 
-class DeviceManager;
-extern std::vector<std::unique_ptr<DeviceManager>> myDevices;
 #endif /* CM_GLOBAL_VARS_H */

@@ -4,14 +4,15 @@
 #include "snapshot.pb.h"
 #include "utils.h"
 
-#include <chrono>
+#include <opencv2/highgui/highgui.hpp>
 #include <spdlog/spdlog.h>
+#include <zmq.hpp>
 
+#include <chrono>
 #include <fstream>
 #include <regex>
 #include <sstream>
 #include <sys/mman.h>
-#include <zmq.hpp>
 
 #define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
 #define SEM_INITIAL_VALUE 1
@@ -23,7 +24,7 @@ class IPC::impl {
 public:
   string deviceName;
   size_t deviceIndex;
-  std::vector<uint8_t> encodedJpgImage;
+  string jpegBytes;
 
   // HTTP variables
   bool httpEnabled = false;
@@ -111,12 +112,9 @@ public:
 
   void enableHttp() {
     httpEnabled = true;
-    spdlog::info("[{}] HTTP IPC enabled, endpoint is {}" HTTP_IPC_URL
+    spdlog::info("[{}] HTTP IPC enabled, endpoint is " HTTP_IPC_URL
                  "?deviceId={}",
-                 deviceName,
-                 settings.value("/httpService/advertisedAddress"_json_pointer,
-                                "http://localhost:54321"),
-                 deviceIndex);
+                 deviceName, deviceIndex);
   }
 
   void enableFile(const string &filePathWithStaticVarEvaluated) {
@@ -131,15 +129,18 @@ public:
     SnapshotMsg msg;
     // vector<int> configs = {IMWRITE_JPEG_QUALITY, 80};
     vector<int> configs = {};
+    vector<uchar> jpeg_buffer;
     if (httpEnabled) {
       lock_guard<mutex> guard(mutexLiveImage);
       mat = eqpl.snapshot.clone();
       // As of 2023-11-28, cv::imencode does not appear to have CUDA equivalent
       // in OpenCV
-      cv::imencode(".jpg", mat, encodedJpgImage, configs);
+      cv::imencode(".jpg", mat, jpeg_buffer, configs);
+      jpegBytes = string((const char *)jpeg_buffer.data(), jpeg_buffer.size());
     } else if (fileEnabled || sharedMemEnabled || zmqEnabled) {
       mat = eqpl.snapshot.clone();
-      cv::imencode(".jpg", mat, encodedJpgImage, configs);
+      cv::imencode(".jpg", mat, jpeg_buffer, configs);
+      jpegBytes = string((const char *)jpeg_buffer.data(), jpeg_buffer.size());
     }
     if (sharedMemEnabled || zmqEnabled) {
       msg.set_rateofchange(eqpl.rateOfChange);
@@ -262,16 +263,16 @@ public:
   }
 
   void sendDataViaFile() {
-    string sp =
-        regex_replace(filePathWithStaticVarEvaluated,
-                      regex(R"(\{\{timestamp\}\})"), getCurrentTimestamp());
+    string sp = regex_replace(filePathWithStaticVarEvaluated,
+                              regex(R"(\{\{timestamp\}\})"),
+                              Utils::getCurrentTimestamp());
     ofstream fout(sp + ".tmp", ios::out | ios::binary);
     if (!fout.good())
       spdlog::error("[{}] Failed to open file [{}]: {}", deviceName,
                     sp + ".tmp", strerror(errno));
     return;
 
-    fout.write((char *)encodedJpgImage.data(), encodedJpgImage.size());
+    fout.write(jpegBytes.data(), jpegBytes.size());
     if (!fout.good()) {
       spdlog::error("[{}] Failed to write to file [{}]: {}", deviceName,
                     sp + ".tmp", strerror(errno));
@@ -287,7 +288,7 @@ public:
 
   void sendDataViaSharedMemory(SnapshotMsg msg) {
     msg.clear_cvmatbytes();
-    msg.set_jpegbytes(encodedJpgImage.data(), encodedJpgImage.size());
+    msg.set_jpegbytes(jpegBytes);
     size_t s = msg.ByteSizeLong();
     if (s > sharedMemSize - sizeof(size_t)) {
       spdlog::error("[{}] encodedJpgImage({} bytes) too large for "
@@ -323,7 +324,7 @@ public:
       msg.set_cvmatbytes(mat.data, mat.total() * mat.elemSize());
     } else {
       msg.clear_cvmatbytes();
-      msg.set_jpegbytes(encodedJpgImage.data(), encodedJpgImage.size());
+      msg.set_jpegbytes(jpegBytes);
     }
     auto serializedMsg = msg.SerializeAsString();
 
@@ -375,7 +376,5 @@ void IPC::enableSharedMemory(const string &sharedMemoryName,
   pimpl->enableSharedMemory(sharedMemoryName, sharedMemSize, semaphoreName);
 }
 
-std::vector<uint8_t> IPC::getEncodedJpgImage() {
-  return pimpl->encodedJpgImage;
-}
+string IPC::getJpegBytes() { return pimpl->jpegBytes; }
 } // namespace CudaMotion
