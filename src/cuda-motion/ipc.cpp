@@ -209,9 +209,9 @@ public:
     shmFd = shm_open(sharedMemoryName.c_str(), O_RDWR | O_CREAT, PERMS);
     if (shmFd < 0) {
       spdlog::error(
-          "[{}] shm_open() failed, {}({}), shared memory will be disabled "
+          "[{}] shm_open({}) failed, {}({}), shared memory will be disabled "
           "for this device",
-          deviceName, errno, strerror(errno));
+          deviceName, sharedMemoryName, errno, strerror(errno));
       goto err_shmFd;
     }
     if (ftruncate(shmFd, sharedMemSize) != 0) {
