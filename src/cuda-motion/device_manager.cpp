@@ -328,11 +328,11 @@ void DeviceManager::markDeviceAsOffline(bool &isShowingBlankFrame) {
   }
 }
 
-void DeviceManager::deviceIsBackOnline(size_t &openRetryDelay,
+void DeviceManager::deviceIsBackOnline(size_t &retryInterval,
                                        bool &isShowingBlankFrame) {
   spdlog::info("[{}] Device is back online", deviceName);
   timestampOnDeviceOffline = "";
-  openRetryDelay = 1;
+  retryInterval = snapshotFrameInterval + 1;
   isShowingBlankFrame = false;
   if (conf["events"]["onDeviceBackOnline"].get<string>().size() > 0) {
     spdlog::info("[{}] onDeviceBackOnline triggered", deviceName);
@@ -352,9 +352,11 @@ void DeviceManager::InternalThreadEntry() {
   queue<Mat> hDispFrames;
   cuda::GpuMat dPrevFrame, dCurrFrame, dDiffFrame;
   bool result = false;
+  bool dummyResult = false;
   bool isShowingBlankFrame = false;
   // VideoCapture cap;
   Ptr<cudacodec::VideoReader> vr;
+  auto videoFeed = conf.value("/videoFeed/uri"_json_pointer, "/dev/video0");
   float rateOfChange = 0.0;
 
   uint64_t frameCountSinceLastOpen = 0;
@@ -365,7 +367,7 @@ void DeviceManager::InternalThreadEntry() {
 
   // cd: cooldown
   int64_t cd = 0;
-  size_t openRetryDelay = 1;
+  size_t retryInterval = snapshotFrameInterval + 1;
 
   // We use the evil `goto` statement so that we can avoid the duplication of
   //   initializeDevice()...
@@ -382,35 +384,33 @@ void DeviceManager::InternalThreadEntry() {
       }
     } else {
       result = false;
-      // assume the video source is at 30fps
-      this_thread::sleep_for(chrono::milliseconds(1000 / 30));
     }
     ++frameCountSinceStart;
     ++frameCountSinceLastOpen;
 
     if (result == false || dCurrFrame.empty()) [[unlikely]] {
       markDeviceAsOffline(isShowingBlankFrame);
-      fh->generateBlankFrameAt1Fps(dCurrFrame, actualFrameSize);
-      if (frameCountSinceStart % openRetryDelay == 0) {
-        if (openRetryDelay < 360)
-          openRetryDelay *= 2;
-        spdlog::error("[{}] VideoReader failed to read a new frame, "
-                      "waiting for {} reading attempts then retry...",
-                      deviceName, openRetryDelay);
+      dummyResult = fh->nextDummyFrame(dCurrFrame, actualFrameSize);
+      if (frameCountSinceStart % retryInterval == 0 || !dummyResult) {
+        if (retryInterval < 360)
+          retryInterval *= 2;
+        spdlog::warn("[{}] Retry initializing VideoReader with videoFeed [{}] "
+                     "after {} consecutive reading attempts ...",
+                     deviceName, videoFeed, retryInterval);
       entryPoint:
+        auto params = cudacodec::VideoReaderInitParams();
+        // https://docs.opencv.org/4.9.0/dd/d7d/structcv_1_1cudacodec_1_1VideoReaderInitParams.html#a9b73352d9bc1a23ccf3bf06517f978c7
+        params.allowFrameDrop = true;
         try {
-          auto params = cudacodec::VideoReaderInitParams();
-          // https://docs.opencv.org/4.9.0/dd/d7d/structcv_1_1cudacodec_1_1VideoReaderInitParams.html#a9b73352d9bc1a23ccf3bf06517f978c7
-          params.allowFrameDrop = true;
-          vr = cudacodec::createVideoReader(
-              conf["videoFeed"]["uri"].get<string>(), {}, params);
+          vr = cudacodec::createVideoReader(videoFeed, {}, params);
           vr->set(cudacodec::ColorFormat::BGR);
           spdlog::info("[{}] VideoReader initialized ({})", deviceName,
-                       conf["videoFeed"]["uri"].get<string>());
+                       videoFeed);
         } catch (const cv::Exception &e) {
-          spdlog::error("[{}] VideoReader initialization failed: {}",
-                        deviceName, e.what());
+          spdlog::error("[{}] cudacodec::createVideoReader({}) failed: {}",
+                        deviceName, videoFeed, e.what());
         }
+
         frameCountSinceLastOpen = 0;
         // If they are -1, we want to reload them
         outputWidth = conf.value("/frame/outputWidth"_json_pointer, 1280);
@@ -418,29 +418,10 @@ void DeviceManager::InternalThreadEntry() {
         continue;
       }
     } else if (isShowingBlankFrame) [[unlikely]] {
-      deviceIsBackOnline(openRetryDelay, isShowingBlankFrame);
+      deviceIsBackOnline(retryInterval, isShowingBlankFrame);
     }
     if (!isShowingBlankFrame) [[likely]] {
-      switch (frameRotationAngle) {
-      case 90:
-        cv::cuda::rotate(
-            dCurrFrame.clone(), dCurrFrame,
-            cv::Size(dCurrFrame.size().height, dCurrFrame.size().width),
-            frameRotationAngle, 0, dCurrFrame.size().width);
-        break;
-      case 180:
-        cv::cuda::rotate(dCurrFrame.clone(), dCurrFrame, dCurrFrame.size(),
-                         frameRotationAngle, dCurrFrame.size().width,
-                         dCurrFrame.size().height);
-        break;
-      case 270:
-        cv::cuda::rotate(
-            dCurrFrame.clone(), dCurrFrame,
-            cv::Size(dCurrFrame.size().height, dCurrFrame.size().width),
-            frameRotationAngle, dCurrFrame.size().height, 0);
-        break;
-      default:;
-      }
+      fh->rotate(dCurrFrame, frameRotationAngle);
     }
 
     if (frameCountSinceLastOpen == 1) {
@@ -488,7 +469,8 @@ void DeviceManager::InternalThreadEntry() {
       fh->overlayDeviceName(hFrame);
     }
 
-    if ((frameCountSinceStart - 1) % snapshotFrameInterval == 0) {
+    if (frameCountSinceStart % snapshotFrameInterval == 0 ||
+        frameCountSinceStart < 4 /* Use to handle initial failure*/) {
       struct ipcQueueElement pl = {.rateOfChange = rateOfChange,
                                    .cooldown = cd,
                                    .snapshot = hDispFrames.front().clone()};

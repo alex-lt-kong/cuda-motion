@@ -7,6 +7,7 @@
 #include <boost/interprocess/creation_tags.hpp>
 #include <boost/interprocess/detail/os_file_functions.hpp>
 #include <boost/interprocess/mapped_region.hpp>
+#include <boost/interprocess/permissions.hpp>
 #include <boost/interprocess/shared_memory_object.hpp>
 #include <boost/interprocess/sync/named_semaphore.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -19,8 +20,9 @@
 #include <sstream>
 #include <sys/mman.h>
 
-#define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
-#define SEM_INITIAL_VALUE 1
+// rwx,rw,rw
+#define PERMS (S_IRWXU | (S_IRGRP | S_IWGRP) | (S_IROTH | S_IWOTH))
+// #define SEM_INITIAL_VALUE 1
 
 using namespace boost::interprocess;
 using namespace std;
@@ -207,7 +209,8 @@ public:
       auto old_umask = umask(0);
 
       named_semaphore::remove(sem_name.c_str());
-      named_semaphore sem(create_only_t(), sem_name.c_str(), 8);
+      permissions perm(PERMS);
+      named_semaphore sem(create_only_t(), sem_name.c_str(), 8, perm);
 
       umask(old_umask);
 

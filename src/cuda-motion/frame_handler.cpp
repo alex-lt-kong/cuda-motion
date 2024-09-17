@@ -3,6 +3,7 @@
 
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
+#include <opencv2/cudawarping.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <spdlog/spdlog.h>
@@ -145,10 +146,39 @@ float FrameHandler::getFrameChanges(cuda::GpuMat &prevFrame,
   return 100.0 * nonZeroPixels / (diffFrame.rows * diffFrame.cols);
 }
 
-void FrameHandler::generateBlankFrameAt1Fps(cuda::GpuMat &dCurrFrame,
-                                            const Size &actualFrameSize) {
-  this_thread::sleep_for(999ms); // Throttle the generation at 1 fps.
-  dCurrFrame = cuda::GpuMat(actualFrameSize.height, actualFrameSize.width,
-                            CV_8UC3, Scalar(128, 128, 128));
+void FrameHandler::rotate(cuda::GpuMat &frame, const int frameRotationAngle) {
+  switch (frameRotationAngle) {
+  case 90:
+    cuda::rotate(frame.clone(), frame,
+                 cv::Size(frame.size().height, frame.size().width),
+                 frameRotationAngle, 0, frame.size().width);
+    break;
+  case 180:
+    cuda::rotate(frame.clone(), frame, frame.size(), frameRotationAngle,
+                 frame.size().width, frame.size().height);
+    break;
+  case 270:
+    cuda::rotate(frame.clone(), frame,
+                 cv::Size(frame.size().height, frame.size().width),
+                 frameRotationAngle, frame.size().height, 0);
+    break;
+  default:;
+  }
+}
+
+bool FrameHandler::nextDummyFrame(cuda::GpuMat &frame, const Size &frameSize) {
+
+  // assume the video source is at 30fps
+  this_thread::sleep_for(chrono::milliseconds(1000 / 30));
+  try {
+    frame = cuda::GpuMat(frameSize.height, frameSize.width, CV_8UC3,
+                         Scalar(128, 128, 128));
+    return true;
+  } catch (const cv::Exception &e) {
+    // This is by no means cosmetic--it does happen when GPU failed to allocate
+    // CUDA memory for even one frame
+    spdlog::error("[{}] nextDummyFrame() failed: {}", deviceName, e.what());
+  }
+  return false;
 }
 } // namespace CudaMotion::Utils

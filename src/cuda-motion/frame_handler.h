@@ -39,8 +39,14 @@ public:
                         cv::cuda::GpuMat &diffFrame,
                         double pixelDiffAbsThreshold);
 
-  void generateBlankFrameAt1Fps(cv::cuda::GpuMat &currFrame,
-                                const cv::Size &actualFrameSize);
+  void rotate(cv::cuda::GpuMat &frame, const int frameRotationAngle);
+
+  /**
+   * @brief This acts like a guaranteed fallback video source:
+   * vr->nextFrame(dCurrFrame) failed? fine, we will fill the frame with
+   * nextDummyFrame() instead;
+   */
+  bool nextDummyFrame(cv::cuda::GpuMat &frame, const cv::Size &frameSize);
 };
 } // namespace CudaMotion::Utils
 
