@@ -4,6 +4,11 @@
 #include "snapshot.pb.h"
 #include "utils.h"
 
+#include <boost/interprocess/creation_tags.hpp>
+#include <boost/interprocess/detail/os_file_functions.hpp>
+#include <boost/interprocess/mapped_region.hpp>
+#include <boost/interprocess/shared_memory_object.hpp>
+#include <boost/interprocess/sync/named_semaphore.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <spdlog/spdlog.h>
 #include <zmq.hpp>
@@ -17,7 +22,9 @@
 #define PERMS (S_IRWXU | S_IRWXG | S_IRWXO)
 #define SEM_INITIAL_VALUE 1
 
+using namespace boost::interprocess;
 using namespace std;
+
 namespace CudaMotion {
 // PIMPL idiom
 class IPC::impl {
@@ -40,14 +47,16 @@ public:
   zmq::context_t zmqContext;
   zmq::socket_t zmqSocket;
 
-  // POSIX shared memory variables
-  bool sharedMemEnabled = false;
-  string sharedMemoryName;
-  size_t sharedMemSize;
-  void *memPtr;
-  sem_t *semPtr;
-  int shmFd;
-  string semaphoreName;
+  // POSIX/Boost shared memory variables
+  shared_memory_object shm;
+  mapped_region mapped_reg;
+  bool shm_enabled = false;
+  string shm_name;
+  size_t shm_size;
+  // void *memPtr;
+  // sem_t *semPtr;
+  // int shmFd;
+  string sem_name;
 
   //
   PcQueue<ipcQueueElement, ipcDequeueContext> ipcPcQueue =
@@ -62,35 +71,21 @@ public:
   }
 
   ~impl() {
-    if (!sharedMemEnabled)
+    if (!shm_enabled)
       return;
-    // unlink and close() are both needed: unlink only disassociates the
-    // name from the underlying semaphore object, but the semaphore object
-    // is not gone. It will only be gone when we close() it.
-    if (sem_unlink(semaphoreName.c_str()) != 0) {
-      spdlog::error(
-          "sem_unlink() failed: {}({}), but there is nothing we can do", errno,
-          strerror(errno));
-    }
-    if (sem_close(semPtr) != 0) {
-      spdlog::error(
-          "sem_close() failed: {}({}), but there is nothing we can do", errno,
-          strerror(errno));
-    }
-    if (munmap(memPtr, sharedMemSize) != 0) {
-      spdlog::error("munmap() failed: {}({}), but there is nothing we can do",
-                    errno, strerror(errno));
-    }
-    if (shm_unlink(sharedMemoryName.c_str()) != 0) {
-      spdlog::error(
-          "shm_unlink() failed: {}({}), but there is nothing we can do", errno,
-          strerror(errno));
-    }
-    if (close(shmFd) != 0) {
-      spdlog::error("close() failed: {}({}), "
-                    "but there is nothing we can do",
-                    errno, strerror(errno));
-    }
+    /*
+  if (sem_unlink(sem_name.c_str()) != 0) {
+    spdlog::error(
+        "sem_unlink() failed: {}({}), but there is nothing we can do", errno,
+        strerror(errno));
+  }
+  if (sem_close(semPtr) != 0) {
+    spdlog::error(
+        "sem_close() failed: {}({}), but there is nothing we can do", errno,
+        strerror(errno));
+  }*/
+    shared_memory_object::remove(shm_name.c_str());
+    named_semaphore::remove(sem_name.c_str());
   }
 
   bool isHttpEnabled() { return httpEnabled; }
@@ -137,12 +132,12 @@ public:
       // in OpenCV
       cv::imencode(".jpg", mat, jpeg_buffer, configs);
       jpegBytes = string((const char *)jpeg_buffer.data(), jpeg_buffer.size());
-    } else if (fileEnabled || sharedMemEnabled || zmqEnabled) {
+    } else if (fileEnabled || shm_enabled || zmqEnabled) {
       mat = eqpl.snapshot.clone();
       cv::imencode(".jpg", mat, jpeg_buffer, configs);
       jpegBytes = string((const char *)jpeg_buffer.data(), jpeg_buffer.size());
     }
-    if (sharedMemEnabled || zmqEnabled) {
+    if (shm_enabled || zmqEnabled) {
       msg.set_rateofchange(eqpl.rateOfChange);
       msg.set_cooldown(eqpl.cooldown);
       msg.set_unixepochns(chrono::time_point_cast<chrono::nanoseconds>(
@@ -165,7 +160,7 @@ public:
       sendDataViaFile();
     }
 
-    if (sharedMemEnabled) {
+    if (shm_enabled) {
       sendDataViaSharedMemory(msg);
     }
     if (zmqEnabled) {
@@ -198,68 +193,39 @@ public:
   void enableSharedMemory(const string &sharedMemoryName,
                           const size_t sharedMemSize,
                           const std::string &semaphoreName) {
-    sharedMemEnabled = true;
-    this->sharedMemoryName = sharedMemoryName;
-    this->sharedMemSize = sharedMemSize;
-    this->semaphoreName = semaphoreName;
+    shm_enabled = true;
+    this->shm_name = sharedMemoryName;
+    this->shm_size = sharedMemSize;
+    this->sem_name = semaphoreName;
+    try {
+      shm = shared_memory_object(create_only, sharedMemoryName.c_str(),
+                                 read_write);
+      shm.truncate(sharedMemSize);
+      mapped_reg = mapped_region(shm, read_write);
 
-    // umask() is needed to set the correct permissions.
-    mode_t old_umask = umask(0);
-    // Should have used multiple RAII classes to handle this but...
-    shmFd = shm_open(sharedMemoryName.c_str(), O_RDWR | O_CREAT, PERMS);
-    if (shmFd < 0) {
-      spdlog::error(
-          "[{}] shm_open({}) failed, {}({}), shared memory will be disabled "
-          "for this device",
-          deviceName, sharedMemoryName, errno, strerror(errno));
-      goto err_shmFd;
-    }
-    if (ftruncate(shmFd, sharedMemSize) != 0) {
-      spdlog::error(
-          "[{}] ftruncate() failed, {}({}), shared memory will be disabled "
-          "for this device",
-          deviceName, errno, strerror(errno));
-      goto err_ftruncate;
-    }
-    memPtr =
-        mmap(NULL, sharedMemSize, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0);
-    if (memPtr == MAP_FAILED) {
-      spdlog::error("[{}] mmap() failed, {}({}) shared memory will be disabled "
-                    "for this device",
-                    deviceName, errno, strerror(errno));
-      goto err_mmap;
-    }
-    semPtr = sem_open(semaphoreName.c_str(), O_CREAT | O_RDWR, PERMS,
-                      SEM_INITIAL_VALUE);
-    umask(old_umask);
+      // umask() is needed to set the correct permissions.
+      auto old_umask = umask(0);
 
-    if (semPtr == SEM_FAILED) {
-      spdlog::error("[{}] sem_open() failed, {}({})", deviceName, errno,
-                    strerror(errno));
-      goto err_sem_open;
+      named_semaphore::remove(sem_name.c_str());
+      named_semaphore sem(create_only_t(), sem_name.c_str(), 8);
+
+      umask(old_umask);
+
+      /*if (semPtr == SEM_FAILED) {
+        spdlog::error("[{}] sem_open() failed, {}({})", deviceName, errno,
+                      strerror(errno));
+        throw interprocess_exception("dummy");
+      }*/
+      spdlog::info("[{}] Shared memory IPC enabled, shared memory path: {}, "
+                   "semaphore path: {}",
+                   deviceName, sharedMemoryName, semaphoreName);
+      return;
+    } catch (interprocess_exception &ex) {
+      shared_memory_object::remove(shm_name.c_str());
+      named_semaphore::remove(sem_name.c_str());
+      spdlog::error("Failed to enable shared memory IPC: {}", ex.what());
+      shm_enabled = false;
     }
-    spdlog::info("[{}] Shared memory IPC enabled, shared memory path: {}, "
-                 "semaphore path: {}",
-                 deviceName, sharedMemoryName, semaphoreName);
-    return;
-  err_sem_open:
-    if (munmap(memPtr, sharedMemSize) != 0) {
-      spdlog::error(
-          "[{}] munmap() failed: {}({}), but there is nothing we can do",
-          deviceName, errno, strerror(errno));
-    }
-  err_mmap:
-  err_ftruncate:
-    if (shm_unlink(sharedMemoryName.c_str()) != 0)
-      spdlog::error(
-          "[{}] shm_unlink() failed: {}({}), but there is nothing we can do",
-          deviceName, errno, strerror(errno));
-    if (close(shmFd) != 0)
-      spdlog::error(
-          "[{}] close() failed: {}({}), but there is nothing we can do",
-          deviceName, errno, strerror(errno));
-  err_shmFd:
-    sharedMemEnabled = false;
   }
 
   void sendDataViaFile() {
@@ -290,35 +256,29 @@ public:
     msg.clear_cvmatbytes();
     msg.set_jpegbytes(jpegBytes);
     size_t s = msg.ByteSizeLong();
-    if (s > sharedMemSize - sizeof(size_t)) {
+    if (s > shm_size - sizeof(size_t)) {
       spdlog::error("[{}] encodedJpgImage({} bytes) too large for "
                     "sharedMemSize({} bytes)",
-                    deviceName, s, sharedMemSize);
+                    deviceName, s, shm_size);
       s = 0;
     } else {
-      if (sem_wait(semPtr) != 0) {
-        spdlog::error(
-            "[{}] sem_wait() failed: {}, the program will "
-            "continue to run but the semaphore mechanism could be broken",
-            deviceName, errno);
-      } else {
-        memcpy(memPtr, &s, sizeof(size_t));
-        memcpy((uint8_t *)memPtr + sizeof(size_t),
+      try {
+        named_semaphore sem(open_only_t(), sem_name.c_str());
+        sem.wait();
+        memcpy(mapped_reg.get_address(), &s, sizeof(size_t));
+        memcpy((uint8_t *)mapped_reg.get_address() + sizeof(size_t),
                msg.SerializeAsString().data(), s);
-        if (sem_post(semPtr) != 0) {
-          spdlog::error(
-              "[{}] sem_post() failed: {}, the program will "
-              "continue to run but the semaphore mechanism could be broken",
-              deviceName, errno);
-        }
+        sem.post();
+      } catch (interprocess_exception &ex) {
+        spdlog::error("named_semaphore exception: {}", ex.what());
       }
     }
   }
 
   void sendDataViaZeroMQ(cv::Mat mat, SnapshotMsg msg) {
     // sending images with ProtoBuf over ZeroMQ is not cheap, profiling shows
-    // transfering one 1280x720 image takes time that ranges from a few to a few
-    // hundred milliseconds
+    // transfering one 1280x720 image takes time that ranges from a few to a
+    // few hundred milliseconds
     if (zmqSendCVMat) {
       msg.clear_jpegbytes();
       msg.set_cvmatbytes(mat.data, mat.total() * mat.elemSize());

@@ -68,6 +68,8 @@
         than sharedMemSize in bytes as defined below. */
         "sharedMem": {
           "enabled": true,
+          /* On Linux, you can list all the semaphores and shared memory files by
+             issuing `ls /dev/shm/` */
           "semaphoreName": "/semaphore-device-{{deviceName}}-{{deviceIndex}}",
           /* man shm_open recommends that the name of a shared memory
           object should be , a null-terminated string of up to
