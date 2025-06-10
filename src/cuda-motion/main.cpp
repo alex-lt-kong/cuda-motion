@@ -24,7 +24,7 @@ void signal_handler_cb(__attribute__((unused)) int signum) {
   ev_flag = 1;
 }
 
-void initialize_http_service(std::string host, int port) {
+void initialize_http_service(std::string& host, int port) {
 
   app()
       .setLogPath("")
@@ -92,7 +92,8 @@ int main(int argc, char *argv[]) {
     myDevices.emplace_back(make_unique<DeviceManager>(i));
     myDevices[i]->StartEv();
   }
-  initialize_http_service(settings["httpService"]["interface"].get<string>(),
+  auto interface = settings["httpService"]["interface"].get<string>();
+  initialize_http_service(interface,
                           settings["httpService"]["port"].get<int>());
 
   spdlog::info("Drogon exited");

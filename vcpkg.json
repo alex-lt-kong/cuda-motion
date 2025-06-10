@@ -1,0 +1,11 @@
+{
+  "$schema" : "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "dependencies" : [ "nlohmann-json", "spdlog", "cppzmq", "protobuf", "readerwriterqueue", {
+    "name" : "cxxopts",
+    "version>=" : "3.3.1#1"
+  } ],
+  "overrides": [{"name": "drogon", "version": "1.9.8#0"}],
+  "builtin-baseline" : "65be7019941e1401e02daaba0738cab2c8a4a355",
+  "version" : "0.0.1",
+  "name" : "cuda-motion"
+}

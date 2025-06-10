@@ -37,17 +37,8 @@ There are two main functions of this program:
 
 ## Dependencies
 
-- [Drogon](https://github.com/drogonframework/drogon) for HTTP service
-- `nlohmann-json3`, JSON support: `apt install nlohmann-json3-dev`
-- `spdlog` for logging: `apt install libspdlog-dev`
+- [vcpkg.json](./vcpkg.json)
 - `v4l-utils`: for manually examining and manipulating local video devices.
-- `cppzmq` for message queue, `apt install libzmq3-dev`
-  - `cppzmq-dev` will be automatically installed with `libzmq3-dev`
-- `protobuf` for data serialization support:
-  `apt install libprotobuf-dev protobuf-compiler`
-- `readerwriterquque` for high-performance lock-free queue support:
-  `apt install libreaderwriterqueue-dev`
-- `cxxopts` for parsing arguments: `apt install libcxxopts-dev`
 - `OpenCV`: image/video manipulation libraries that do all the
   heavy lifting.
   - Check build notes [here](./helper/build-notes.md) and
