@@ -57,7 +57,7 @@
 
   ```bash
   cmake \
-  -D CMAKE_BUILD_TYPE=RELEASE \
+  -D CMAKE_BUILD_TYPE=Release \
   -D CMAKE_INSTALL_PREFIX=/usr/local \
   -D WITH_CUDA=ON \
   -D WITH_NVCUVID=ON \
@@ -67,6 +67,7 @@
   -D OPENCV_GENERATE_PKGCONFIG=ON \
   -D OPENCV_PC_FILE_NAME=opencv.pc \
   -D BUILD_EXAMPLES=OFF \
+  -D BUILD_PERF_TESTS=OFF \
   ..
   ```
 
@@ -83,6 +84,8 @@
   ```
 
   The same information should be printed when `cv::getBuildInformation()` is called.
+
+- After `cmake --build .  --parallel $(nproc)` returns, you may run `ctest -j 2` to check the correctness of this build before `sudo cmake --install`.
 
 ## OpenCV with FFmpeg (`avcodec`/`avformat`/etc) that enables CUDA
 
@@ -110,7 +113,7 @@
 - We may need to combine options gleaned from different sources to
   construct the final `./configure` command.
 
-1. One working version of `./configure` is: `./configure --enable-pic --enable-shared --enable-nonfree --enable-cuda-nvcc --enable-cuda-llvm --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec --enable-libnpp --extra-cflags=-I/usr/local/cuda/include --extra-cflags="-fPIC" --extra-ldflags=-L/usr/local/cuda/lib64 --nvccflags="-gencode arch=compute_52,code=sm_52 -O2"`
+1. One working version of `./configure` is: `./configure --enable-pic --enable-shared --enable-nonfree --enable-cuda-nvcc --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec --extra-cflags="-I/usr/local/cuda/include" --extra-cflags="-fPIC" --extra-ldflags=-L/usr/local/cuda/lib64  --nvccflags="-gencode arch=compute_75,code=sm_75 -O2"`
 
    - `--enable-cuda-llvm --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec`: enable Nvidia Video Codec SDK
      ([source](https://trac.ffmpeg.org/wiki/HWAccelIntro))

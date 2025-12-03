@@ -10,6 +10,7 @@ find_package(cxxopts REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Protobuf REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 find_package(Drogon CONFIG REQUIRED)
 
 include_directories(${Protobuf_INCLUDE_DIRS})
@@ -31,7 +32,7 @@ add_executable(cm
 )
 
 target_link_libraries(cm
-        ${OpenCV_LIBS} rt ssl crypto fmt
+        ${OpenCV_LIBS} rt ssl crypto fmt::fmt
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
         Drogon::Drogon
         nlohmann_json::nlohmann_json
