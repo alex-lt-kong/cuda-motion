@@ -1,35 +1,23 @@
 {
-  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
-  "dependencies": [
-    "nlohmann-json",
-    "cppzmq",
-    "readerwriterqueue",
-    "boost-interprocess",
-    "cxxopts",
-    {
-      "name": "spdlog",
-      "version>=": "1.16.0"
-    },
-    {
-      "name": "fmt",
-      "version>=": "12.1.0"
-    },
-    {
-      "name": "drogon",
-      "version>=": "1.9.11"
-    },
-    {
-      "name": "protobuf",
-      "version>=": "5.29.5#3"
-    }
-  ],
-  "overrides": [
-    {
-      "name": "drogon",
-      "version": "1.9.8#0"
-    }
-  ],
-  "builtin-baseline": "4c4abc2e8727221ede31021349386dac674309b0",
-  "version": "0.0.2",
-  "name": "cuda-motion"
+  "$schema" : "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "dependencies" : [ "nlohmann-json", "cppzmq", "readerwriterqueue", "boost-interprocess", "cxxopts", {
+    "name" : "spdlog",
+    "version>=" : "1.16.0"
+  }, {
+    "name" : "fmt",
+    "version>=" : "12.1.0"
+  }, {
+    "name" : "drogon",
+    "version>=" : "1.9.11"
+  }, {
+    "name" : "protobuf",
+    "version>=" : "5.29.5#3"
+  } ],
+  "overrides" : [ {
+    "name" : "drogon",
+    "version" : "1.9.8#0"
+  } ],
+  "builtin-baseline" : "4c4abc2e8727221ede31021349386dac674309b0",
+  "version" : "0.0.2",
+  "name" : "cuda-motion"
 }

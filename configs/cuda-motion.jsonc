@@ -45,12 +45,12 @@
       throttleFpsIfHigherThan is set to 30, and frameInterval is set to 5,
       then a snapshot will be generated and sent via IPC methods every 150
       frames read from the source device. */
-      "frameInterval": 600,
+      "frameInterval": 60,
       "ipc": {
         /* Save the snapshot to filesystem. To achieve better performance,
         one may also consider using a RAM disk. */
         "file": {
-          "enabled": true,
+          "enabled": false,
           "path": "/tmp/snapshot-{{deviceIndex}}-{{deviceName}}-{{timestamp}}.jpg"
         },
         "http": {
@@ -59,7 +59,7 @@
           http(s)://interface:port/live_image/?deviceId={{deviceIndex}} 
           where interface, port, etc are configured in the httpService
           section.*/
-          "enabled": true
+          "enabled": false
         },
         /* Memory layout: the first sizeof(size_t) bytes store a size_t
         variable N, representing the size in bytes of the actual payload,
@@ -67,21 +67,21 @@
         store JPEG data. In any case, sizeof(size_t) + N can NOT be greater
         than sharedMemSize in bytes as defined below. */
         "sharedMem": {
-          "enabled": true,
+          "enabled": false,
           /* On Linux, you can list all the semaphores and shared memory files by
              issuing `ls /dev/shm/` */
           "semaphoreName": "/semaphore-device-{{deviceName}}-{{deviceIndex}}",
           /* man shm_open recommends that the name of a shared memory
           object should be , a null-terminated string of up to
-          NAME_MAX (i.e., 255) characters consisting of an initial
-          slash, followed by one or more characters, none of which
+          NAME_MAX (i.e., VideoReader initialized255) characters consisting of an initial
+          slash, followed by one oVideoReader initializedr more characters, none of which
           are slashes.*/
           "sharedMemName": "/sharedMem-device-{{deviceName}}-{{deviceIndex}}",
           "sharedMemSize": 8388608 // 1024 * 8 * 1024 = 8MB
         },
         /* Publush the snapshot with zeroMQ. */
         "zeroMQ": {
-          "enabled": true,
+          "enabled": false,
           /* Should the program directly send an OpenCV's cv::Mat object
              instead of an encoded JPEG object. Sending cv::Mat means the
              downstream data user does not need to decode the JPEG back to

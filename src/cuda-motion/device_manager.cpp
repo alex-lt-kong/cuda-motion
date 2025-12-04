@@ -32,7 +32,7 @@ DeviceManager::DeviceManager(const size_t deviceIndex)
     // But writing to settings is unlikely to be thread-safe:
     // https://github.com/nlohmann/json/issues/651
     lock_guard<mutex> guard(mtxNjsonSettings);
-    auto t = settings["devices"][deviceIndex];
+    const auto t = settings["devices"][deviceIndex];
     settings["devices"][deviceIndex] = settings["devicesDefault"];
     settings["devices"][deviceIndex].merge_patch(t);
     conf = settings["devices"][deviceIndex];
@@ -252,7 +252,7 @@ void DeviceManager::stopVideoRecording(uint32_t &videoFrameCount, int cd) {
 void DeviceManager::startOrKeepVideoRecording(int64_t &cd) {
 
   auto handleOnVideoStarts = [&]() {
-    if (conf["events"]["onVideoStarts"].get<string>().size() > 0) {
+    if (!conf["events"]["onVideoStarts"].get<string>().empty()) {
       spdlog::info("[{}] motion detected, video recording begins", deviceName);
       Utils::execExternalProgramAsync(
           mtxOnVideoStarts,
@@ -402,6 +402,11 @@ void DeviceManager::InternalThreadEntry() {
         // https://docs.opencv.org/4.9.0/dd/d7d/structcv_1_1cudacodec_1_1VideoReaderInitParams.html#a9b73352d9bc1a23ccf3bf06517f978c7
         params.allowFrameDrop = true;
         try {
+          // Explicitly release the OLD resource first
+          if (vr) {
+            vr.release(); // Decrements refcount, forces destructor NOW
+            vr = nullptr; // Safety
+          }
           vr = cudacodec::createVideoReader(videoFeed, {}, params);
           vr->set(cudacodec::ColorFormat::BGR);
           spdlog::info("[{}] VideoReader initialized ({})", deviceName,
@@ -409,6 +414,8 @@ void DeviceManager::InternalThreadEntry() {
         } catch (const cv::Exception &e) {
           spdlog::error("[{}] cudacodec::createVideoReader({}) failed: {}",
                         deviceName, videoFeed, e.what());
+          // vr's RAII is not synchronous, it delegates the real work to GPU
+          std::this_thread::sleep_for(std::chrono::seconds(2));
         }
 
         frameCountSinceLastOpen = 0;
@@ -471,7 +478,7 @@ void DeviceManager::InternalThreadEntry() {
 
     if (frameCountSinceStart % snapshotFrameInterval == 0 ||
         frameCountSinceStart < 4 /* Use to handle initial failure*/) {
-      struct ipcQueueElement pl = {.rateOfChange = rateOfChange,
+      ipcQueueElement pl = {.rateOfChange = rateOfChange,
                                    .cooldown = cd,
                                    .snapshot = hDispFrames.front().clone()};
       ipc->enqueueData(pl);
@@ -498,7 +505,16 @@ void DeviceManager::InternalThreadEntry() {
       continue;
     }
     cuda::GpuMat dDispFrame;
-    dDispFrame.upload(hDispFrames.front());
+    try {
+      // there involves a GPU memory allocation
+      dDispFrame.upload(hDispFrames.front());
+    } catch (const Exception &e) {
+      spdlog::error(
+          "[{}] dDispFrame.upload() failed, the event loop will exit, what: {}",
+          deviceName, e.what());
+      ev_flag = 1;
+      break;
+    }
     if (!vwPcQueue.try_enqueue(dDispFrame)) {
       spdlog::warn("[{}] pcQueue is full", deviceName);
     }
