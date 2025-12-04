@@ -50,7 +50,6 @@ private:
   CudaMotion::Utils::PercentileTracker<int64_t> pt;
 
   // frame variables
-  bool textOverlayEnabled;
   double textOverlayFontSacle;
   int frameRotationAngle;
   ssize_t outputWidth;
@@ -64,7 +63,6 @@ private:
   double frameDiffPercentageLowerLimit = 0;
   double pixelDiffAbsThreshold = 0;
   uint64_t diffEveryNthFrame = 1;
-  bool drawContours;
 
   // videoRecording variables
   uint32_t maxFramesPerVideo;

@@ -30,6 +30,12 @@ add_executable(cm
   ipc.cpp
   utils.cpp
   ${PROTO_SRCS} ${PROTO_HDRS}
+        interfaces/i_synchronous_processing_unit.h
+        synchronous_processing_units/rotate_frame.h
+        entities/synchronous_processing_result.h
+        entities/processing_metadata.h
+        synchronous_processing_units/calculate_change_rate.h
+        synchronous_processing_units/calculate_fps.h
 )
 
 target_link_libraries(cm

@@ -1,4 +1,16 @@
 {
+
+  "videoFeed": {
+    // Will be passed to cudacodec::createVideoReader()
+    "uri": "/dev/video0",
+    "queueSize": 8
+  },
+  "pipeline": [
+    {
+      "type": "rotation",
+      "angle": 180.0
+    }
+  ],
   "httpService": {
     "interface": "127.0.0.1",
     "port": 54321

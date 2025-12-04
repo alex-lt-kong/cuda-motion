@@ -1,7 +1,13 @@
 #include "device_manager.h"
 #include "frame_handler.h"
 #include "global_vars.h"
+#include "interfaces/i_synchronous_processing_unit.h"
 #include "ipc.h"
+#include "synchronous_processing_units/calculate_change_rate.h"
+#include "synchronous_processing_units/calculate_fps.h"
+#include "synchronous_processing_units/crop_frame.h"
+#include "synchronous_processing_units/overlay_info.h"
+#include "synchronous_processing_units/rotate_frame.h"
 
 #include <cstddef>
 #include <opencv2/core.hpp>
@@ -101,8 +107,6 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
   // ===== frame =====
 
   frameRotationAngle = conf.value("/frame/rotationAngle"_json_pointer, 0);
-  textOverlayEnabled =
-      conf.value("/frame/textOverlay/enabled"_json_pointer, false);
   frameQueueSize = conf.value("/frame/queueSize"_json_pointer, 5);
   assert(frameQueueSize > 0);
 
@@ -138,7 +142,6 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
   conf["motionDetection"]["videoRecording"]["videoWriter"]["videoPath"] =
       evaluateStaticVariables(conf["motionDetection"]["videoRecording"]
                                   ["videoWriter"]["videoPath"]);
-  drawContours = conf["motionDetection"]["drawContours"];
 
   spdlog::info("{}-th device to be used with the following configs:\n{}",
                deviceIndex, conf.dump(2));
@@ -147,75 +150,6 @@ void DeviceManager::setParameters(const size_t deviceIndex) {
 DeviceManager::~DeviceManager() {
   ipc->wait();
   vwPcQueue.wait();
-}
-
-float DeviceManager::getCurrentFps() {
-
-  // std::queue seems to be causing performance issue, let give
-  // moodycamel::ReaderWriterQueue<uint64_t> a try!
-  // int64 start = chrono::duration_cast<chrono::microseconds>(
-  //                  chrono::system_clock::now().time_since_epoch())
-  //                  .count();
-  constexpr int sampleMsUpperLimit = 30 * 1000;
-  auto msSinceEpoch = chrono::duration_cast<chrono::milliseconds>(
-                          chrono::system_clock::now().time_since_epoch())
-                          .count();
-  frameTimestamps.push_back(msSinceEpoch);
-  uint64_t front = frameTimestamps.front();
-  if (msSinceEpoch - front > sampleMsUpperLimit) {
-    frameTimestamps.pop_front();
-  }
-
-  float fps = 0;
-  if (msSinceEpoch - front > 0) {
-    fps = 1000.0 * frameTimestamps.size() / (msSinceEpoch - front);
-  }
-  /*int64 end = chrono::duration_cast<chrono::microseconds>(
-                  chrono::system_clock::now().time_since_epoch())
-                  .count();
-  pt.addSample(end - start);
-  if (pt.totalSampleCount() % 1000 == 0) {
-    pt.refreshStats();
-    double percentiles[] = {50, 66, 90, 95, 100};
-    spdlog::info("[{}] Percentiles in us (sampleCount: {})", deviceName,
-                 pt.sampleCount());
-    for (size_t i = 0; i < sizeof(percentiles) / sizeof(percentiles[0]); ++i) {
-      spdlog::info("{:3}-th: {:6}", percentiles[i],
-                   pt.getPercentile(percentiles[i]));
-    }
-    spdlog::info("Average: {:5}", (long)pt.getAverage());
-  }
-  */
-  // Profiling result is not conslusive: std::queue<T> is nothing but a wrapper
-  // over std::deque<T> so it is impossible for std::queue<T> to be faster than
-  // std::deque<T>
-
-  // moodycamel::ReaderWriterQueue<uint64_t> frameTimestamps;
-  //  Percentiles in us (sampleCount: 10000)
-  //   50-th:     49
-  //   66-th:     57
-  //   90-th:     78
-  //   95-th:    122
-  //  100-th:  12730
-
-  // std::queue<uint64_t>
-  // Percentiles in us (sampleCount: 10000)
-  //  50-th:     55
-  //  66-th:     59
-  //  90-th:     73
-  //  95-th:     86
-  //  100-th:   4845
-  //  Average:    58
-
-  // std::deque<uint64_t>
-  //  Percentiles in us (sampleCount: 10000)
-  //  50-th:     55
-  //  66-th:     61
-  //  90-th:     89
-  //  95-th:    169
-  //  100-th:  12707
-  //  Average:    86
-  return fps;
 }
 
 void DeviceManager::stopVideoRecording(uint32_t &videoFrameCount, int cd) {
@@ -348,6 +282,33 @@ void DeviceManager::deviceIsBackOnline(size_t &retryInterval,
 }
 
 void DeviceManager::InternalThreadEntry() {
+  using namespace ProcessingUnit;
+  std::vector<std::unique_ptr<ISynchronousProcessingUnit>>
+      sync_processing_units;
+  for (nlohmann::basic_json<>::size_type i = 0; i < settings["pipeline"].size();
+       ++i) {
+    settings["pipeline"][i]["device"] = settings["device"];
+    std::unique_ptr<ISynchronousProcessingUnit> ptr;
+    if (settings["pipeline"][i]["type"].get<std::string>() == "rotation") {
+      ptr = std::make_unique<RotateFrame>();
+    } else if (settings["pipeline"][i]["type"].get<std::string>() ==
+               "overlayInfo") {
+      ptr = std::make_unique<OverlayInfo>();
+    } else if (settings["pipeline"][i]["type"].get<std::string>() ==
+               "cropFrame") {
+      ptr = std::make_unique<CropFrame>();
+    } else if (settings["pipeline"][i]["type"].get<std::string>() ==
+               "calculateChangeRate") {
+      ptr = std::make_unique<CalculateChangeRate>();
+    } else if (settings["pipeline"][i]["type"].get<std::string>() ==
+               "calculateFps") {
+      ptr = std::make_unique<CalculateFps>();
+    } else {
+      continue;
+    }
+    sync_processing_units.push_back(std::move(ptr));
+    sync_processing_units.back()->init(settings["pipeline"][i]);
+  }
 
   queue<Mat> hDispFrames;
   cuda::GpuMat dPrevFrame, dCurrFrame, dDiffFrame;
@@ -356,8 +317,8 @@ void DeviceManager::InternalThreadEntry() {
   bool isShowingBlankFrame = false;
   // VideoCapture cap;
   Ptr<cudacodec::VideoReader> vr;
-  auto videoFeed = conf.value("/videoFeed/uri"_json_pointer, "/dev/video0");
-  float rateOfChange = 0.0;
+  const auto video_feed = settings["device"]["uri"].get<std::string>();
+  // conf.value("/videoFeed/uri"_json_pointer, "/dev/video0");
 
   uint64_t frameCountSinceLastOpen = 0;
   uint64_t frameCountSinceStart = 0;
@@ -368,7 +329,7 @@ void DeviceManager::InternalThreadEntry() {
   // cd: cooldown
   int64_t cd = 0;
   size_t retryInterval = snapshotFrameInterval + 1;
-
+  ProcessingMetaData meta_data;
   // We use the evil `goto` statement so that we can avoid the duplication of
   //   initializeDevice()...
   goto entryPoint;
@@ -396,7 +357,7 @@ void DeviceManager::InternalThreadEntry() {
           retryInterval *= 2;
         spdlog::warn("[{}] Retry initializing VideoReader with videoFeed [{}] "
                      "after {} consecutive reading attempts ...",
-                     deviceName, videoFeed, retryInterval);
+                     deviceName, video_feed, retryInterval);
       entryPoint:
         auto params = cudacodec::VideoReaderInitParams();
         // https://docs.opencv.org/4.9.0/dd/d7d/structcv_1_1cudacodec_1_1VideoReaderInitParams.html#a9b73352d9bc1a23ccf3bf06517f978c7
@@ -407,13 +368,13 @@ void DeviceManager::InternalThreadEntry() {
             vr.release(); // Decrements refcount, forces destructor NOW
             vr = nullptr; // Safety
           }
-          vr = cudacodec::createVideoReader(videoFeed, {}, params);
+          vr = cudacodec::createVideoReader(video_feed, {}, params);
           vr->set(cudacodec::ColorFormat::BGR);
           spdlog::info("[{}] VideoReader initialized ({})", deviceName,
-                       videoFeed);
+                       video_feed);
         } catch (const cv::Exception &e) {
           spdlog::error("[{}] cudacodec::createVideoReader({}) failed: {}",
-                        deviceName, videoFeed, e.what());
+                        deviceName, video_feed, e.what());
           // vr's RAII is not synchronous, it delegates the real work to GPU
           std::this_thread::sleep_for(std::chrono::seconds(2));
         }
@@ -427,10 +388,14 @@ void DeviceManager::InternalThreadEntry() {
     } else if (isShowingBlankFrame) [[unlikely]] {
       deviceIsBackOnline(retryInterval, isShowingBlankFrame);
     }
-    if (!isShowingBlankFrame) [[likely]] {
-      fh->rotate(dCurrFrame, frameRotationAngle);
-    }
 
+    meta_data.capture_timestamp_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+            .count();
+    for (size_t i = 0; i < sync_processing_units.size(); ++i) {
+      sync_processing_units[i]->process(dCurrFrame, meta_data);
+    }
     if (frameCountSinceLastOpen == 1) {
       actualFrameSize = dCurrFrame.size();
       outputWidth = outputWidth == -1 ? actualFrameSize.width : outputWidth;
@@ -439,13 +404,6 @@ void DeviceManager::InternalThreadEntry() {
 
     if (motionDetectionMode == MODE_DETECT_MOTION &&
         frameCountSinceStart % diffEveryNthFrame == 0) {
-      if (isShowingBlankFrame == false) {
-        // profiling shows this if() block takes around 1-2 ms
-        rateOfChange = fh->getFrameChanges(dPrevFrame, dCurrFrame, dDiffFrame,
-                                           pixelDiffAbsThreshold);
-      } else {
-        rateOfChange = -1;
-      }
       /* Can't just assign like prevFrame = currFrame, otherwise two
       objects will share the same copy of underlying image data */
       // dPrevFrame = dCurrFrame;
@@ -462,25 +420,12 @@ void DeviceManager::InternalThreadEntry() {
     if (hDispFrames.size() > frameQueueSize) {
       hDispFrames.pop();
     }
-    if (drawContours && motionDetectionMode == MODE_DETECT_MOTION &&
-        isShowingBlankFrame == false) {
-      Mat hDiffFrame;
-      dDiffFrame.download(hDiffFrame);
-      fh->overlayContours(hFrame, hDiffFrame);
-      // CPU-intensive! Use with care!
-    }
-    if (textOverlayEnabled) {
-      fh->overlayStats(hFrame, rateOfChange, cd, videoFrameCount,
-                       getCurrentFps(), maxFramesPerVideo);
-      fh->overlayDatetime(hFrame, timestampOnDeviceOffline);
-      fh->overlayDeviceName(hFrame);
-    }
 
     if (frameCountSinceStart % snapshotFrameInterval == 0 ||
         frameCountSinceStart < 4 /* Use to handle initial failure*/) {
-      ipcQueueElement pl = {.rateOfChange = rateOfChange,
-                                   .cooldown = cd,
-                                   .snapshot = hDispFrames.front().clone()};
+      ipcQueueElement pl = {.rateOfChange = meta_data.change_rate,
+                            .cooldown = cd,
+                            .snapshot = hDispFrames.front().clone()};
       ipc->enqueueData(pl);
     }
 
@@ -489,8 +434,8 @@ void DeviceManager::InternalThreadEntry() {
     }
 
     if (motionDetectionMode == MODE_ALWAYS_RECORD ||
-        (rateOfChange > frameDiffPercentageLowerLimit &&
-         rateOfChange < frameDiffPercentageUpperLimit &&
+        (meta_data.change_rate > frameDiffPercentageLowerLimit &&
+         meta_data.change_rate < frameDiffPercentageUpperLimit &&
          motionDetectionMode == MODE_DETECT_MOTION)) {
       startOrKeepVideoRecording(cd);
     }
