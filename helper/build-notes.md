@@ -204,9 +204,9 @@ export OPENCV_FFMPEG_WRITER_OPTIONS="hw_encoders_any;cuda"
 
 - The final `cmake` command should look like below:
 
-  ```bash
-    export OPENCV_VERSION="4.12.0"export OPENCV_VERSION="4.12.0"
-    export INSTALL_PATH="$HOME/opt/opencv-$OPENCV_VERSION"
+  ```bash    
+    # export INSTALL_PATH="$HOME/opt/opencv-$OPENCV_VERSION"
+    export INSTALL_PATH=/usr/local 
     mkdir -p "$INSTALL_PATH"
     # Find my own FFmpeg
     export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
@@ -223,7 +223,7 @@ export OPENCV_FFMPEG_WRITER_OPTIONS="hw_encoders_any;cuda"
     -D WITH_NVCUVENC=ON \
     -D OPENCV_EXTRA_MODULES_PATH=~/repos/opencv_contrib/modules/ \
     -D OPENCV_GENERATE_PKGCONFIG=ON \
-    -D OPENCV_PC_FILE_NAME="opencv-${OPENCV_FULL_VERSION}.pc" \
+    -D OPENCV_PC_FILE_NAME="opencv.pc" \
     -D BUILD_EXAMPLES=OFF \
     -D BUILD_PERF_TESTS=OFF \
     -D BUILD_TESTS=ON \
@@ -255,6 +255,9 @@ as well as FFmpeg:
   ```
 
   The same information should be printed when `cv::getBuildInformation()` is called.
+
+- Build step: `cmake --build . --parallel $(nproc) --config Release`
+  - `--config Release` should only be needed on Windows  
 
 - `ctest`:
 

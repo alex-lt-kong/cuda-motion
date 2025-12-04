@@ -1,8 +1,8 @@
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 #include_directories(http_service/)
 
-#find_package(OpenCV REQUIRED)
-find_package(OpenCV REQUIRED PATHS "$ENV{HOME}/opt/opencv-4.12.0/lib64/cmake/opencv4" NO_DEFAULT_PATH)
+find_package(OpenCV REQUIRED)
+#find_package(OpenCV REQUIRED PATHS "$ENV{HOME}/opt/opencv-4.12.0/lib64/cmake/opencv4" NO_DEFAULT_PATH)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 find_package(protobuf CONFIG REQUIRED)
