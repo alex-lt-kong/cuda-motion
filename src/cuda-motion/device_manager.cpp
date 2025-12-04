@@ -504,10 +504,14 @@ void DeviceManager::InternalThreadEntry() {
       stopVideoRecording(videoFrameCount, cd);
       continue;
     }
-    cuda::GpuMat dDispFrame;
+
     try {
+      cuda::GpuMat dDispFrame;
       // there involves a GPU memory allocation
       dDispFrame.upload(hDispFrames.front());
+      if (!vwPcQueue.try_enqueue(dDispFrame)) {
+        spdlog::warn("[{}] pcQueue is full", deviceName);
+      }
     } catch (const Exception &e) {
       spdlog::error(
           "[{}] dDispFrame.upload() failed, the event loop will exit, what: {}",
@@ -515,10 +519,6 @@ void DeviceManager::InternalThreadEntry() {
       ev_flag = 1;
       break;
     }
-    if (!vwPcQueue.try_enqueue(dDispFrame)) {
-      spdlog::warn("[{}] pcQueue is full", deviceName);
-    }
-    // enqueueVideoWriterFrame(dispFrames.front());
   }
   if (cd > 0) {
     stopVideoRecording(videoFrameCount, cd);
