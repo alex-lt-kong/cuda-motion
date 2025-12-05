@@ -52,7 +52,7 @@ public:
 
     /**
      * @brief Configures ZMQ Endpoint and Compression mode.
-     * JSON: { "endpoint": "tcp://*:5555", "compression": true }
+     * JSON: { "endpoint": "tcp://127.0.0.1:5555", "compression": true }
      */
     bool init(const njson &config) override {
         try {
