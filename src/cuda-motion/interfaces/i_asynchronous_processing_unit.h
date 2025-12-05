@@ -19,7 +19,7 @@ namespace CudaMotion::ProcessingUnit {
 
 struct AsyncPayload {
   cv::cuda::GpuMat frame;
-  ProcessingMetaData meta_data;
+  PipelineContext meta_data;
 };
 
 class IAsynchronousProcessingUnit {
@@ -39,7 +39,7 @@ public:
    * shallow copy.
    */
   SynchronousProcessingResult enqueue(const cv::cuda::GpuMat &frame,
-                                      const ProcessingMetaData &meta_data) {
+                                      const PipelineContext &meta_data) {
     const auto frame_deep_copy = frame.clone();
 
     {
@@ -86,7 +86,7 @@ protected:
    * This is called automatically by the internal thread when data is dequeued.
    */
   virtual void on_frame_ready(cv::cuda::GpuMat &frame,
-                       ProcessingMetaData &meta_data) = 0;
+                       PipelineContext &meta_data) = 0;
 
 private:
   /**

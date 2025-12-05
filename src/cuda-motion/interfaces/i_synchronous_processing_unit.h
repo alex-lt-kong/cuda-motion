@@ -19,6 +19,6 @@ public:
   ///
   /// @param frame the frame to be processed
   /// @return
-  virtual SynchronousProcessingResult process(cv::cuda::GpuMat &frame, ProcessingMetaData& meta_data) = 0;
+  virtual SynchronousProcessingResult process(cv::cuda::GpuMat &frame, PipelineContext& meta_data) = 0;
 };
 }

@@ -39,19 +39,22 @@ public:
 
   bool init(const njson &config) override {
     try {
-      m_config.m_file_path_template = config.value("filePath", m_config.m_file_path_template);
-      m_config.m_change_rate_threshold = config.value("changeRateThreshold", m_config.m_change_rate_threshold);
-      m_config.m_cool_off_sec = config.value("coolOffSec", m_config.m_cool_off_sec);
-      m_config.m_max_length_sec = config.value("maxLengthSec", m_config.m_max_length_sec);
+      m_config.m_file_path_template =
+          config.value("filePath", m_config.m_file_path_template);
+      m_config.m_change_rate_threshold =
+          config.value("changeRateThreshold", m_config.m_change_rate_threshold);
+      m_config.m_cool_off_sec =
+          config.value("coolOffSec", m_config.m_cool_off_sec);
+      m_config.m_max_length_sec =
+          config.value("maxLengthSec", m_config.m_max_length_sec);
       m_config.m_target_fps = config.value("targetFps", m_config.m_target_fps);
-
 
       m_config.m_pre_record_frames = config.value("preRecordFrames", 0);
 
-      SPDLOG_INFO("change_rate_threshold: {}, pre_record_frames: {} frames, cool_off_sec: {}, max_length_sec: {}",
+      SPDLOG_INFO("change_rate_threshold: {}, pre_record_frames: {} frames, "
+                  "cool_off_sec: {}, max_length_sec: {}",
                   m_config.m_change_rate_threshold,
-                  m_config.m_pre_record_frames,
-                  m_config.m_cool_off_sec,
+                  m_config.m_pre_record_frames, m_config.m_cool_off_sec,
                   m_config.m_max_length_sec);
       return true;
     } catch (const njson::exception &e) {
@@ -60,39 +63,52 @@ public:
     }
   }
 
-  static std::string generate_filename(const std::string &path_template, std::chrono::system_clock::time_point timestamp) {
+  static std::string
+  generate_filename(const std::string &path_template,
+                    std::chrono::system_clock::time_point timestamp) {
     std::string filename = path_template;
-    static const std::regex placeholder_regex(R"(\{video_start_time(?::([^}]+))?\})");
+    static const std::regex placeholder_regex(
+        R"(\{video_start_time(?::([^}]+))?\})");
     std::smatch match;
     if (std::regex_search(filename, match, placeholder_regex)) {
-      auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(timestamp.time_since_epoch()) % 1000;
+      auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    timestamp.time_since_epoch()) %
+                1000;
       auto t_c = std::chrono::system_clock::to_time_t(timestamp);
       std::tm tm = *std::localtime(&t_c);
       std::string time_format = "{:%Y%m%d_%H%M%S}";
       if (match[1].matched) {
         std::string user_fmt = match[1].str();
         size_t f_pos = user_fmt.find("%f");
-        if (f_pos != std::string::npos) user_fmt.replace(f_pos, 2, fmt::format("{:03d}", ms.count()));
+        if (f_pos != std::string::npos)
+          user_fmt.replace(f_pos, 2, fmt::format("{:03d}", ms.count()));
         time_format = "{:" + user_fmt + "}";
       }
       try {
         std::string formatted_time = fmt::format(fmt::runtime(time_format), tm);
         filename.replace(match.position(), match.length(), formatted_time);
-      } catch (const std::exception &e) { return "error.mp4"; }
+      } catch (const std::exception &e) {
+        return "error.mp4";
+      }
     } else {
-      auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(timestamp.time_since_epoch()).count();
-      if (filename.find(".mp4") == std::string::npos) filename += "_" + std::to_string(now_ms) + ".mp4";
-      else filename.insert(filename.rfind('.'), "_" + std::to_string(now_ms));
+      auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        timestamp.time_since_epoch())
+                        .count();
+      if (filename.find(".mp4") == std::string::npos)
+        filename += "_" + std::to_string(now_ms) + ".mp4";
+      else
+        filename.insert(filename.rfind('.'), "_" + std::to_string(now_ms));
     }
     return filename;
   }
 
 protected:
   // Renamed from process() to on_frame_ready()
-  void on_frame_ready(cv::cuda::GpuMat &frame, ProcessingMetaData &meta_data) override {
-    if (frame.empty()) return;
+  void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override {
+    if (frame.empty())
+      return;
 
-    const double change_rate = meta_data.change_rate;
+    const double change_rate = ctx.change_rate;
     const auto now = std::chrono::steady_clock::now();
 
     // --- IDLE STATE ---
@@ -104,54 +120,64 @@ protected:
         m_pre_roll_buffer.push_back(frame);
 
         // Remove old frames
-        while (m_pre_roll_buffer.size() > static_cast<size_t>(m_config.m_pre_record_frames)) {
-            m_pre_roll_buffer.pop_front();
+        while (m_pre_roll_buffer.size() >
+               static_cast<size_t>(m_config.m_pre_record_frames)) {
+          m_pre_roll_buffer.pop_front();
         }
       }
 
       // 2. Check Trigger
       if (change_rate >= m_config.m_change_rate_threshold &&
-          meta_data.captured_from_real_device &&
+          ctx.captured_from_real_device &&
           std::chrono::duration_cast<std::chrono::milliseconds>(
-               std::chrono::system_clock::now().time_since_epoch())
-               .count() -
-           meta_data.capture_from_this_device_since_ms > 10000) {
+              std::chrono::system_clock::now().time_since_epoch())
+                      .count() -
+                  ctx.capture_from_this_device_since_ms >
+              10000) {
         if (!start_recording(frame.size()))
           return;
 
         // 3. FLUSH Pre-Roll Buffer to Writer
         if (!m_pre_roll_buffer.empty()) {
-            SPDLOG_INFO("Flushing {} pre-roll frames.", m_pre_roll_buffer.size());
-            while (!m_pre_roll_buffer.empty()) {
-                write_frame(m_pre_roll_buffer.front());
-                m_pre_roll_buffer.pop_front();
-            }
+          SPDLOG_INFO("Flushing {} pre-roll frames.", m_pre_roll_buffer.size());
+          while (!m_pre_roll_buffer.empty()) {
+            write_frame(m_pre_roll_buffer.front());
+            m_pre_roll_buffer.pop_front();
+          }
         }
 
         m_state = State::RECORDING;
         m_record_start_time = now;
-        SPDLOG_INFO(
-            "Recording started (change_rate_threshold({}) vs change_rate({:.3}))",
-            m_config.m_change_rate_threshold, change_rate);
+        SPDLOG_INFO("Recording started (change_rate_threshold({}) vs "
+                    "change_rate({:.3})), writing video to {}",
+                    m_config.m_change_rate_threshold, change_rate, m_file_path);
       }
     }
 
     // --- RECORDING STATE ---
     if (m_state == State::RECORDING) {
-      const bool threshold_met = change_rate >= m_config.m_change_rate_threshold;
+      const bool threshold_met =
+          change_rate >= m_config.m_change_rate_threshold;
 
       if (!threshold_met) {
-        if (m_last_below_threshold_time == std::chrono::steady_clock::time_point{}) {
+        if (m_last_below_threshold_time ==
+            std::chrono::steady_clock::time_point{}) {
           m_last_below_threshold_time = now;
         }
       } else {
         m_last_below_threshold_time = std::chrono::steady_clock::time_point{};
       }
 
-      const auto elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(now - m_record_start_time).count();
-      const auto cooldown_sec = std::chrono::duration_cast<std::chrono::seconds>(now - m_last_below_threshold_time).count();
+      const auto elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(
+                                   now - m_record_start_time)
+                                   .count();
+      const auto cooldown_sec =
+          std::chrono::duration_cast<std::chrono::seconds>(
+              now - m_last_below_threshold_time)
+              .count();
 
-      if (elapsed_sec >= m_config.m_max_length_sec || (!threshold_met && cooldown_sec >= m_config.m_cool_off_sec)) {
+      if (elapsed_sec >= m_config.m_max_length_sec ||
+          (!threshold_met && cooldown_sec >= m_config.m_cool_off_sec)) {
         stop_recording();
         m_state = State::IDLE;
         return;
@@ -173,20 +199,24 @@ private:
 
   std::chrono::steady_clock::time_point m_record_start_time;
   std::chrono::steady_clock::time_point m_last_below_threshold_time;
+  std::string m_file_path;
 
   std::string generate_filename() const {
-    return generate_filename(m_config.m_file_path_template, std::chrono::system_clock::now());
+    return generate_filename(m_config.m_file_path_template,
+                             std::chrono::system_clock::now());
   }
 
   bool start_recording(const cv::Size frame_size) {
-    if (m_writer) m_writer.release();
-    std::string file_path = generate_filename();
+    if (m_writer)
+      m_writer.release();
+    m_file_path = generate_filename();
     try {
       m_writer = cv::cudacodec::createVideoWriter(
-          file_path, frame_size, cv::cudacodec::Codec::H264,
+          m_file_path, frame_size, cv::cudacodec::Codec::H264,
           m_config.m_target_fps, cv::cudacodec::ColorFormat::BGR);
     } catch (const cv::Exception &e) {
-      SPDLOG_ERROR("FATAL: Failed to init GPU writer: {}", e.what());
+      SPDLOG_ERROR("FATAL: Failed to init cv::cudacodec::VideoWriter(): {}",
+                   e.what());
       m_writer.release();
       return false;
     }
@@ -196,7 +226,7 @@ private:
   void stop_recording() {
     if (m_writer) {
       m_writer.release();
-      SPDLOG_INFO("Recording stopped.");
+      SPDLOG_INFO("Recording stopped, video written to {}", m_file_path);
     }
     m_record_start_time = {};
     m_last_below_threshold_time = {};
@@ -204,7 +234,8 @@ private:
   }
 
   void write_frame(const cv::cuda::GpuMat &frame) const {
-    if (!m_writer) return;
+    if (!m_writer)
+      return;
     m_writer->write(frame);
   }
 };

@@ -54,7 +54,8 @@ int main(int argc, char *argv[]) {
   mgr->StartEv();
 
   // naive way to handle race condition of drogon::app().run(),
-  this_thread::sleep_for(chrono::seconds(1));
+  this_thread::sleep_for(chrono::seconds(5));
+  SPDLOG_INFO("Starting drogon thread");
   app()
       .setLogLevel(trantor::Logger::kWarn)
       .setThreadNum(4)

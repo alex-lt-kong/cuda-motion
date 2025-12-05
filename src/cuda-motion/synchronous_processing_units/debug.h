@@ -19,7 +19,7 @@ public:
 
   [[nodiscard]] SynchronousProcessingResult
   process([[maybe_unused]] cv::cuda::GpuMat &frame,
-          [[maybe_unused]] ProcessingMetaData &meta_data) override {
+          [[maybe_unused]] PipelineContext &meta_data) override {
     SPDLOG_INFO("Debug processing unit: {}, latency: {}ms",
                 meta_data.capture_timestamp_ms,
                 std::chrono::duration_cast<std::chrono::milliseconds>(

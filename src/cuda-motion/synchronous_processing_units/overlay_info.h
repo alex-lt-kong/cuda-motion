@@ -107,7 +107,7 @@ public:
     }
   }
 
-  [[nodiscard]] SynchronousProcessingResult process(cv::cuda::GpuMat &frame, ProcessingMetaData& meta_data) override {
+  [[nodiscard]] SynchronousProcessingResult process(cv::cuda::GpuMat &frame, PipelineContext& meta_data) override {
     if (frame.empty()) return failure_and_continue;
 
     // --- 1. Determine Target Pixel Height ---

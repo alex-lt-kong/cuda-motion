@@ -42,7 +42,7 @@ public:
     }
   }
 
-  [[nodiscard]] SynchronousProcessingResult process(cv::cuda::GpuMat &frame, [[maybe_unused]]ProcessingMetaData& meta_data) override {
+  [[nodiscard]] SynchronousProcessingResult process(cv::cuda::GpuMat &frame, [[maybe_unused]]PipelineContext& meta_data) override {
     if (frame.empty()) return failure_and_continue;
 
     // Calculate crop dimensions

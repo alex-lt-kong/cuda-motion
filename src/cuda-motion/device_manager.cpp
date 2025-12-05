@@ -68,7 +68,7 @@ void DeviceManager::InternalThreadEntry() {
       ptr = std::make_unique<HttpService>();
     } else if (settings["pipeline"][i]["type"].get<std::string>() ==
                "AsynchronousProcessingUnit::zeroMqPublisher") {
-      ptr = std::make_unique<ZmqPublisher>();
+      ptr = std::make_unique<ZeroMqPublisher>();
     } else {
       SPDLOG_WARN("Unrecognized pipeline unit: {}",
                   settings["pipeline"][i]["type"].get<std::string>());
@@ -101,21 +101,21 @@ void DeviceManager::InternalThreadEntry() {
   const auto expected_frame_height =
       settings["device"]["expectedFrameSize"]["height"].get<int>();
 
-  ProcessingMetaData meta_data;
+  PipelineContext ctx;
   while (ev_flag == 0) {
     always_fill_in_frame(vr, expected_frame_height, expected_frame_width, frame,
-                         meta_data);
-    handle_video_capture(vr, meta_data, video_feed);
+                         ctx);
+    handle_video_capture(vr, ctx, video_feed);
 
     for (size_t i = 0; i < processing_units.size(); ++i) {
-      meta_data.processing_unit_idx = i;
+      ctx.processing_unit_idx = i;
       auto retval = std::visit(
           overload{
               [&](const std::unique_ptr<ISynchronousProcessingUnit> &ptr) {
-                return ptr->process(frame, meta_data);
+                return ptr->process(frame, ctx);
               },
               [&](const std::unique_ptr<IAsynchronousProcessingUnit> &ptr) {
-                return ptr->enqueue(frame, meta_data);
+                return ptr->enqueue(frame, ctx);
               },
           },
           processing_units[i]);
@@ -131,7 +131,7 @@ void DeviceManager::InternalThreadEntry() {
 void DeviceManager::always_fill_in_frame(
     const cv::Ptr<cv::cudacodec::VideoReader> &vr,
     const int expected_frame_height, const int expected_frame_width,
-    cv::cuda::GpuMat &frame, ProcessingUnit::ProcessingMetaData &meta_data) {
+    cv::cuda::GpuMat &frame, ProcessingUnit::PipelineContext &meta_data) {
   auto captured_from_real_device = false;
   if (vr != nullptr) {
     try {
@@ -172,7 +172,7 @@ void DeviceManager::always_fill_in_frame(
 
 void DeviceManager::handle_video_capture(
     cv::Ptr<cv::cudacodec::VideoReader> &vr,
-    const ProcessingUnit::ProcessingMetaData &meta_data,
+    const ProcessingUnit::PipelineContext &meta_data,
     const std::string &video_feed) {
 
   if (!meta_data.captured_from_real_device) [[unlikely]] {

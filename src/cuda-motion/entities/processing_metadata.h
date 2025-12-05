@@ -4,7 +4,7 @@
 #include <optional>
 
 namespace CudaMotion::ProcessingUnit {
-struct ProcessingMetaData {
+struct PipelineContext {
   // false means it is a gray image
   bool captured_from_real_device = false;
   int64_t capture_timestamp_ms = 0;

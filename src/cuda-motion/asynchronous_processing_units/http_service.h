@@ -138,7 +138,7 @@ public:
   }
 
 protected:
-  void on_frame_ready(cv::cuda::GpuMat &frame, ProcessingMetaData &meta_data) override {
+  void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &meta_data) override {
     auto now = std::chrono::steady_clock::now();
     if (now - m_last_update_time < m_refresh_interval_sec) return;
     if (frame.empty()) return;
@@ -306,7 +306,7 @@ private:
 
   std::mutex m_image_mutex;
   std::shared_ptr<std::string> m_latest_jpeg_ptr;
-  ProcessingMetaData m_last_meta;
+  PipelineContext m_last_meta;
 
   std::unique_ptr<Utils::NvJpegEncoder> m_gpu_encoder;
 

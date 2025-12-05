@@ -10,7 +10,7 @@ private:
 
 public:
   [[nodiscard]] SynchronousProcessingResult
-  process(cv::cuda::GpuMat &frame, [[maybe_unused]]ProcessingMetaData& meta_data) override {
+  process(cv::cuda::GpuMat &frame, [[maybe_unused]]PipelineContext& meta_data) override {
     switch (m_angle) {
     case 90:
       cv::cuda::rotate(frame.clone(), frame,

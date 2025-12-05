@@ -38,7 +38,7 @@ public:
   }
 
   SynchronousProcessingResult process([[maybe_unused]] cv::cuda::GpuMat &frame,
-                                      ProcessingMetaData &meta_data) override {
+                                      PipelineContext &meta_data) override {
     int64_t current_time = meta_data.capture_timestamp_ms;
 
     // 1. Add current frame to history

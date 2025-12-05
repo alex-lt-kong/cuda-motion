@@ -44,9 +44,9 @@ private:
   always_fill_in_frame(const cv::Ptr<cv::cudacodec::VideoReader> &vr,
                        int expected_frame_height, int expected_frame_width,
                        cv::cuda::GpuMat &frame,
-                       ProcessingUnit::ProcessingMetaData &meta_data);
+                       ProcessingUnit::PipelineContext &meta_data);
   static void handle_video_capture(cv::Ptr<cv::cudacodec::VideoReader> &vr,
-                            const ProcessingUnit::ProcessingMetaData &meta_data,
+                            const ProcessingUnit::PipelineContext &meta_data,
                             const std::string &video_feed);
 };
 } // namespace CudaMotion
