@@ -23,13 +23,13 @@ void execExternalProgramAsync(mutex &mtx, const string cmd,
       // otherwise, if the 1st execution gets stuck, the 2nd execution might
       // unexpectedly use the same executionId as the 1st execution.
       auto executionId = ++executionCounter;
-      spdlog::info("[{}] Calling external program: [{}] in a separate child "
+      SPDLOG_INFO("[{}] Calling external program: [{}] in a separate child "
                    "process. (executionId: {})",
                    deviceName, cmd, executionId);
       int retval = 0;
       try {
         retval = system(cmd.c_str());
-        spdlog::info(
+        SPDLOG_INFO(
             "[{}] External program: [{}] returned {} (executionId: {})",
             deviceName, cmd, retval, executionId);
       } catch (const exception &e) {

@@ -10,20 +10,20 @@ private:
 
 public:
   [[nodiscard]] SynchronousProcessingResult
-  process(cv::cuda::GpuMat &frame, ProcessingMetaData& meta_data) override {
+  process(cv::cuda::GpuMat &frame, [[maybe_unused]]ProcessingMetaData& meta_data) override {
     switch (m_angle) {
     case 90:
-      cuda::rotate(frame.clone(), frame,
-                   Size( frame.size().height, frame.size().width),
+      cv::cuda::rotate(frame.clone(), frame,
+                  cv::Size( frame.size().height, frame.size().width),
                    m_angle, 0, frame.size().width);
       break;
     case 180:
-      cuda::rotate(frame.clone(), frame, frame.size(), m_angle,
+      cv::cuda::rotate(frame.clone(), frame, frame.size(), m_angle,
                    frame.size().width, frame.size().height);
       break;
     case 270:
-      cuda::rotate(frame.clone(), frame,
-                   Size(frame.size().height, frame.size().width),
+      cv::cuda::rotate(frame.clone(), frame,
+                   cv::Size(frame.size().height, frame.size().width),
                    m_angle, frame.size().height, 0);
       break;
     default:
