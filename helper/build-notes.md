@@ -208,27 +208,31 @@ export OPENCV_FFMPEG_WRITER_OPTIONS="hw_encoders_any;cuda"
     # export INSTALL_PATH="$HOME/opt/opencv-$OPENCV_VERSION"
     export INSTALL_PATH=/usr/local 
     mkdir -p "$INSTALL_PATH"
+    # reveal the CUDA architecture and we build for it only
+    export CUDA_ARCH_BIN=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader)
     # Find my own FFmpeg
     export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
     # ts: test support
     # cudafilters: a test dependency for cudaimgproc
-    export BUILD_LIST="core,imgproc,videoio,imgcodecs,cudev,cudacodec,ts,cudaarithm,cudaimgproc,cudawarping,cudafilters"
+    export BUILD_LIST="core,imgproc,videoio,imgcodecs,cudev,cudacodec,ts,cudaarithm,cudaimgproc,cudawarping,cudafilters,dnn"
     
-    cmake \
-    -D CMAKE_BUILD_TYPE=Release \
-    -D BUILD_LIST="${BUILD_LIST}" \
-    -D CMAKE_INSTALL_PREFIX="$INSTALL_PATH" \
-    -D WITH_CUDA=ON \
-    -D WITH_NVCUVID=ON \
-    -D WITH_NVCUVENC=ON \
-    -D OPENCV_EXTRA_MODULES_PATH=~/repos/opencv_contrib/modules/ \
-    -D OPENCV_GENERATE_PKGCONFIG=ON \
-    -D OPENCV_PC_FILE_NAME="opencv.pc" \
-    -D BUILD_EXAMPLES=OFF \
-    -D BUILD_PERF_TESTS=OFF \
-    -D BUILD_TESTS=ON \
-    -D OPENCV_TEST_DATA_PATH=~/repos/opencv_extra/testdata \
-    ..
+cmake \
+-D CMAKE_BUILD_TYPE=Release \
+-D BUILD_LIST="${BUILD_LIST}" \
+-D CMAKE_INSTALL_PREFIX="$INSTALL_PATH" \
+-D WITH_CUDA=ON \
+-D WITH_NVCUVID=ON \
+-D WITH_NVCUVENC=ON \
+-D OPENCV_EXTRA_MODULES_PATH=~/repos/opencv_contrib/modules/ \
+-D OPENCV_GENERATE_PKGCONFIG=ON \
+-D OPENCV_PC_FILE_NAME="opencv.pc" \
+-D BUILD_EXAMPLES=OFF \
+-D BUILD_PERF_TESTS=OFF \
+-D BUILD_TESTS=ON \
+-D OPENCV_DNN_CUDA=ON \
+-D CUDA_ARCH_BIN="${CUDA_ARCH_BIN}" \
+-D OPENCV_TEST_DATA_PATH=~/repos/opencv_extra/testdata \
+..
   ```
 
   and the `cmake` output should show lines that indicate the inclusion of

@@ -1,9 +1,8 @@
 #pragma once
 
-#include "../../../cmake-build-release/src/cuda-motion/frame_msg.pb.h"
+#include "frame_msg.pb.h"
 #include "../interfaces/i_asynchronous_processing_unit.h"
 #include "../utils.h"
-#include "frame_msg.pb.h"
 
 #include <spdlog/spdlog.h>
 #include <zmq.hpp>

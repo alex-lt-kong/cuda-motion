@@ -55,7 +55,7 @@ public:
         m_gpu_encoder = std::make_unique<Utils::NvJpegEncoder>();
       }
 
-      m_ip = config.value("bind_addr", "0.0.0.0");
+      m_ip = config.value("bindAddr", "127.0.0.1");
       m_port = config.value("port", 8080);
 
       if (config.contains("username") && config.contains("password")) {
@@ -64,12 +64,12 @@ public:
         m_password = config["password"];
       }
 
-      bool use_https = config.value("use_https", false);
-      std::string cert_path = config.value("cert_path", "");
-      std::string key_path = config.value("key_path", "");
+      bool use_https = config.value("useHttps", false);
+      std::string cert_path = config.value("certPath", "");
+      std::string key_path = config.value("keyPath", "");
 
       m_refresh_interval_sec = std::chrono::duration<double>(
-          config.value("refresh_interval_sec", 10.0));
+          config.value("refreshIntervalSec", 10.0));
 
       {
         std::lock_guard<std::mutex> lock(s_registry_mutex);

@@ -25,7 +25,7 @@ struct AsyncPayload {
 class IAsynchronousProcessingUnit {
 public:
   virtual ~IAsynchronousProcessingUnit() {
-    stop(); // Ensure thread is joined on destruction
+    IAsynchronousProcessingUnit::stop(); // Ensure thread is joined on destruction
   }
 
   virtual bool init(const njson &config) = 0;
@@ -67,7 +67,7 @@ public:
   /**
    * @brief Stops the worker thread and waits for it to finish.
    */
-  virtual void stop() {
+  void stop() {
     if (!m_running.load()) {
       return;
     }
@@ -86,7 +86,7 @@ protected:
    * This is called automatically by the internal thread when data is dequeued.
    */
   virtual void on_frame_ready(cv::cuda::GpuMat &frame,
-                       PipelineContext &meta_data) = 0;
+                              PipelineContext &ctx) = 0;
 
 private:
   /**

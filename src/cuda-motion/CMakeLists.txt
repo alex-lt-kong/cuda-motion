@@ -4,6 +4,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 find_package(OpenCV REQUIRED)
 #find_package(OpenCV REQUIRED PATHS "$ENV{HOME}/opt/opencv-4.12.0/lib64/cmake/opencv4" NO_DEFAULT_PATH)
 include_directories(${OpenCV_INCLUDE_DIRS})
+message(STATUS "OpenCV found at: ${OpenCV_DIR}")
+message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
+message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
 
 find_package(protobuf CONFIG REQUIRED)
 find_package(cppzmq CONFIG REQUIRED)
@@ -38,6 +41,7 @@ add_executable(cm
         asynchronous_processing_units/http_service.h
         synchronous_processing_units/resize_frame.h
         asynchronous_processing_units/zeromq_publisher.h
+        asynchronous_processing_units/object_detector.h
 )
 
 target_link_libraries(cm
