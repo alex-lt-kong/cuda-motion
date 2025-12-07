@@ -2,14 +2,12 @@
 
 #include "../interfaces/i_asynchronous_processing_unit.h"
 
-// OpenCV Dependencies
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/cudawarping.hpp>
 #include <opencv2/dnn.hpp>
 #include <opencv2/imgproc.hpp>
 
-// Standard Libs
 #include <algorithm>
 #include <string>
 #include <vector>
@@ -48,24 +46,18 @@ public:
       };
 
       // Generate random colors
-      std::srand(0);
+      std::srand(time(nullptr));
       for (int i = 0; i < 80; i++) {
-          m_colors.push_back(cv::Scalar(std::rand() % 255, std::rand() % 255, std::rand() % 255));
+          m_colors.emplace_back(std::rand() % 255, std::rand() % 255, std::rand() % 255);
       }
 
-      SPDLOG_INFO("Loading ONNX: {}", m_model_path);
+      SPDLOG_INFO("Loading ONNX model file from: {}", m_model_path);
 
       m_net = cv::dnn::readNetFromONNX(m_model_path);
       m_net.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
       m_net.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
 
-      njson ms_configs;
-      ms_configs["refreshIntervalSec"] = config["httpService"]["refreshIntervalSec"];
-      ms_configs["bindAddr"] = config["httpService"]["bindAddr"];
-      ms_configs["port"] = config["httpService"]["port"];
-      ms_configs["username"] = config["httpService"]["username"];
-      ms_configs["password"] = config["httpService"]["password"];
-      m_ms.init(ms_configs);
+      m_ms.init(config["httpService"]);
       m_ms.start();
       return true;
     } catch (const std::exception &e) {
@@ -73,8 +65,6 @@ public:
       return false;
     }
   }
-
-//  void stop() override { IAsynchronousProcessingUnit::stop(); }
 
 protected:
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override {
@@ -102,17 +92,19 @@ private:
 
   void process_frame(cv::cuda::GpuMat &frame, const PipelineContext &ctx) {
     try {
-      float x_scale = (float)frame.cols / m_model_input_size.width;
-      float y_scale = (float)frame.rows / m_model_input_size.height;
+      auto x_scale = static_cast<double>(frame.cols) / m_model_input_size.width;
+      auto y_scale = static_cast<double>(frame.rows) / m_model_input_size.height;
 
       // 1. GPU Resize for Inference (Fast)
-      cv::cuda::GpuMat gpu_resized;
-      cv::cuda::resize(frame, gpu_resized, m_model_input_size);
-      cv::cuda::cvtColor(gpu_resized, gpu_resized, cv::COLOR_BGR2RGB);
+      cv::cuda::GpuMat resized_frame;
+      cv::cuda::resize(frame, resized_frame, m_model_input_size);
+      cv::cuda::cvtColor(resized_frame, resized_frame, cv::COLOR_BGR2RGB);
 
       // 2. Small Download for Inference (640x640)
+      // Both Gemini 3 Pro and ChatGPT 5 conclude that  cv::dnn::blobFromImage()
+      // won't take cuda::GpuMat for now, so we need to transfer a tiny image to CPU
       cv::Mat cpu_small_frame;
-      gpu_resized.download(cpu_small_frame);
+      resized_frame.download(cpu_small_frame);
 
       cv::Mat blob;
       cv::dnn::blobFromImage(cpu_small_frame, blob, 1.0 / 255.0, cv::Size(), cv::Scalar(), false, false);
@@ -133,7 +125,7 @@ private:
   void post_process_and_overlay(cv::cuda::GpuMat &frame,
                                 const std::vector<cv::Mat> &outputs,
                                 const PipelineContext &ctx,
-                                float x_factor, float y_factor) {
+                                double x_factor, double y_factor) {
     if (outputs.empty()) return;
 
     // --- Decode YOLO Output ---
@@ -150,7 +142,7 @@ private:
     std::vector<cv::Rect> boxes;
 
     for (int i = 0; i < rows; ++i) {
-      float *row_ptr = output_t.ptr<float>(i);
+      auto *row_ptr = output_t.ptr<float>(i);
       cv::Mat scores(1, dimensions - 4, CV_32F, row_ptr + 4);
       cv::Point class_id_point;
       double max_class_score;

@@ -40,12 +40,12 @@ private:
   std::deque<uint64_t> frameTimestamps;
   std::mutex mtx_vr;
   std::atomic<bool> delayed_vc_open_retry_registered{false};
-
-  void always_fill_in_frame(const cv::Ptr<cv::cudacodec::VideoReader> &vr,
+  cv::Ptr<cv::cudacodec::VideoReader> vr {nullptr};
+  void always_fill_in_frame(
                             int expected_frame_height, int expected_frame_width,
                             cv::cuda::GpuMat &frame,
                             ProcessingUnit::PipelineContext &ctx);
-  void handle_video_capture(cv::Ptr<cv::cudacodec::VideoReader> &vr,
+  void handle_video_capture(
                             const ProcessingUnit::PipelineContext &ctx,
                             const std::string &video_feed);
 };
