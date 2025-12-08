@@ -36,7 +36,16 @@ bool MatrixNotifier::init(const njson &config) {
 void MatrixNotifier::on_frame_ready(cv::cuda::GpuMat &frame,
                                                [[maybe_unused]] PipelineContext &ctx) {
   if (ctx.frame_seq_num % m_notification_interval_frame != 0) return;
-  if (ctx.yolo.indices.size() == 0) return;
+  if (ctx.yolo.indices.empty()) return;
+  bool person_detected = false;
+  for (const int idx : ctx.yolo.indices) {
+    if (const int class_id = ctx.yolo.class_ids[idx]; class_id == 0) {
+      person_detected = true;
+      break;
+    }
+  }
+
+  if (!person_detected) return;
   std::vector<uchar> jpeg_bytes;
   bool success = m_gpu_encoder->encode(frame, jpeg_bytes, 90);
   if (!success) {
