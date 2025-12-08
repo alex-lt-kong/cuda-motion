@@ -20,8 +20,8 @@ struct videoWritingContext {
 class DeviceManager : public EventLoop {
 
 public:
-  DeviceManager();
-  ~DeviceManager();
+  DeviceManager() = default;
+  ~DeviceManager() override {}
   std::string getDeviceName() { return this->deviceName; }
 
 protected:

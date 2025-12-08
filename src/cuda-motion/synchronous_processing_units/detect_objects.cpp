@@ -14,7 +14,7 @@ namespace CudaMotion::ProcessingUnit {
 bool DetectObjects::init(const njson &config) {
   try {
     if (!config.contains("modelPath")) {
-      SPDLOG_ERROR("DetectObject: Config missing 'modelPath'");
+      SPDLOG_ERROR("modelPath not defined");
       return false;
     }
 
@@ -25,6 +25,8 @@ bool DetectObjects::init(const njson &config) {
       m_model_input_size.width = config["inputWidth"].get<int>();
     if (config.contains("inputHeight"))
       m_model_input_size.height = config["inputHeight"].get<int>();
+    if (config.contains("frameInterval"))
+      m_frame_interval = config["frameInterval"].get<int>();
 
     SPDLOG_INFO("Loading ONNX model: {}", m_model_path);
 
@@ -34,19 +36,20 @@ bool DetectObjects::init(const njson &config) {
 
     return !m_net.empty();
   } catch (const std::exception &e) {
-    SPDLOG_ERROR("DetectObject Init failed: {}", e.what());
+    SPDLOG_ERROR("Init failed: {}", e.what());
     return false;
   }
 }
 
-void DetectObjects::post_process_yolo(const cv::cuda::GpuMat &frame, PipelineContext &ctx) const {
-  const std::vector<cv::Mat> &outputs = ctx.inference_outputs;
+void DetectObjects::post_process_yolo(const cv::cuda::GpuMat &frame,
+                                      PipelineContext &ctx) const {
+  const std::vector<cv::Mat> &outputs = ctx.yolo.inference_outputs;
 
   // Calculate Scale Factor (Frame vs Input Blob)
   double x_factor =
-      static_cast<double>(frame.cols) / ctx.inference_input_size.width;
+      static_cast<double>(frame.cols) / ctx.yolo.inference_input_size.width;
   double y_factor =
-      static_cast<double>(frame.rows) / ctx.inference_input_size.height;
+      static_cast<double>(frame.rows) / ctx.yolo.inference_input_size.height;
 
   // --- YOLO Output Parsing ---
   // (This logic is specific to YOLOv5/v8 flattened output)
@@ -58,9 +61,9 @@ void DetectObjects::post_process_yolo(const cv::cuda::GpuMat &frame, PipelineCon
   cv::Mat output_t;
   cv::transpose(result_wrapper, output_t); // Transpose to [rows, dimensions]
 
-  ctx.class_ids.clear();
-  ctx.confidences.clear();
-  ctx.boxes.clear();
+  ctx.yolo.class_ids.clear();
+  ctx.yolo.confidences.clear();
+  ctx.yolo.boxes.clear();
 
   for (int i = 0; i < rows; ++i) {
     auto *row_ptr = output_t.ptr<float>(i);
@@ -80,25 +83,30 @@ void DetectObjects::post_process_yolo(const cv::cuda::GpuMat &frame, PipelineCon
       int width = int(w * x_factor);
       int height = int(h * y_factor);
 
-      ctx.boxes.emplace_back(left, top, width, height);
-      ctx.confidences.push_back(static_cast<float>(max_class_score));
-      ctx.class_ids.push_back(class_id_point.x);
+      ctx.yolo.boxes.emplace_back(left, top, width, height);
+      ctx.yolo.confidences.push_back(static_cast<float>(max_class_score));
+      ctx.yolo.class_ids.push_back(class_id_point.x);
     }
   }
 
-  ctx.indices.clear();
-  cv::dnn::NMSBoxes(ctx.boxes, ctx.confidences, m_conf_thres, m_nms_thres,
-                    ctx.indices);
+  ctx.yolo.indices.clear();
+  cv::dnn::NMSBoxes(ctx.yolo.boxes, ctx.yolo.confidences, m_conf_thres,
+                    m_nms_thres, ctx.yolo.indices);
 }
 
 SynchronousProcessingResult DetectObjects::process(cv::cuda::GpuMat &frame,
                                                    PipelineContext &ctx) {
+  if (ctx.frame_seq_num % m_frame_interval != 0) {
+    ctx.yolo = m_prev_yolo_ctx;
+    return success_and_continue;
+  }
+
   if (frame.empty() || m_net.empty())
     return failure_and_continue;
 
   // Clear previous results
-  ctx.inference_outputs.clear();
-  ctx.inference_input_size = m_model_input_size;
+  ctx.yolo.inference_outputs.clear();
+  ctx.yolo.inference_input_size = m_model_input_size;
 
   try {
     // 1. Pre-process: Resize on GPU
@@ -120,13 +128,14 @@ SynchronousProcessingResult DetectObjects::process(cv::cuda::GpuMat &frame,
     m_net.setInput(blob);
 
     // Populate the vector in the context directly
-    m_net.forward(ctx.inference_outputs, m_net.getUnconnectedOutLayersNames());
+    m_net.forward(ctx.yolo.inference_outputs,
+                  m_net.getUnconnectedOutLayersNames());
 
     // 3. Decode & Visualize (If inference produced data)
-    if (!ctx.inference_outputs.empty()) {
+    if (!ctx.yolo.inference_outputs.empty()) {
       post_process_yolo(frame, ctx);
     }
-
+    m_prev_yolo_ctx = ctx.yolo;
     return success_and_continue;
 
   } catch (const cv::Exception &e) {

@@ -14,6 +14,7 @@ find_package(cxxopts REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Protobuf REQUIRED)
+find_package(cpr CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(Drogon CONFIG REQUIRED)
 find_package(CUDAToolkit REQUIRED)
@@ -32,6 +33,18 @@ add_library(resize_frame
         synchronous_processing_units/resize_frame.cpp
         interfaces/i_synchronous_processing_unit.h
 )
+
+add_library(debug_output
+        synchronous_processing_units/debug_oputput.cpp
+        interfaces/i_synchronous_processing_unit.h
+)
+target_link_libraries(debug_output spdlog::spdlog)
+
+add_library(matrix_notifier
+        asynchronous_processing_units/matrix_notifier.cpp
+        interfaces/i_asynchronous_processing_unit.h
+)
+target_link_libraries(matrix_notifier spdlog::spdlog CUDA::nvjpeg cpr::cpr nlohmann_json::nlohmann_json)
 
 add_library(detect_objects
         synchronous_processing_units/detect_objects.cpp
@@ -54,19 +67,12 @@ add_executable(cm
         global_vars.cpp
         utils.cpp
         ${PROTO_SRCS} ${PROTO_HDRS}
-        entities/synchronous_processing_result.h
-        entities/processing_context.h
-        synchronous_processing_units/calculate_change_rate.h
-        synchronous_processing_units/control_fps.h
-        entities/processing_units_variant.h
-        asynchronous_processing_units/video_writer.h
-        asynchronous_processing_units/http_service.h
-        asynchronous_processing_units/zeromq_publisher.h
-        pipeline_executor.h
 )
 
 target_link_libraries(cm
         PRIVATE
+        matrix_notifier
+        debug_output
         rotate_frame
         resize_frame
         detect_objects
@@ -77,7 +83,6 @@ target_link_libraries(cm
         PRIVATE
         ${OpenCV_LIBS} rt ssl crypto fmt::fmt
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
-        CUDA::nvjpeg
         Drogon::Drogon
         nlohmann_json::nlohmann_json
         spdlog::spdlog

@@ -6,6 +6,16 @@
 #include <algorithm>
 
 namespace CudaMotion::ProcessingUnit {
+
+struct YoloContext {
+  std::vector<cv::Mat> inference_outputs;
+  cv::Size inference_input_size;
+  std::vector<cv::Rect> boxes;
+  std::vector<size_t> class_ids;
+  std::vector<float> confidences;
+  std::vector<int> indices;
+};
+
 struct PipelineContext {
   // false means it is a gray image
   bool captured_from_real_device = false;
@@ -16,12 +26,6 @@ struct PipelineContext {
   float change_rate = -1;
   float fps = 0.0;
 
-  // Needed by YOLO models, pending re
-  std::vector<cv::Mat> inference_outputs;
-  cv::Size inference_input_size;
-  std::vector<cv::Rect> boxes;
-  std::vector<int> class_ids;
-  std::vector<float> confidences;
-  std::vector<int> indices;
+  YoloContext yolo;
 };
 } // namespace CudaMotion::ProcessingUnit

@@ -1,6 +1,5 @@
 #include "device_manager.h"
 #include "asynchronous_processing_units/http_service.h"
-#include "asynchronous_processing_units/object_detector.h"
 #include "asynchronous_processing_units/video_writer.h"
 #include "asynchronous_processing_units/zeromq_publisher.h"
 #include "global_vars.h"
@@ -20,9 +19,6 @@ using namespace std;
 
 namespace CudaMotion {
 
-DeviceManager::DeviceManager() {}
-
-DeviceManager::~DeviceManager() {}
 
 void DeviceManager::InternalThreadEntry() {
   PipelineExecutor exe;
@@ -58,23 +54,23 @@ void DeviceManager::InternalThreadEntry() {
 
 void DeviceManager::always_fill_in_frame(
     const int expected_frame_height, const int expected_frame_width,
-    cv::cuda::GpuMat &frame, ProcessingUnit::PipelineContext &meta_data) {
+    cv::cuda::GpuMat &frame, ProcessingUnit::PipelineContext &ctx) {
   auto captured_from_real_device = false;
 
   try {
     std::lock_guard lock(mtx_vr);
     constexpr auto interval_by_frames = 90;
     if (vr == nullptr) {
-      if (meta_data.frame_seq_num % interval_by_frames == 0)
+      if (ctx.frame_seq_num % interval_by_frames == 0)
         SPDLOG_ERROR("vr == nullptr, frame_seq_num: {} (this "
                      "message is throttled to once per {} frames)",
-                     meta_data.frame_seq_num, interval_by_frames);
+                     ctx.frame_seq_num, interval_by_frames);
     } else if (!vr->nextFrame(frame)) {
-      if (meta_data.frame_seq_num % interval_by_frames == 0)
+      if (ctx.frame_seq_num % interval_by_frames == 0)
         SPDLOG_ERROR("VideoReader->nextFrame(frame) returns false, "
                      "frame_seq_num: {} (this "
                      "message is throttled to once per {} frames)",
-                     meta_data.frame_seq_num, interval_by_frames);
+                     ctx.frame_seq_num, interval_by_frames);
     } else if (frame.empty() || frame.size().height != expected_frame_height ||
                frame.size().width != expected_frame_width) {
       SPDLOG_ERROR("VideoReader->nextFrame((frame) returns frame with "
@@ -88,22 +84,22 @@ void DeviceManager::always_fill_in_frame(
     spdlog::error("VideoReader->nextFrame() failed: {}", e.what());
   }
 
-  if (!meta_data.captured_from_real_device) {
+  if (!ctx.captured_from_real_device) {
     // emulate an 30-fps video device lol
     this_thread::sleep_for(1000ms / 34);
     frame.create(expected_frame_height, expected_frame_width, CV_8UC3);
     frame.setTo(cv::Scalar(128, 128, 128));
   }
-  meta_data.capture_timestamp_ms =
+  ctx.capture_timestamp_ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::system_clock::now().time_since_epoch())
           .count();
-  if (captured_from_real_device != meta_data.captured_from_real_device) {
-    meta_data.capture_from_this_device_since_ms =
-        meta_data.capture_timestamp_ms;
+  if (captured_from_real_device != ctx.captured_from_real_device) {
+    ctx.capture_from_this_device_since_ms =
+        ctx.capture_timestamp_ms;
   }
-  meta_data.captured_from_real_device = captured_from_real_device;
-  ++meta_data.frame_seq_num;
+  ctx.captured_from_real_device = captured_from_real_device;
+  ++ctx.frame_seq_num;
 }
 
 void DeviceManager::handle_video_capture(
@@ -126,7 +122,7 @@ void DeviceManager::handle_video_capture(
          ctx.capture_from_this_device_since_ms) /
         1000;
     const auto delay_sec_before_attempt =
-        std::min(std::max(device_down_for_sec, 10L), 60L * 10);
+        std::min(std::max(device_down_for_sec, 2L), 60L * 10);
     SPDLOG_WARN("captured_from_real_device: {}, device_down_for_sec: {}, "
                 "delay_sec_before_attempt: {}",
                 ctx.captured_from_real_device, device_down_for_sec,
@@ -158,6 +154,8 @@ void DeviceManager::handle_video_capture(
               spdlog::error("cudacodec::createVideoReader({}) failed: {}",
                             video_feed, e.what());
             }
+            // need to wait so that the event loop will not register a timer too soon
+            std::this_thread::sleep_for(5000ms);
             delayed_vc_open_retry_registered = false;
           }
         },

@@ -19,7 +19,8 @@ public:
   ///
   /// @param frame the frame to be processed
   /// @return
-  virtual SynchronousProcessingResult process(cv::cuda::GpuMat &frame, PipelineContext& meta_data) = 0;
+  virtual SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
+                                              PipelineContext &ctx) = 0;
 };
 
 class RotateFrame final : public ISynchronousProcessingUnit {
@@ -27,6 +28,9 @@ private:
   int m_angle{0};
 
 public:
+  RotateFrame() = default;
+  ~RotateFrame() override = default;
+
   SynchronousProcessingResult
   process(cv::cuda::GpuMat &frame,
           [[maybe_unused]] PipelineContext &meta_data) override;
@@ -53,11 +57,11 @@ public:
    * * Optional: { "interpolation": "nearest" | "linear" | "cubic" | "area" }
    * Default interpolation is Linear.
    */
-  bool init(const njson &config) override ;
+  bool init(const njson &config) override;
 
-  [[nodiscard]] SynchronousProcessingResult process(cv::cuda::GpuMat &frame, [[maybe_unused]]PipelineContext& ctx) override ;
+  [[nodiscard]] SynchronousProcessingResult
+  process(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
 };
-
 
 class DetectObjects final : public ISynchronousProcessingUnit {
 private:
@@ -66,19 +70,18 @@ private:
   cv::dnn::Net m_net;
   float m_conf_thres = 0.5f;
   float m_nms_thres = 0.45f;
+  int m_frame_interval = 10;
+  YoloContext m_prev_yolo_ctx;
 
-  void post_process_yolo(const cv::cuda::GpuMat &frame, PipelineContext &ctx) const;
+  void post_process_yolo(const cv::cuda::GpuMat &frame,
+                         PipelineContext &ctx) const;
 
 public:
-
   bool init(const njson &config) override;
 
   SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
-                                      PipelineContext &ctx) override ;
-
+                                      PipelineContext &ctx) override;
 };
-
-
 
 class OverlayBoundingBoxes final : public ISynchronousProcessingUnit {
 public:
@@ -87,7 +90,8 @@ public:
 
   bool init(const njson &config) override;
 
-  SynchronousProcessingResult process(cv::cuda::GpuMat &frame, PipelineContext& ctx) override;
+  SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
+                                      PipelineContext &ctx) override;
 
 private:
   // --- State ---
@@ -101,4 +105,15 @@ private:
   cv::cuda::GpuMat d_overlay_mask;   // Final Mask
 };
 
-}
+class DebugOutput final : public ISynchronousProcessingUnit {
+public:
+  DebugOutput() = default;
+  ~DebugOutput() override = default;
+
+  bool init(const njson &config) override;
+
+  SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
+                                      PipelineContext &ctx) override;
+};
+
+} // namespace CudaMotion::ProcessingUnit

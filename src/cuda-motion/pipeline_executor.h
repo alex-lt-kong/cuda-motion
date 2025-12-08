@@ -1,7 +1,6 @@
 #pragma once
 
 #include "asynchronous_processing_units/http_service.h"
-#include "asynchronous_processing_units/object_detector.h"
 #include "asynchronous_processing_units/video_writer.h"
 #include "asynchronous_processing_units/zeromq_publisher.h"
 #include "entities/processing_context.h"
@@ -10,7 +9,6 @@
 #include "synchronous_processing_units/calculate_change_rate.h"
 #include "synchronous_processing_units/control_fps.h"
 #include "synchronous_processing_units/crop_frame.h"
-#include "synchronous_processing_units/debug.h"
 #include "synchronous_processing_units/overlay_info.h"
 
 #include <nlohmann/json.hpp>
@@ -45,8 +43,8 @@ public:
                  "SynchronousProcessingUnit::cropFrame") {
         ptr = std::make_unique<CropFrame>();
       } else if (settings[i]["type"].get<std::string>() ==
-                 "SynchronousProcessingUnit::debug") {
-        ptr = std::make_unique<Debug>();
+                 "SynchronousProcessingUnit::debugOutput") {
+        ptr = std::make_unique<DebugOutput>();
       } else if (settings[i]["type"].get<std::string>() ==
                  "SynchronousProcessingUnit::resizeFrame") {
         ptr = std::make_unique<ResizeFrame>();
@@ -68,15 +66,12 @@ public:
       } else if (settings[i]["type"].get<std::string>() ==
                  "SynchronousProcessingUnit::overlayBoundingBoxes") {
         ptr = std::make_unique<OverlayBoundingBoxes>();
-      } /*else if (settings[i]["type"].get<std::string>() ==
-"AsynchronousProcessingUnit::zeroMqPublisher") {
-ptr = std::make_unique<ZeroMqPublisher>();
-} */ else if (settings[i]["type"].get<std::string>() ==
-              "AsynchronousProcessingUnit::objectDetector") {
-        ptr = std::make_unique<ObjectDetector>();
       } else if (settings[i]["type"].get<std::string>() ==
                  "AsynchronousProcessingUnit::asynchronousProcessingUnit") {
         ptr = std::make_unique<AsynchronousProcessingUnit>();
+      } else if (settings[i]["type"].get<std::string>() ==
+                 "AsynchronousProcessingUnit::matrixNotifier") {
+        ptr = std::make_unique<MatrixNotifier>();
       } else {
         SPDLOG_WARN("Unrecognized pipeline unit: {}",
                     settings[i]["type"].get<std::string>());
@@ -106,7 +101,7 @@ ptr = std::make_unique<ZeroMqPublisher>();
 
   void on_frame_ready(cv::cuda::GpuMat &frame,
                       ProcessingUnit::PipelineContext &ctx) {
-    for (int i = 0; i < m_processing_units.size(); ++i) {
+    for (size_t i = 0; i < m_processing_units.size(); ++i) {
       ctx.processing_unit_idx = i;
       auto retval = std::visit(
           ProcessingUnit::overload{

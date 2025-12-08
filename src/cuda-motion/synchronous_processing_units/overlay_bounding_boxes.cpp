@@ -13,7 +13,7 @@
 
 namespace CudaMotion::ProcessingUnit {
 
-bool OverlayBoundingBoxes::init(const njson &config) {
+bool OverlayBoundingBoxes::init([[maybe_unused]]const njson &config) {
     // 1. Initialize Class Names (Standard COCO 80 classes)
     m_class_names = {
         "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
@@ -42,7 +42,7 @@ bool OverlayBoundingBoxes::init(const njson &config) {
 
 SynchronousProcessingResult OverlayBoundingBoxes::process(cv::cuda::GpuMat &frame, PipelineContext& ctx) {
     // Fast exit if no detections or invalid frame
-    if (frame.empty() || ctx.indices.empty()) {
+    if (frame.empty() || ctx.yolo.indices.empty()) {
         return success_and_continue;
     }
 
@@ -57,8 +57,8 @@ SynchronousProcessingResult OverlayBoundingBoxes::process(cv::cuda::GpuMat &fram
         h_overlay_canvas.setTo(cv::Scalar::all(0));
 
         // 2. Draw Detections on CPU Canvas
-        for (int idx : ctx.indices) {
-            int class_id = ctx.class_ids[idx];
+        for (int idx : ctx.yolo.indices) {
+            int class_id = ctx.yolo.class_ids[idx];
             
             // Safety Checks
             if (class_id < 0 || static_cast<size_t>(class_id) >= m_class_names.size()) continue; 
@@ -66,8 +66,8 @@ SynchronousProcessingResult OverlayBoundingBoxes::process(cv::cuda::GpuMat &fram
             // Optional: Hardcoded filter from original requirements (Person/Vehicles only)
             if (class_id > 10) continue;
 
-            const auto &box = ctx.boxes[idx];
-            float conf = ctx.confidences[idx];
+            const auto &box = ctx.yolo.boxes[idx];
+            float conf = ctx.yolo.confidences[idx];
 
             std::string label = m_class_names[class_id];
             std::string label_text = fmt::format("{} {:.2f}", label, conf);
