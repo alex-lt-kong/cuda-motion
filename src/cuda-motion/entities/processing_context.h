@@ -1,7 +1,9 @@
 #pragma once
 
+#include <opencv2/opencv.hpp>
+
 #include <cstdint>
-#include <optional>
+#include <algorithm>
 
 namespace CudaMotion::ProcessingUnit {
 struct PipelineContext {
@@ -13,5 +15,13 @@ struct PipelineContext {
   int processing_unit_idx = 0;
   float change_rate = -1;
   float fps = 0.0;
+
+  // Needed by YOLO models, pending re
+  std::vector<cv::Mat> inference_outputs;
+  cv::Size inference_input_size;
+  std::vector<cv::Rect> boxes;
+  std::vector<int> class_ids;
+  std::vector<float> confidences;
+  std::vector<int> indices;
 };
-}
+} // namespace CudaMotion::ProcessingUnit

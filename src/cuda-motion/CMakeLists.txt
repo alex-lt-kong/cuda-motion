@@ -23,28 +23,58 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 set(PROTO_FILE ${CMAKE_CURRENT_SOURCE_DIR}/proto/frame_msg.proto)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILE})
 
+add_library(rotate_frame
+        synchronous_processing_units/rotate_frame.cpp
+        interfaces/i_synchronous_processing_unit.h
+)
+
+add_library(resize_frame
+        synchronous_processing_units/resize_frame.cpp
+        interfaces/i_synchronous_processing_unit.h
+)
+
+add_library(detect_objects
+        synchronous_processing_units/detect_objects.cpp
+        interfaces/i_synchronous_processing_unit.h
+)
+add_library(overlay_bounding_boxes
+        synchronous_processing_units/overlay_bounding_boxes.cpp
+        interfaces/i_synchronous_processing_unit.h
+)
+
+add_library(asynchronous_processing_unit
+        asynchronous_processing_units/asynchronous_processing_unit.cpp
+        interfaces/i_asynchronous_processing_unit.h
+)
+target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg)
+
 add_executable(cm
         main.cpp
         device_manager.cpp
         global_vars.cpp
         utils.cpp
         ${PROTO_SRCS} ${PROTO_HDRS}
-        interfaces/i_synchronous_processing_unit.h
-        synchronous_processing_units/rotate_frame.h
         entities/synchronous_processing_result.h
-        entities/processing_metadata.h
+        entities/processing_context.h
         synchronous_processing_units/calculate_change_rate.h
         synchronous_processing_units/control_fps.h
         entities/processing_units_variant.h
-        interfaces/i_asynchronous_processing_unit.h
         asynchronous_processing_units/video_writer.h
         asynchronous_processing_units/http_service.h
-        synchronous_processing_units/resize_frame.h
         asynchronous_processing_units/zeromq_publisher.h
-        asynchronous_processing_units/object_detector.h
+        pipeline_executor.h
 )
 
 target_link_libraries(cm
+        PRIVATE
+        rotate_frame
+        resize_frame
+        detect_objects
+        overlay_bounding_boxes
+        asynchronous_processing_unit
+)
+target_link_libraries(cm
+        PRIVATE
         ${OpenCV_LIBS} rt ssl crypto fmt::fmt
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
         CUDA::nvjpeg

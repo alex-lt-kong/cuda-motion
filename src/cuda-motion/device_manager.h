@@ -1,13 +1,12 @@
 #pragma once
 
-#include "entities/processing_metadata.h"
+#include "entities/processing_context.h"
 #include "event_loop.h"
 
 #include <nlohmann/json.hpp>
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/cudacodec.hpp>
 
-#include <queue>
 #include <string>
 
 using njson = nlohmann::json;
@@ -31,13 +30,6 @@ protected:
 private:
   std::string deviceName;
 
-  // frame variables
-  std::string evaluatedVideoPath;
-
-  std::string timestampOnVideoStarts;
-  std::string timestampOnDeviceOffline;
-  // moodycamel::ReaderWriterQueue<uint64_t> frameTimestamps;
-  std::deque<uint64_t> frameTimestamps;
   std::mutex mtx_vr;
   std::atomic<bool> delayed_vc_open_retry_registered{false};
   cv::Ptr<cv::cudacodec::VideoReader> vr {nullptr};

@@ -1,10 +1,11 @@
 #pragma once
 
-#include "../entities/processing_metadata.h"
+//#include "../pipeline_executor.h"
+#include "../entities/processing_context.h"
 #include "../entities/synchronous_processing_result.h"
 
+#include <opencv2/core/cuda.hpp>
 #include <nlohmann/json.hpp>
-#include <opencv2/cudawarping.hpp>
 
 #include <atomic>
 #include <condition_variable>
@@ -13,6 +14,9 @@
 #include <spdlog/spdlog.h>
 #include <thread>
 
+namespace CudaMotion {
+class PipelineExecutor;
+}
 using njson = nlohmann::json;
 
 namespace CudaMotion::ProcessingUnit {
@@ -25,7 +29,7 @@ struct AsyncPayload {
 class IAsynchronousProcessingUnit {
 public:
   virtual ~IAsynchronousProcessingUnit() {
-    IAsynchronousProcessingUnit::stop(); // Ensure thread is joined on destruction
+    stop(); // Ensure thread is joined on destruction
   }
 
   virtual bool init(const njson &config) = 0;
@@ -134,4 +138,10 @@ private:
   std::thread m_worker_thread;
 };
 
+class AsynchronousProcessingUnit final: public IAsynchronousProcessingUnit {
+  std::unique_ptr<PipelineExecutor> m_exe{nullptr};
+public:
+  bool init(const njson &config) override;
+  void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
+};
 } // namespace CudaMotion::ProcessingUnit

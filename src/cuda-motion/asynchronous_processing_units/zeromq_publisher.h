@@ -1,4 +1,4 @@
-#pragma once
+/*#pragma once
 
 #include "frame_msg.pb.h"
 #include "../interfaces/i_asynchronous_processing_unit.h"
@@ -13,9 +13,7 @@
 #include <chrono>
 
 namespace CudaMotion::ProcessingUnit {
-/**
- * @brief Publishes frames + metadata using Google Protocol Buffers over ZeroMQ.
- */
+
 class ZeroMqPublisher : public IAsynchronousProcessingUnit {
 private:
     zmq::context_t m_ctx;
@@ -49,10 +47,6 @@ public:
         m_ctx.close();
     }
 
-    /**
-     * @brief Configures ZMQ Endpoint and Compression mode.
-     * JSON: { "endpoint": "tcp://127.0.0.1:5555", "compression": true }
-     */
     bool init(const njson &config) override {
         try {
             if (config.contains("endpoint")) {
@@ -142,9 +136,7 @@ protected:
 
 private:
 
-    /**
-     * @brief Accumulates stats and prints report every m_report_interval_sec
-     */
+
     void monitor_egress(size_t payload_size) {
         m_egress_bytes_accum += payload_size;
         m_egress_frames_accum++;
@@ -185,3 +177,4 @@ private:
 };
 
 } // namespace CudaMotion::ProcessingUnit
+*/

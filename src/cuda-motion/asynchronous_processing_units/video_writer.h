@@ -201,7 +201,7 @@ private:
   std::chrono::steady_clock::time_point m_last_below_threshold_time;
   std::string m_file_path;
 
-  std::string generate_filename() const {
+  [[nodiscard]] std::string generate_filename() const {
     return generate_filename(m_config.m_file_path_template,
                              std::chrono::system_clock::now());
   }
