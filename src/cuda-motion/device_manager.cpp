@@ -62,7 +62,7 @@ void DeviceManager::always_fill_in_frame(
     constexpr auto interval_by_frames = 90;
     if (vr == nullptr) {
       if (ctx.frame_seq_num % interval_by_frames == 0)
-        SPDLOG_ERROR("vr == nullptr, frame_seq_num: {} (this "
+        SPDLOG_WARN("vr == nullptr, frame_seq_num: {} (this "
                      "message is throttled to once per {} frames)",
                      ctx.frame_seq_num, interval_by_frames);
     } else if (!vr->nextFrame(frame)) {

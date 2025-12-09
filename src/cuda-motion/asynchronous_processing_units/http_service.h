@@ -2,15 +2,15 @@
 
 #include "../interfaces/i_asynchronous_processing_unit.h"
 #include "../utils.h"
+#include "../utils/nvjpeg_encoder.h"
 
 #include <drogon/drogon.h>
 #include <drogon/utils/Utilities.h>
-#include <opencv2/cudaimgproc.hpp>
-#include <opencv2/imgcodecs.hpp>
 #include <nvjpeg.h>
 
 #include <atomic>
 #include <chrono>
+#include <list> // Added for streaming clients list
 #include <map>
 #include <memory>
 #include <mutex>
@@ -18,7 +18,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <list> // Added for streaming clients list
 
 using namespace drogon;
 
@@ -30,7 +29,6 @@ class HttpService;
 inline std::map<uint16_t, HttpService *> s_service_registry;
 inline std::mutex s_registry_mutex;
 inline std::atomic s_global_handler_registered{false};
-
 
 /**
  * @brief HTTP Server implementation.
@@ -89,7 +87,7 @@ public:
             "/",
             [](const HttpRequestPtr &req,
                std::function<void(const HttpResponsePtr &)> &&callback) {
-                 dispatch_request(req, std::move(callback), false);
+              dispatch_request(req, std::move(callback), false);
             },
             {Get});
 
@@ -98,12 +96,13 @@ public:
             "/stream",
             [](const HttpRequestPtr &req,
                std::function<void(const HttpResponsePtr &)> &&callback) {
-                 dispatch_request(req, std::move(callback), true);
+              dispatch_request(req, std::move(callback), true);
             },
             {Get});
       }
 
-      SPDLOG_INFO("HttpService initialized on {}:{} (HTTPS: {})", m_ip, m_port, use_https);
+      SPDLOG_INFO("HttpService initialized on {}:{} (HTTPS: {})", m_ip, m_port,
+                  use_https);
       return true;
     } catch (const std::exception &e) {
       SPDLOG_ERROR("Failed to init HttpService: {}", e.what());
@@ -112,40 +111,44 @@ public:
   }
 
   // Static helper to route request to correct instance
-  static void dispatch_request(const HttpRequestPtr &req,
-                               std::function<void(const HttpResponsePtr &)> &&callback,
-                               bool is_stream) {
-      uint16_t local_port = req->getLocalAddr().toPort();
-      HttpService *service = nullptr;
-      {
-        std::lock_guard<std::mutex> lock(s_registry_mutex);
-        auto it = s_service_registry.find(local_port);
-        if (it != s_service_registry.end())
-          service = it->second;
-      }
+  static void
+  dispatch_request(const HttpRequestPtr &req,
+                   std::function<void(const HttpResponsePtr &)> &&callback,
+                   bool is_stream) {
+    uint16_t local_port = req->getLocalAddr().toPort();
+    HttpService *service = nullptr;
+    {
+      std::lock_guard<std::mutex> lock(s_registry_mutex);
+      auto it = s_service_registry.find(local_port);
+      if (it != s_service_registry.end())
+        service = it->second;
+    }
 
-      if (service) {
-        if (is_stream)
-            service->handle_stream_request(req, std::move(callback));
-        else
-            service->handle_snapshot_request(req, std::move(callback));
-      } else {
-        auto resp = HttpResponse::newHttpResponse();
-        resp->setStatusCode(k404NotFound);
-        resp->setBody("No Service attached to this port");
-        callback(resp);
-      }
+    if (service) {
+      if (is_stream)
+        service->handle_stream_request(req, std::move(callback));
+      else
+        service->handle_snapshot_request(req, std::move(callback));
+    } else {
+      auto resp = HttpResponse::newHttpResponse();
+      resp->setStatusCode(k404NotFound);
+      resp->setBody("No Service attached to this port");
+      callback(resp);
+    }
   }
 
 protected:
-  void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &meta_data) override {
+  void on_frame_ready(cv::cuda::GpuMat &frame,
+                      PipelineContext &meta_data) override {
     auto now = std::chrono::steady_clock::now();
-    if (now - m_last_update_time < m_refresh_interval_sec) return;
-    if (frame.empty()) return;
+    if (now - m_last_update_time < m_refresh_interval_sec)
+      return;
+    if (frame.empty())
+      return;
 
     if (!m_gpu_encoder) {
-        SPDLOG_ERROR("NvJpegEncoder not initialized!");
-        return;
+      SPDLOG_ERROR("NvJpegEncoder not initialized!");
+      return;
     }
 
     try {
@@ -155,15 +158,14 @@ protected:
       if (success) {
         // Optimization: Create the shared string OUTSIDE the lock.
         // This is the heavy memory allocation and copy.
-        auto new_image_ptr = std::make_shared<std::string>(
-            temp_buffer.begin(), temp_buffer.end()
-        );
+        auto new_image_ptr = std::make_shared<std::string>(temp_buffer.begin(),
+                                                           temp_buffer.end());
 
         {
-            // CRITICAL SECTION: Nanoseconds duration
-            std::lock_guard<std::mutex> lock(m_image_mutex);
-            m_latest_jpeg_ptr = std::move(new_image_ptr);
-            m_last_meta = meta_data;
+          // CRITICAL SECTION: Nanoseconds duration
+          std::lock_guard<std::mutex> lock(m_image_mutex);
+          m_latest_jpeg_ptr = std::move(new_image_ptr);
+          m_last_meta = meta_data;
         }
 
         m_last_update_time = now;
@@ -181,10 +183,12 @@ private:
   friend class HttpServiceDispatcher;
 
   // Handles standard browser image requests (GET /)
-  void handle_snapshot_request(const HttpRequestPtr &req,
-                      std::function<void(const HttpResponsePtr &)> &&callback) {
+  void handle_snapshot_request(
+      const HttpRequestPtr &req,
+      std::function<void(const HttpResponsePtr &)> &&callback) {
 
-    if (!perform_auth(req, callback)) return;
+    if (!perform_auth(req, callback))
+      return;
 
     // Optimization: Low-contention read
     std::shared_ptr<std::string> img_ptr_copy;
@@ -211,42 +215,45 @@ private:
   }
 
   // Handles VLC streaming requests (GET /stream)
-  void handle_stream_request(const HttpRequestPtr &req,
-                             std::function<void(const HttpResponsePtr &)> &&callback) {
+  void handle_stream_request(
+      const HttpRequestPtr &req,
+      std::function<void(const HttpResponsePtr &)> &&callback) {
 
-      if (!perform_auth(req, callback)) return;
+    if (!perform_auth(req, callback))
+      return;
 
-      const auto conn_weak = req->getConnectionPtr(); // Get weak_ptr
-      auto conn = conn_weak.lock();             // Convert to shared_ptr
-      if (!conn)
-        return;
+    const auto conn_weak = req->getConnectionPtr(); // Get weak_ptr
+    auto conn = conn_weak.lock();                   // Convert to shared_ptr
+    if (!conn)
+      return;
 
-      // 1. Send MJPEG Header manually to hijack the stream
-      std::string header =
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: multipart/x-mixed-replace; boundary=cuda_motion_frame\r\n"
-        "Connection: keep-alive\r\n"
-        "Pragma: no-cache\r\n"
-        "Cache-Control: no-cache\r\n"
-        "\r\n";
-      conn->send(header);
+    // 1. Send MJPEG Header manually to hijack the stream
+    std::string header = "HTTP/1.1 200 OK\r\n"
+                         "Content-Type: multipart/x-mixed-replace; "
+                         "boundary=cuda_motion_frame\r\n"
+                         "Connection: keep-alive\r\n"
+                         "Pragma: no-cache\r\n"
+                         "Cache-Control: no-cache\r\n"
+                         "\r\n";
+    conn->send(header);
 
-      // 2. Register Connection
-      {
-          std::lock_guard<std::mutex> lock(m_stream_mutex);
-          m_stream_clients.push_back(conn);
-      }
+    // 2. Register Connection
+    {
+      std::lock_guard<std::mutex> lock(m_stream_mutex);
+      m_stream_clients.push_back(conn);
+    }
   }
 
-  void broadcast_stream(const std::vector<uchar>& buffer) {
+  void broadcast_stream(const std::vector<uchar> &buffer) {
     std::lock_guard<std::mutex> lock(m_stream_mutex);
-    if (m_stream_clients.empty()) return;
+    if (m_stream_clients.empty())
+      return;
 
     // OPTIMIZATION: Construct the payload string ONCE
-    std::string chunk_header =
-      "--cuda_motion_frame\r\n"
-      "Content-Type: image/jpeg\r\n"
-      "Content-Length: " + std::to_string(buffer.size()) + "\r\n\r\n";
+    std::string chunk_header = "--cuda_motion_frame\r\n"
+                               "Content-Type: image/jpeg\r\n"
+                               "Content-Length: " +
+                               std::to_string(buffer.size()) + "\r\n\r\n";
 
     std::string chunk_footer = "\r\n";
 
@@ -267,7 +274,8 @@ private:
     }
   }
 
-  bool perform_auth(const HttpRequestPtr &req, std::function<void(const HttpResponsePtr &)> &callback) {
+  bool perform_auth(const HttpRequestPtr &req,
+                    std::function<void(const HttpResponsePtr &)> &callback) {
     if (m_auth_enabled) {
       std::string auth_header = req->getHeader("Authorization");
       if (!check_auth(auth_header)) {
@@ -283,13 +291,17 @@ private:
   }
 
   bool check_auth(const std::string &header_val) {
-    if (header_val.empty()) return false;
+    if (header_val.empty())
+      return false;
     size_t split_pos = header_val.find(' ');
-    if (split_pos == std::string::npos || header_val.substr(0, split_pos) != "Basic") return false;
+    if (split_pos == std::string::npos ||
+        header_val.substr(0, split_pos) != "Basic")
+      return false;
     std::string encoded = header_val.substr(split_pos + 1);
     std::string decoded = drogon::utils::base64Decode(encoded);
     size_t colon_pos = decoded.find(':');
-    if (colon_pos == std::string::npos) return false;
+    if (colon_pos == std::string::npos)
+      return false;
     std::string u = decoded.substr(0, colon_pos);
     std::string p = decoded.substr(colon_pos + 1);
     return (u == m_username && p == m_password);

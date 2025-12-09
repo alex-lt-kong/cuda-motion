@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../interfaces/i_asynchronous_processing_unit.h"
+#include "../entities/video_recording_state.h"
 
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/cudacodec.hpp>
@@ -112,7 +113,7 @@ protected:
     const auto now = std::chrono::steady_clock::now();
 
     // --- IDLE STATE ---
-    if (m_state == State::IDLE) {
+    if (m_state == Utils::VideoRecordingState::IDLE) {
 
       // 1. Maintain Pre-Roll Buffer
       if (m_config.m_pre_record_frames > 0) {
@@ -146,7 +147,7 @@ protected:
           }
         }
 
-        m_state = State::RECORDING;
+        m_state = Utils::VideoRecordingState::RECORDING;
         m_record_start_time = now;
         SPDLOG_INFO("Recording started (change_rate_threshold({}) vs "
                     "change_rate({:.3})), writing video to {}",
@@ -155,7 +156,7 @@ protected:
     }
 
     // --- RECORDING STATE ---
-    if (m_state == State::RECORDING) {
+    if (m_state == Utils::VideoRecordingState::RECORDING) {
       const bool threshold_met =
           change_rate >= m_config.m_change_rate_threshold;
 
@@ -179,7 +180,7 @@ protected:
       if (elapsed_sec >= m_config.m_max_length_sec ||
           (!threshold_met && cooldown_sec >= m_config.m_cool_off_sec)) {
         stop_recording();
-        m_state = State::IDLE;
+        m_state = Utils::VideoRecordingState::IDLE;
         return;
       }
 
@@ -188,9 +189,9 @@ protected:
   }
 
 private:
-  enum State { IDLE, RECORDING };
 
-  State m_state = State::IDLE;
+
+  Utils::VideoRecordingState m_state = Utils::VideoRecordingState::IDLE;
   VideoWriterConfig m_config;
   cv::Ptr<cv::cudacodec::VideoWriter> m_writer;
 

@@ -47,3 +47,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES GNU)
   add_compile_options("-Wl,-z,now")
   add_compile_options("-Wl,-z,relro")
 endif(CMAKE_CXX_COMPILER_ID MATCHES GNU)
+
+# Gemini 3 Pro: Suppress warning about C11 extensions in C++ code (triggered by OpenCV)
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
+  add_compile_options(-Wno-c11-extensions)
+endif()

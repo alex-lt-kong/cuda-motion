@@ -73,8 +73,8 @@ public:
                  "AsynchronousProcessingUnit::matrixNotifier") {
         ptr = std::make_unique<MatrixNotifier>();
       } else {
-        SPDLOG_WARN("Unrecognized pipeline unit: {}",
-                    settings[i]["type"].get<std::string>());
+        SPDLOG_WARN("Unrecognized pipeline unit, type: {}, idx: {}",
+                    settings[i]["type"].get<std::string>(), i);
         continue;
       }
       if (std::visit(

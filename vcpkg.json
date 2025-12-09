@@ -1,6 +1,6 @@
 {
   "$schema" : "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
-  "dependencies" : [ "stb", "cpr", "nlohmann-json", "cppzmq", "readerwriterqueue", "boost-interprocess", "cxxopts", "fmt", {
+  "dependencies" : [ "stb", "cpr", "nlohmann-json", "cppzmq", "readerwriterqueue", "cxxopts", "fmt", {
     "name" : "spdlog",
     "version>=" : "1.16.0"
   }, {

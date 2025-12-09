@@ -1,14 +1,3 @@
-# Matrix Pipeline
-
-MatrixPipeline is a modular, high-performance C++ computer vision application. It utilizes a configurable Pipeline
-Pattern that allows video frames (a.k.a. "matrix") flow through it.
-
-This architecture creates a "T-junction" flow: lightweight tasks like rotation and cropping run in real-time, while
-heavy operations—such as YOLOv11 object detection, MP4 encoding, and network I/O—are offloaded to isolated threads to
-prevent frame drops. Key capabilities include multi-resolution MJPEG streaming, motion-triggered recording, Matrix chat
-alerts, and ZeroMQ broadcasting, all defined via a flexible JSON configuration.
-
-```mermaid
 graph TD
     %% Define Styles
     classDef mainThread fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
@@ -58,49 +47,3 @@ graph TD
     %% Styling classes assignment
     class Rotation,ChangeRate,Ovl1,FPS,Crop,Resize,Ovl3 mainThread;
     class Async1_Ovl,YOLO,BBox asyncThread;
-```
-
-## Dependencies
-
-- [vcpkg.json](./vcpkg.json)
-- `v4l-utils`: for manually examining and manipulating local video devices.
-- `OpenCV`: image/video manipulation libraries that do all the
-  heavy lifting.
-    - Check build notes [here](etc/build-notes.md) and
-      [here](https://github.com/alex-lt-kong/the-nitty-gritty/tree/main/c-cpp/cpp-only/06_poc/05_cuda-vs-ffmpeg).
-
-## Build and deployment
-
-```bash
-mkdir ./build
-cmake ../
-make -j2
-```
-
-## Quality assurance
-
-- Instead of `cmake ../`, run:
-
-    - `cmake -DBUILD_ASAN=ON ../`
-    - `cmake -DBUILD_UBSAN=ON ../`
-
-- The repo is also tested with `Valgrind` from time to time:
-  `valgrind --leak-check=yes --log-file=valgrind.rpt ./build/cs`.
-
-## Profiling
-
-- gprof:
-
-```bash
-cmake -DCMAKE_CXX_FLAGS=-pg -DCMAKE_EXE_LINKER_FLAGS=-pg -DCMAKE_SHARED_LINKER_FLAGS=-pg  ../
-make -j4
-./build/cm
-gprof ./build/cm gmon.out
-```
-
-- callgrind
-
-```
-valgrind --tool=callgrind ./cm
-kcachegrind `ls -tr callgrind.out.* | tail -1`
-```

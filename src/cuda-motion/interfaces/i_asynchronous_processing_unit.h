@@ -1,11 +1,14 @@
 #pragma once
 
-//#include "../pipeline_executor.h"
 #include "../entities/processing_context.h"
 #include "../entities/synchronous_processing_result.h"
+#include "../entities/video_recording_state.h"
+#include "../utils/matrix_sender.h"
+#include "../utils/ram_video_buffer.h"
 
-#include <opencv2/core/cuda.hpp>
 #include <nlohmann/json.hpp>
+#include <opencv2/core/cuda.hpp>
+#include <opencv2/cudacodec.hpp>
 
 #include <atomic>
 #include <condition_variable>
@@ -16,11 +19,11 @@
 
 namespace CudaMotion {
 namespace Utils {
-class MatrixSender;
+
 class NvJpegEncoder;
-}
+} // namespace Utils
 class PipelineExecutor;
-}
+} // namespace CudaMotion
 using njson = nlohmann::json;
 
 namespace CudaMotion::ProcessingUnit {
@@ -123,7 +126,8 @@ private:
         m_processing_queue.pop();
         if (const auto queue_size = m_processing_queue.size();
             queue_size > 30) {
-          SPDLOG_INFO("Processing queue size is above threshold ({})", queue_size);
+          SPDLOG_INFO("Processing queue size is above threshold ({})",
+                      queue_size);
         }
       }
       on_frame_ready(payload.frame, payload.meta_data);
@@ -142,22 +146,34 @@ private:
   std::thread m_worker_thread;
 };
 
-
-class AsynchronousProcessingUnit final: public IAsynchronousProcessingUnit {
+class AsynchronousProcessingUnit final : public IAsynchronousProcessingUnit {
   std::unique_ptr<PipelineExecutor> m_exe{nullptr};
+
 public:
   bool init(const njson &config) override;
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
 };
 
-
-class MatrixNotifier final: public IAsynchronousProcessingUnit {
+class MatrixNotifier final : public IAsynchronousProcessingUnit {
   std::unique_ptr<Utils::NvJpegEncoder> m_gpu_encoder{nullptr};
   std::unique_ptr<Utils::MatrixSender> m_sender{nullptr};
   std::string m_matrix_homeserver;
   std::string m_matrix_room_id;
   std::string m_matrix_access_token;
   int m_notification_interval_frame{300};
+  bool m_is_send_image_enabled{true};
+  bool m_is_send_video_enabled{true};
+  size_t m_video_length_in_frame{30 * 10};
+  size_t m_current_video_length_in_frame{0};
+  cv::Ptr<cv::cudacodec::VideoWriter> m_writer{nullptr};
+  std::unique_ptr<Utils::RamVideoBuffer> m_ram_buf{nullptr};
+  Utils::VideoRecordingState m_state{Utils::IDLE};
+
+  void handle_image(const cv::cuda::GpuMat &frame,
+                    [[maybe_unused]] const PipelineContext &ctx) const;
+  void handle_video(const cv::cuda::GpuMat &frame,
+                    [[maybe_unused]] const PipelineContext &ctx);
+
 public:
   bool init(const njson &config) override;
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;

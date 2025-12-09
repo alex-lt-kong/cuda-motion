@@ -8,6 +8,7 @@ message(STATUS "OpenCV found at: ${OpenCV_DIR}")
 message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
 message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
 
+find_package(CUDAToolkit)
 find_package(protobuf CONFIG REQUIRED)
 find_package(cppzmq CONFIG REQUIRED)
 find_package(cxxopts REQUIRED)
@@ -17,12 +18,13 @@ find_package(Protobuf REQUIRED)
 find_package(cpr CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(Drogon CONFIG REQUIRED)
-find_package(CUDAToolkit REQUIRED)
 
 include_directories(${Protobuf_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 set(PROTO_FILE ${CMAKE_CURRENT_SOURCE_DIR}/proto/frame_msg.proto)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILE})
+
+add_subdirectory(utils)
 
 add_library(rotate_frame
         synchronous_processing_units/rotate_frame.cpp
@@ -44,12 +46,15 @@ add_library(matrix_notifier
         asynchronous_processing_units/matrix_notifier.cpp
         interfaces/i_asynchronous_processing_unit.h
 )
-target_link_libraries(matrix_notifier spdlog::spdlog CUDA::nvjpeg cpr::cpr nlohmann_json::nlohmann_json)
+target_link_libraries(matrix_notifier nvjpeg_encoder ram_video_buffer matrix_sender)
+target_link_libraries(matrix_notifier ${OpenCV_LIBS} CUDA::nvjpeg spdlog::spdlog cpr::cpr nlohmann_json::nlohmann_json)
 
 add_library(detect_objects
         synchronous_processing_units/detect_objects.cpp
         interfaces/i_synchronous_processing_unit.h
 )
+target_link_libraries(detect_objects spdlog::spdlog)
+
 add_library(overlay_bounding_boxes
         synchronous_processing_units/overlay_bounding_boxes.cpp
         interfaces/i_synchronous_processing_unit.h
@@ -82,10 +87,10 @@ target_link_libraries(cm
 target_link_libraries(cm
         PRIVATE
         ${OpenCV_LIBS} rt ssl crypto fmt::fmt
-        ${Boost_PROGRAM_OPTIONS_LIBRARY}
         Drogon::Drogon
         nlohmann_json::nlohmann_json
         spdlog::spdlog
+        CUDA::nvjpeg
         cppzmq cppzmq-static
         protobuf::libprotoc protobuf::libprotobuf protobuf::libprotobuf-lite
 )
