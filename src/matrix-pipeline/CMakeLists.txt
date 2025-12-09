@@ -1,8 +1,6 @@
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-#include_directories(http_service/)
 
 find_package(OpenCV REQUIRED)
-#find_package(OpenCV REQUIRED PATHS "$ENV{HOME}/opt/opencv-4.12.0/lib64/cmake/opencv4" NO_DEFAULT_PATH)
 include_directories(${OpenCV_INCLUDE_DIRS})
 message(STATUS "OpenCV found at: ${OpenCV_DIR}")
 message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
@@ -66,7 +64,7 @@ add_library(asynchronous_processing_unit
 )
 target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg)
 
-add_executable(cm
+add_executable(mp
         main.cpp
         device_manager.cpp
         global_vars.cpp
@@ -74,7 +72,7 @@ add_executable(cm
         ${PROTO_SRCS} ${PROTO_HDRS}
 )
 
-target_link_libraries(cm
+target_link_libraries(mp
         PRIVATE
         matrix_notifier
         debug_output
@@ -84,7 +82,7 @@ target_link_libraries(cm
         overlay_bounding_boxes
         asynchronous_processing_unit
 )
-target_link_libraries(cm
+target_link_libraries(mp
         PRIVATE
         ${OpenCV_LIBS} rt ssl crypto fmt::fmt
         Drogon::Drogon
@@ -96,10 +94,10 @@ target_link_libraries(cm
 )
 
 add_custom_command(
-        TARGET cm POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:cm> ../../
+        TARGET mp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mp> ../../
 )
 
 # So that Python bindings will always be generated, even if it is not used
 add_custom_target(GeneratePythonBindings DEPENDS ${PROTO_PY})
-add_dependencies(cm GeneratePythonBindings)
+add_dependencies(mp GeneratePythonBindings)

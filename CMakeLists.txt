@@ -16,4 +16,4 @@ include(cmake/sanitizers.cmake)
 include(cmake/git.cmake)
 
 
-add_subdirectory(src/cuda-motion)
+add_subdirectory(src/matrix-pipeline)
