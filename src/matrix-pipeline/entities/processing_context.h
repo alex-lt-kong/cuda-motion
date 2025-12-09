@@ -22,7 +22,7 @@ struct PipelineContext {
   int64_t capture_timestamp_ms = 0;
   int64_t capture_from_this_device_since_ms = 0;
   uint32_t frame_seq_num = 0;
-  int processing_unit_idx = 0;
+  size_t processing_unit_idx = 0;
   float change_rate = -1;
   float fps = 0.0;
 

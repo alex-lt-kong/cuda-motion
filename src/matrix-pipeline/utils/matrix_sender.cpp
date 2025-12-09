@@ -35,7 +35,7 @@ std::string MatrixSender::readFile(const std::string& path) {
     return result;
 }
 
-std::string MatrixSender::upload(const std::string& data, const std::string& contentType) {
+std::string MatrixSender::upload(const std::string& data, const std::string& contentType) const {
     std::string url = homeServer + "/_matrix/media/r0/upload";
 
     cpr::Response r = cpr::Post(
@@ -48,7 +48,7 @@ std::string MatrixSender::upload(const std::string& data, const std::string& con
     );
 
     if (r.status_code != 200) {
-        SPDLOG_ERROR("Upload failed ({}: {})", r.status_code, r.text);
+        SPDLOG_ERROR("Upload failed, status_code: {}, text: {}", r.status_code, r.text);
         return "";
     }
 

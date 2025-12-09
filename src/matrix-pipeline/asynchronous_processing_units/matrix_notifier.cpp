@@ -123,8 +123,8 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
     m_state = Utils::VideoRecordingState::IDLE;
     return;
   }
-  auto roi_value = this->calculate_roi_value(ctx.yolo);
-  if (roi_value > m_max_roi_value) {
+  if (const auto roi_value = calculate_roi_value(ctx.yolo);
+      roi_value > m_max_roi_value) {
     m_max_roi_value_frame = frame;
     m_max_roi_value = roi_value;
   }

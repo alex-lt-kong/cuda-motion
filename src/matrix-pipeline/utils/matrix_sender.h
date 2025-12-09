@@ -20,7 +20,7 @@ private:
   static void stbiWriteFunc(void *context, void *data, int size);
 
   // Internal helper to perform HTTP POST for media
-  std::string upload(const std::string& data, const std::string& contentType);
+  std::string upload(const std::string& data, const std::string& contentType) const;
 
   // Internal helper to perform HTTP PUT for events
   void send_event(const njson& contentBody, const std::string& msgType) const;

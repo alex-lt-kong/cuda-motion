@@ -33,48 +33,36 @@ public:
     using namespace ProcessingUnit;
     for (nlohmann::basic_json<>::size_type i = 0; i < settings.size(); ++i) {
       ProcessingUnitVariant ptr;
-      if (settings[i]["type"].get<std::string>() ==
-          "SynchronousProcessingUnit::rotation") {
+      const std::string type = settings[i]["type"].get<std::string>();
+      if (type == "SynchronousProcessingUnit::rotation") {
         ptr = std::make_unique<RotateFrame>();
-      } else if (settings[i]["type"].get<std::string>() ==
-                 "SynchronousProcessingUnit::overlayInfo") {
+      } else if (type == "SynchronousProcessingUnit::overlayInfo") {
         ptr = std::make_unique<OverlayInfo>();
-      } else if (settings[i]["type"].get<std::string>() ==
-                 "SynchronousProcessingUnit::cropFrame") {
+      } else if (type == "SynchronousProcessingUnit::cropFrame") {
         ptr = std::make_unique<CropFrame>();
-      } else if (settings[i]["type"].get<std::string>() ==
-                 "SynchronousProcessingUnit::debugOutput") {
+      } else if (type == "SynchronousProcessingUnit::debugOutput") {
         ptr = std::make_unique<DebugOutput>();
-      } else if (settings[i]["type"].get<std::string>() ==
-                 "SynchronousProcessingUnit::resizeFrame") {
+      } else if (type == "SynchronousProcessingUnit::resizeFrame") {
         ptr = std::make_unique<ResizeFrame>();
-      } else if (settings[i]["type"].get<std::string>() ==
-                 "SynchronousProcessingUnit::calculateChangeRate") {
+      } else if (type == "SynchronousProcessingUnit::calculateChangeRate") {
         ptr = std::make_unique<CalculateChangeRate>();
-      } else if (settings[i]["type"].get<std::string>() ==
-                 "SynchronousProcessingUnit::controlFps") {
+      } else if (type == "SynchronousProcessingUnit::controlFps") {
         ptr = std::make_unique<ControlFps>();
-      } else if (settings[i]["type"].get<std::string>() ==
-                 "AsynchronousProcessingUnit::videoWriter") {
+      } else if (type == "AsynchronousProcessingUnit::videoWriter") {
         ptr = std::make_unique<VideoWriter>();
-      } else if (settings[i]["type"].get<std::string>() ==
-                 "AsynchronousProcessingUnit::httpService") {
+      } else if (type == "AsynchronousProcessingUnit::httpService") {
         ptr = std::make_unique<HttpService>();
-      } else if (settings[i]["type"].get<std::string>() ==
-                 "SynchronousProcessingUnit::detectObjects") {
+      } else if (type == "SynchronousProcessingUnit::detectObjects") {
         ptr = std::make_unique<DetectObjects>();
-      } else if (settings[i]["type"].get<std::string>() ==
-                 "SynchronousProcessingUnit::overlayBoundingBoxes") {
+      } else if (type == "SynchronousProcessingUnit::overlayBoundingBoxes") {
         ptr = std::make_unique<OverlayBoundingBoxes>();
-      } else if (settings[i]["type"].get<std::string>() ==
+      } else if (type ==
                  "AsynchronousProcessingUnit::asynchronousProcessingUnit") {
         ptr = std::make_unique<AsynchronousProcessingUnit>();
-      } else if (settings[i]["type"].get<std::string>() ==
-                 "AsynchronousProcessingUnit::matrixNotifier") {
+      } else if (type == "AsynchronousProcessingUnit::matrixNotifier") {
         ptr = std::make_unique<MatrixNotifier>();
       } else {
-        SPDLOG_WARN("Unrecognized pipeline unit, type: {}, idx: {}",
-                    settings[i]["type"].get<std::string>(), i);
+        SPDLOG_WARN("Unrecognized pipeline unit, type: {}, idx: {}", type, i);
         continue;
       }
       if (std::visit(
@@ -90,35 +78,36 @@ public:
                     return true;
                   },
               },
-              ptr))
+              ptr)){
         m_processing_units.push_back(std::move(ptr));
-      else {
-        SPDLOG_WARN("not added");
-      }
+      SPDLOG_INFO("Added {}-th processing unit, type: {}", i, type);
+    } else {
+      SPDLOG_WARN("not added");
     }
-    return true;
   }
+  return true;
+}
 
   void on_frame_ready(cv::cuda::GpuMat &frame,
                       ProcessingUnit::PipelineContext &ctx) {
-    for (size_t i = 0; i < m_processing_units.size(); ++i) {
-      ctx.processing_unit_idx = i;
-      auto retval = std::visit(
-          ProcessingUnit::overload{
-              [&](const std::unique_ptr<
-                  ProcessingUnit::ISynchronousProcessingUnit> &ptr) {
-                return ptr->process(frame, ctx);
-              },
-              [&](const std::unique_ptr<
-                  ProcessingUnit::IAsynchronousProcessingUnit> &ptr) {
-                return ptr->enqueue(frame, ctx);
-              },
-          },
-          m_processing_units[i]);
-      if (retval == ProcessingUnit::failure_and_stop ||
-          retval == ProcessingUnit::success_and_stop)
-        break;
-    }
+  for (size_t i = 0; i < m_processing_units.size(); ++i) {
+    ctx.processing_unit_idx = i;
+    auto retval =
+        std::visit(ProcessingUnit::overload{
+                       [&](const std::unique_ptr<
+                           ProcessingUnit::ISynchronousProcessingUnit> &ptr) {
+                         return ptr->process(frame, ctx);
+                       },
+                       [&](const std::unique_ptr<
+                           ProcessingUnit::IAsynchronousProcessingUnit> &ptr) {
+                         return ptr->enqueue(frame, ctx);
+                       },
+                   },
+                   m_processing_units[i]);
+    if (retval == ProcessingUnit::failure_and_stop ||
+        retval == ProcessingUnit::success_and_stop)
+      break;
   }
+}
 };
 } // namespace CudaMotion

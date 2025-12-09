@@ -212,12 +212,13 @@ private:
       m_writer.release();
     m_file_path = generate_filename();
     try {
+      SPDLOG_INFO("cv::cudacodec::createVideoWriter({})ing", m_file_path);
       m_writer = cv::cudacodec::createVideoWriter(
           m_file_path, frame_size, cv::cudacodec::Codec::H264,
           m_config.m_target_fps, cv::cudacodec::ColorFormat::BGR);
     } catch (const cv::Exception &e) {
-      SPDLOG_ERROR("FATAL: Failed to init cv::cudacodec::VideoWriter(): {}",
-                   e.what());
+      SPDLOG_ERROR("cv::cudacodec::createVideoWriter({}) failed: {}",
+                   m_file_path, e.what());
       m_writer.release();
       return false;
     }
