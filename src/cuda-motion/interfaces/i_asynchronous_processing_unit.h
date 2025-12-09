@@ -163,16 +163,23 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
   int m_notification_interval_frame{300};
   bool m_is_send_image_enabled{true};
   bool m_is_send_video_enabled{true};
-  size_t m_video_length_in_frame{30 * 10};
+  size_t m_video_max_length_in_frame{30 * 10};
+  size_t m_video_max_length_without_people_in_frame{30 * 10};
+
   size_t m_current_video_length_in_frame{0};
+  size_t m_current_video_length_without_people_in_frame{0};
   cv::Ptr<cv::cudacodec::VideoWriter> m_writer{nullptr};
   std::unique_ptr<Utils::RamVideoBuffer> m_ram_buf{nullptr};
   Utils::VideoRecordingState m_state{Utils::IDLE};
 
+  static bool check_if_people_detected(const PipelineContext &ctx);
+
   void handle_image(const cv::cuda::GpuMat &frame,
-                    [[maybe_unused]] const PipelineContext &ctx) const;
+                    [[maybe_unused]] const PipelineContext &ctx,
+                    const bool is_people_detected) const;
   void handle_video(const cv::cuda::GpuMat &frame,
-                    [[maybe_unused]] const PipelineContext &ctx);
+  [[maybe_unused]] const PipelineContext &ctx,
+  const bool is_people_detected);
 
 public:
   bool init(const njson &config) override;
