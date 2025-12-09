@@ -39,7 +39,7 @@ public:
   void sendText(const std::string& message);
 
   // Send JPEG image
-  void send_jpeg(const std::vector<uchar>& jpeg_bytes, int width, int height, const std::string& caption = "Image");
+  void send_jpeg(const std::string& jpeg_bytes, int width, int height, const std::string& caption = "Image");
 
   // Send Video from file path
   void send_video(const std::string& filepath, const std::string& caption, int duration_ms = 0);
@@ -48,7 +48,7 @@ public:
   void send_video_from_memory(const std::string& video_data,
                               const std::string& caption,
                               int duration_ms = 0,
-                              const std::vector<uchar>& thumbnail_data = {},
+                              const std::string& thumbnail_data = {},
                               int width = 0,
                               int height = 0,
                               const std::string& thumb_mime = "image/jpeg");

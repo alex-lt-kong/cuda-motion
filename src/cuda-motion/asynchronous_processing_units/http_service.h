@@ -101,8 +101,8 @@ public:
             {Get});
       }
 
-      SPDLOG_INFO("HttpService initialized on {}:{} (HTTPS: {})", m_ip, m_port,
-                  use_https);
+      SPDLOG_INFO("HttpService initialized on {}:{} (HTTPS: {}), refresh_interval_sec: {}", m_ip, m_port,
+                  use_https, m_refresh_interval_sec.count());
       return true;
     } catch (const std::exception &e) {
       SPDLOG_ERROR("Failed to init HttpService: {}", e.what());
@@ -152,7 +152,7 @@ protected:
     }
 
     try {
-      std::vector<uchar> temp_buffer;
+      std::string temp_buffer;
       bool success = m_gpu_encoder->encode(frame, temp_buffer, 90);
 
       if (success) {
@@ -244,7 +244,7 @@ private:
     }
   }
 
-  void broadcast_stream(const std::vector<uchar> &buffer) {
+  void broadcast_stream(const std::string &buffer) {
     std::lock_guard<std::mutex> lock(m_stream_mutex);
     if (m_stream_clients.empty())
       return;
@@ -257,15 +257,12 @@ private:
 
     std::string chunk_footer = "\r\n";
 
-    // Create the image payload once (~300KB alloc)
-    std::string image_payload(buffer.begin(), buffer.end());
-
     auto it = m_stream_clients.begin();
     while (it != m_stream_clients.end()) {
       auto conn = it->lock();
       if (conn && conn->connected()) {
         conn->send(chunk_header);
-        conn->send(image_payload); // Send the same string object
+        conn->send(buffer); // Send the same string object
         conn->send(chunk_footer);
         ++it;
       } else {

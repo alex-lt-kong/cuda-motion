@@ -168,6 +168,9 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
 
   size_t m_current_video_length_in_frame{0};
   size_t m_current_video_length_without_people_in_frame{0};
+  float m_max_roi_value{0.0f};
+  cv::cuda::GpuMat m_max_roi_value_frame{-1};
+
   cv::Ptr<cv::cudacodec::VideoWriter> m_writer{nullptr};
   std::unique_ptr<Utils::RamVideoBuffer> m_ram_buf{nullptr};
   Utils::VideoRecordingState m_state{Utils::IDLE};
@@ -180,6 +183,8 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
   void handle_video(const cv::cuda::GpuMat &frame,
   [[maybe_unused]] const PipelineContext &ctx,
   const bool is_people_detected);
+
+  static float calculate_roi_value(const YoloContext& yolo);
 
 public:
   bool init(const njson &config) override;

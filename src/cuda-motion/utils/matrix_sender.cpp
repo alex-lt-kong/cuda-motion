@@ -113,17 +113,16 @@ void MatrixSender::sendText(const std::string& message) {
     send_event(content, "m.text");
 }
 
-void MatrixSender::send_jpeg(const std::vector<uchar>& jpeg_bytes, int width, int height, const std::string& caption) {
-    const std::string data(jpeg_bytes.begin(), jpeg_bytes.end());
+void MatrixSender::send_jpeg(const std::string& jpeg_bytes, int width, int height, const std::string& caption) {
 
-    if (std::string mxc = upload(data, "image/jpeg"); !mxc.empty()) {
+    if (std::string mxc = upload(jpeg_bytes, "image/jpeg"); !mxc.empty()) {
         njson content;
         content["body"] = caption;
         content["url"] = mxc;
         content["info"]["w"] = width;
         content["info"]["h"] = height;
         content["info"]["mimetype"] = "image/jpeg";
-        content["info"]["size"] = data.size();
+        content["info"]["size"] = jpeg_bytes.size();
         send_event(content, "m.image");
     }
 }
@@ -149,7 +148,7 @@ void MatrixSender::send_video(const std::string& filepath, const std::string& ca
 void MatrixSender::send_video_from_memory(const std::string& video_data,
                                           const std::string& caption,
                                           int duration_ms,
-                                          const std::vector<uchar>& thumbnail_data,
+                                          const std::string& thumbnail_data,
                                           int width,
                                           int height,
                                           const std::string& thumb_mime) {
@@ -175,15 +174,14 @@ void MatrixSender::send_video_from_memory(const std::string& video_data,
 
     // 2. Upload Thumbnail (if present)
     if (!thumbnail_data.empty()) {
-        const std::string thumb_str(thumbnail_data.begin(), thumbnail_data.end());
-        std::string thumb_mxc = upload(thumb_str, thumb_mime);
+        std::string thumb_mxc = upload(thumbnail_data, thumb_mime);
 
         if (!thumb_mxc.empty()) {
             info["thumbnail_url"] = thumb_mxc;
 
             njson thumb_info;
             thumb_info["mimetype"] = thumb_mime;
-            thumb_info["size"] = thumb_str.size();
+            thumb_info["size"] = thumbnail_data.size();
             if (width > 0 && height > 0) {
                 thumb_info["w"] = width;
                 thumb_info["h"] = height;

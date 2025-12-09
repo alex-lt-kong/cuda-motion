@@ -13,7 +13,7 @@ public:
 
   ~NvJpegEncoder();
 
-  bool encode(const cv::cuda::GpuMat &src, std::vector<uchar> &output_buffer, int quality = 90) const;
+  bool encode(const cv::cuda::GpuMat &src, std::string &output_buffer, int quality = 90) const;
 
 private:
   nvjpegHandle_t m_handle = nullptr;

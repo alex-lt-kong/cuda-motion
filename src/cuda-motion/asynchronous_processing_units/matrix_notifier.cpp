@@ -10,43 +10,6 @@
 
 namespace CudaMotion::ProcessingUnit {
 
-bool MatrixNotifier::init(const njson &config) {
-  if (!config.contains("matrixHomeServer") ||
-      !config.contains("matrixRoomId") ||
-      !config.contains("matrixAccessToken")) {
-    SPDLOG_ERROR("Missing matrix credentials");
-    return false;
-  }
-  m_matrix_homeserver = config["matrixHomeServer"];
-  m_matrix_room_id = config["matrixRoomId"];
-  m_matrix_access_token = config["matrixAccessToken"];
-  m_notification_interval_frame =
-      config.value("notificationIntervalFrame", m_notification_interval_frame);
-
-  m_is_send_image_enabled =
-      config.value("isSendImageEnabled", m_is_send_image_enabled);
-  m_is_send_video_enabled =
-      config.value("isSendVideoEnabled", m_is_send_video_enabled);
-  m_video_max_length_in_frame =
-      config.value("videoMaxLengthInFrame", m_video_max_length_in_frame);
-
-  SPDLOG_INFO("matrix_homeserver: {}, matrix_room_id: {}, matrix_access_token: "
-              "{}, notification_interval_frame: {}",
-              m_matrix_homeserver, m_matrix_room_id, m_matrix_access_token,
-              m_notification_interval_frame);
-  if (m_is_send_image_enabled)
-    SPDLOG_INFO("is_send_image_enabled: {}, notification_interval_frame: {}",
-                m_is_send_image_enabled, m_notification_interval_frame);
-  if (m_is_send_video_enabled)
-    SPDLOG_INFO("is_send_video_enabled: {}, video_length_in_frame: {}",
-                m_is_send_video_enabled, m_video_max_length_in_frame);
-  m_sender = std::make_unique<Utils::MatrixSender>(
-      m_matrix_homeserver, m_matrix_access_token, m_matrix_room_id);
-  m_gpu_encoder = std::make_unique<Utils::NvJpegEncoder>();
-  m_sender->sendText("MatrixPipeline started");
-  return true;
-}
-
 bool MatrixNotifier::check_if_people_detected(const PipelineContext &ctx) {
   bool person_detected = false;
   for (const auto idx : ctx.yolo.indices) {
@@ -58,17 +21,6 @@ bool MatrixNotifier::check_if_people_detected(const PipelineContext &ctx) {
   return person_detected;
 }
 
-void MatrixNotifier::on_frame_ready(cv::cuda::GpuMat &frame,
-                                    [[maybe_unused]] PipelineContext &ctx) {
-  auto is_people_detected = check_if_people_detected(ctx);
-  auto future_image =
-      std::async(std::launch::async, &MatrixNotifier::handle_image, this, frame,
-                 ctx, is_people_detected);
-  auto future_video =
-      std::async(std::launch::async, &MatrixNotifier::handle_video, this, frame,
-                 ctx, is_people_detected);
-}
-
 void MatrixNotifier::handle_image(const cv::cuda::GpuMat &frame,
                                   [[maybe_unused]] const PipelineContext &ctx,
                                   const bool is_people_detected) const {
@@ -78,7 +30,7 @@ void MatrixNotifier::handle_image(const cv::cuda::GpuMat &frame,
     return;
   if (ctx.frame_seq_num % m_notification_interval_frame != 0)
     return;
-  std::vector<uchar> jpeg_bytes;
+  std::string jpeg_bytes;
   if (const bool success = m_gpu_encoder->encode(frame, jpeg_bytes, 90);
       !success) {
     SPDLOG_ERROR("m_gpu_encoder->encode() failed");
@@ -124,6 +76,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
           cv::cudacodec::ColorFormat::BGR, params);
       m_current_video_length_in_frame = 0;
       m_current_video_length_without_people_in_frame = 0;
+      m_max_roi_value = -1;
       m_state = Utils::VideoRecordingState::RECORDING;
       SPDLOG_INFO("Start video recording for matrix message, saved file to "
                   "symlink_path {}, video_length_in_frame: {}",
@@ -144,7 +97,8 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
   }
 
   if (m_current_video_length_in_frame >= m_video_max_length_in_frame ||
-    m_current_video_length_without_people_in_frame >= m_video_max_length_without_people_in_frame) {
+      m_current_video_length_without_people_in_frame >=
+          m_video_max_length_without_people_in_frame) {
     m_writer.release();
     const std::shared_ptr ram_buf = std::move(m_ram_buf);
     std::thread([&, ram_buf] {
@@ -154,18 +108,90 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       }
       const std::string data(static_cast<const char *>(ram_buf->m_data_ptr),
                              ram_buf->size);
-      SPDLOG_INFO("Matrix video recording stopped, size: {}KB",
-                  ram_buf->size / 1024);
-      m_sender->send_video_from_memory(data, "test caption",
-                                       m_video_max_length_in_frame / 30 * 1000);
+
+      std::string jpeg_data;
+      if (!m_gpu_encoder->encode(m_max_roi_value_frame, jpeg_data, 90)) {
+        SPDLOG_ERROR("m_gpu_encoder->encode() failed");
+      }
+      SPDLOG_INFO("Matrix video recording stopped, size: {}KB + {}KB",
+                  ram_buf->size / 1024, jpeg_data.size() / 1024);
+      m_sender->send_video_from_memory(
+          data, "test caption", m_video_max_length_in_frame / 30 * 1000,
+          jpeg_data, m_max_roi_value_frame.size().width,
+          m_max_roi_value_frame.size().height);
     }).detach();
     m_state = Utils::VideoRecordingState::IDLE;
     return;
   }
+  auto roi_value = this->calculate_roi_value(ctx.yolo);
+  if (roi_value > m_max_roi_value) {
+    m_max_roi_value_frame = frame;
+    m_max_roi_value = roi_value;
+  }
+
   m_writer->write(frame);
   ++m_current_video_length_in_frame;
   if (!is_people_detected)
     ++m_current_video_length_without_people_in_frame;
+}
+
+float MatrixNotifier::calculate_roi_value(const YoloContext &yolo) {
+  float roi_value = 0.0;
+  for (const auto idx : yolo.indices) {
+    if (const auto class_id = yolo.class_ids[idx]; class_id == 0) {
+      roi_value += yolo.boxes[idx].area() * yolo.confidences[idx] *
+                   pow(yolo.indices.size(), 0.5);
+    }
+  }
+  return roi_value;
+}
+
+bool MatrixNotifier::init(const njson &config) {
+  if (!config.contains("matrixHomeServer") ||
+      !config.contains("matrixRoomId") ||
+      !config.contains("matrixAccessToken")) {
+    SPDLOG_ERROR("Missing matrix credentials");
+    return false;
+  }
+  m_matrix_homeserver = config["matrixHomeServer"];
+  m_matrix_room_id = config["matrixRoomId"];
+  m_matrix_access_token = config["matrixAccessToken"];
+  m_notification_interval_frame =
+      config.value("notificationIntervalFrame", m_notification_interval_frame);
+
+  m_is_send_image_enabled =
+      config.value("isSendImageEnabled", m_is_send_image_enabled);
+  m_is_send_video_enabled =
+      config.value("isSendVideoEnabled", m_is_send_video_enabled);
+  m_video_max_length_in_frame =
+      config.value("videoMaxLengthInFrame", m_video_max_length_in_frame);
+
+  SPDLOG_INFO("matrix_homeserver: {}, matrix_room_id: {}, matrix_access_token: "
+              "{}, notification_interval_frame: {}",
+              m_matrix_homeserver, m_matrix_room_id, m_matrix_access_token,
+              m_notification_interval_frame);
+  if (m_is_send_image_enabled)
+    SPDLOG_INFO("is_send_image_enabled: {}, notification_interval_frame: {}",
+                m_is_send_image_enabled, m_notification_interval_frame);
+  if (m_is_send_video_enabled)
+    SPDLOG_INFO("is_send_video_enabled: {}, video_length_in_frame: {}",
+                m_is_send_video_enabled, m_video_max_length_in_frame);
+  m_sender = std::make_unique<Utils::MatrixSender>(
+      m_matrix_homeserver, m_matrix_access_token, m_matrix_room_id);
+  m_gpu_encoder = std::make_unique<Utils::NvJpegEncoder>();
+  m_sender->sendText("MatrixPipeline started");
+  return true;
+}
+
+void MatrixNotifier::on_frame_ready(cv::cuda::GpuMat &frame,
+                                    [[maybe_unused]] PipelineContext &ctx) {
+  auto is_people_detected = check_if_people_detected(ctx);
+  auto future_image =
+      std::async(std::launch::async, &MatrixNotifier::handle_image, this, frame,
+                 ctx, is_people_detected);
+  auto future_video =
+      std::async(std::launch::async, &MatrixNotifier::handle_video, this, frame,
+                 ctx, is_people_detected);
 }
 
 } // namespace CudaMotion::ProcessingUnit
