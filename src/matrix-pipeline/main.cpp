@@ -55,7 +55,7 @@ void configure_spdlog() {
     spdlog::set_default_logger(async_logger);
 
     // 4. Set pattern and level
-    spdlog::set_level(spdlog::level::info);
+    spdlog::set_level(spdlog::level::debug);
     // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
     // Including microseconds is handy for naive profiling
     spdlog::set_pattern("%Y-%m-%dT%T.%e | %8l | %s:%# (%!) | %v");

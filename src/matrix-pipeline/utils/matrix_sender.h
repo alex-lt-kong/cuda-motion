@@ -47,11 +47,11 @@ public:
   // Send Video from memory (Updated to support Thumbnails)
   void send_video_from_memory(const std::string& video_data,
                               const std::string& caption,
-                              int duration_ms = 0,
+                              size_t duration_ms = 0,
                               const std::string& thumbnail_data = {},
                               int width = 0,
                               int height = 0,
-                              const std::string& thumb_mime = "image/jpeg");
+                              const std::string& thumb_mime = "image/jpeg") const;
 };
 
 } // namespace Utils

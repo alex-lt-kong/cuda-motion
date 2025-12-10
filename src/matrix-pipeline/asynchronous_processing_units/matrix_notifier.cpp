@@ -3,6 +3,8 @@
 #include "../utils/nvjpeg_encoder.h"
 
 #include <nlohmann/json.hpp>
+// #include <fmt/format.h>
+#include <fmt/chrono.h>
 
 #include <chrono>
 #include <string>
@@ -36,7 +38,9 @@ void MatrixNotifier::handle_image(const cv::cuda::GpuMat &frame,
     SPDLOG_ERROR("m_gpu_encoder->encode() failed");
     return;
   }
-  m_sender->send_jpeg(jpeg_bytes, frame.cols, frame.rows, "Test Image");
+  m_sender->send_jpeg(jpeg_bytes, frame.cols, frame.rows, fmt::format(
+              "matrix-pipeline-matrix-notifier-{:%Y-%m-%dT%H:%M:%SZ}.jpg",
+              std::chrono::system_clock::now()));
 }
 
 void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
@@ -44,6 +48,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
                                   const bool is_people_detected) {
   if (!m_is_send_video_enabled)
     return;
+
   if (!is_people_detected && m_state == Utils::VideoRecordingState::IDLE)
     return;
 
@@ -53,7 +58,6 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       m_ram_buf = std::make_unique<Utils::RamVideoBuffer>();
       if (m_ram_buf == nullptr)
         throw std::bad_alloc();
-      constexpr auto target_fps = 25.0;
       // cv::cudacodec::createVideoWriter expects a .mp4 file path, we must
       // emulate this behavior...
       symlink_path =
@@ -72,7 +76,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       params.targetQuality = 31;
 
       m_writer = cv::cudacodec::createVideoWriter(
-          symlink_path, frame.size(), cv::cudacodec::Codec::H264, target_fps,
+          symlink_path, frame.size(), cv::cudacodec::Codec::H264, m_target_fps,
           cv::cudacodec::ColorFormat::BGR, params);
       m_current_video_length_in_frame = 0;
       m_current_video_length_without_people_in_frame = 0;
@@ -116,8 +120,12 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       SPDLOG_INFO("Matrix video recording stopped, size: {}KB + {}KB",
                   ram_buf->size / 1024, jpeg_data.size() / 1024);
       m_sender->send_video_from_memory(
-          data, "test caption", m_video_max_length_in_frame / 30 * 1000,
-          jpeg_data, m_max_roi_value_frame.size().width,
+          data,
+          fmt::format(
+              "matrix-pipeline-matrix-notifier-{:%Y-%m-%dT%H:%M:%SZ}.mp4",
+              std::chrono::system_clock::now()),
+          static_cast<size_t>(m_current_video_length_in_frame * 1000 / m_target_fps), jpeg_data,
+          m_max_roi_value_frame.size().width,
           m_max_roi_value_frame.size().height);
     }).detach();
     m_state = Utils::VideoRecordingState::IDLE;

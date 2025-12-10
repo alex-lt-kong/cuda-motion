@@ -214,7 +214,9 @@ export OPENCV_FFMPEG_WRITER_OPTIONS="hw_encoders_any;cuda"
     export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
     # ts: test support
     # cudafilters: a test dependency for cudaimgproc
-    export BUILD_LIST="core,imgproc,videoio,imgcodecs,cudev,cudacodec,ts,cudaarithm,cudaimgproc,cudawarping,cudafilters,dnn"
+    # dnn: deep neural network support
+    # objdetect: for facial detection and recognition
+    export BUILD_LIST="core,imgproc,videoio,imgcodecs,cudev,cudacodec,ts,cudaarithm,cudaimgproc,cudawarping,cudafilters,dnn,objdetect"
     
 cmake \
 -D CMAKE_BUILD_TYPE=Release \

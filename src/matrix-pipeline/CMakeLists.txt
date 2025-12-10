@@ -1,11 +1,5 @@
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(OpenCV REQUIRED)
-include_directories(${OpenCV_INCLUDE_DIRS})
-message(STATUS "OpenCV found at: ${OpenCV_DIR}")
-message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")
-message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
-
 find_package(CUDAToolkit)
 find_package(protobuf CONFIG REQUIRED)
 find_package(cppzmq CONFIG REQUIRED)

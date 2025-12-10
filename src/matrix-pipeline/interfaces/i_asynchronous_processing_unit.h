@@ -170,7 +170,7 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
   size_t m_current_video_length_without_people_in_frame{0};
   float m_max_roi_value{0.0f};
   cv::cuda::GpuMat m_max_roi_value_frame{-1};
-
+  const double m_target_fps{25.0};
   cv::Ptr<cv::cudacodec::VideoWriter> m_writer{nullptr};
   std::unique_ptr<Utils::RamVideoBuffer> m_ram_buf{nullptr};
   Utils::VideoRecordingState m_state{Utils::IDLE};
