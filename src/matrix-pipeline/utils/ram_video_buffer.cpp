@@ -1,5 +1,7 @@
+#ifndef _GNU_SOURCE
 // This must be the very first line to enable memfd_create
 #define _GNU_SOURCE
+#endif
 
 #include "ram_video_buffer.h"
 
@@ -12,7 +14,7 @@
 #include <sys/stat.h> // fstat
 #include <unistd.h>   // close
 
-CudaMotion::Utils::RamVideoBuffer::RamVideoBuffer() {
+MatrixPipeline::Utils::RamVideoBuffer::RamVideoBuffer() {
   // 1. Create an anonymous file in RAM
   // "mp4_buffer" is just a name for debugging tools, not a real filename
   fd = memfd_create("mp4_buffer", 0);
@@ -26,7 +28,7 @@ CudaMotion::Utils::RamVideoBuffer::RamVideoBuffer() {
   m_virtual_path = (proc_path / std::to_string(fd)).string();
 }
 
-CudaMotion::Utils::RamVideoBuffer::~RamVideoBuffer() {
+MatrixPipeline::Utils::RamVideoBuffer::~RamVideoBuffer() {
   // Unmap memory if it was mapped
   if (m_data_ptr && m_data_ptr != MAP_FAILED) {
     if (auto result = munmap(m_data_ptr, size); result != 0) {
@@ -40,7 +42,7 @@ CudaMotion::Utils::RamVideoBuffer::~RamVideoBuffer() {
   }
 }
 
-[[nodiscard]] bool CudaMotion::Utils::RamVideoBuffer::lock_and_map() {
+[[nodiscard]] bool MatrixPipeline::Utils::RamVideoBuffer::lock_and_map() {
   // Get the final size of the video written by OpenCV
   struct stat sb;
   if (fstat(fd, &sb) == -1) {

@@ -16,7 +16,7 @@
 
 using njson = nlohmann::json;
 
-namespace CudaMotion {
+namespace MatrixPipeline {
 class PipelineExecutor {
 private:
   /**
@@ -110,4 +110,4 @@ public:
   }
 }
 };
-} // namespace CudaMotion
+} // namespace MatrixPipeline

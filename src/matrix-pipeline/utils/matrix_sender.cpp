@@ -7,7 +7,7 @@
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 
-namespace CudaMotion::Utils {
+namespace MatrixPipeline::Utils {
 
 // -----------------------------------------------------------------------------
 // Private Helpers
@@ -209,4 +209,4 @@ void MatrixSender::send_video_from_memory(const std::string &video_data,
   send_event(content, "m.video");
 }
 
-} // namespace CudaMotion::Utils
+} // namespace MatrixPipeline::Utils

@@ -8,7 +8,7 @@
 
 using njson = nlohmann::json;
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 class ISynchronousProcessingUnit {
 public:
@@ -71,6 +71,8 @@ private:
   float m_conf_thres = 0.5f;
   float m_nms_thres = 0.45f;
   int m_frame_interval = 10;
+  int64_t m_inference_interval_ms = 100;
+  int64_t m_last_inference_time_ms = 0;
   YoloContext m_prev_yolo_ctx;
 
   void post_process_yolo(const cv::cuda::GpuMat &frame,
@@ -106,6 +108,7 @@ private:
 };
 
 class DebugOutput final : public ISynchronousProcessingUnit {
+  std::string m_custom_text;
 public:
   DebugOutput() = default;
   ~DebugOutput() override = default;
@@ -116,4 +119,4 @@ public:
                                       PipelineContext &ctx) override;
 };
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

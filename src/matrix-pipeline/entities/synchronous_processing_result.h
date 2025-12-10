@@ -1,6 +1,6 @@
 #pragma once
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 enum SynchronousProcessingResult {
   success_and_continue = 0,
   success_and_stop = 1,

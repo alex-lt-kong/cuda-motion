@@ -15,7 +15,7 @@
 #include <deque>
 #include <regex>
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 struct VideoWriterConfig {
   std::string m_file_path_template;
@@ -242,4 +242,4 @@ private:
   }
 };
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

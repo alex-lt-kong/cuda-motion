@@ -1,7 +1,7 @@
 #include "../interfaces/i_asynchronous_processing_unit.h"
 #include "../pipeline_executor.h"
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 bool AsynchronousProcessingUnit::init(const njson &config) {
   m_exe = std::make_unique<PipelineExecutor>();
@@ -13,4 +13,4 @@ void AsynchronousProcessingUnit::on_frame_ready(cv::cuda::GpuMat &frame,
   m_exe->on_frame_ready(frame, ctx);
 }
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

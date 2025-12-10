@@ -3,7 +3,7 @@
 #include <string>
 #include <cstddef> // for size_t
 
-namespace CudaMotion::Utils {
+namespace MatrixPipeline::Utils {
 
 
 struct RamVideoBuffer {

@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 bool DetectObjects::init(const njson &config) {
   try {
@@ -17,7 +17,6 @@ bool DetectObjects::init(const njson &config) {
       SPDLOG_ERROR("modelPath not defined");
       return false;
     }
-
     m_model_path = config["modelPath"].get<std::string>();
 
     // Allow overriding input size via config
@@ -25,16 +24,19 @@ bool DetectObjects::init(const njson &config) {
       m_model_input_size.width = config["inputWidth"].get<int>();
     if (config.contains("inputHeight"))
       m_model_input_size.height = config["inputHeight"].get<int>();
-    if (config.contains("frameInterval"))
-      m_frame_interval = config["frameInterval"].get<int>();
+    m_inference_interval_ms = config.value("inferenceIntervalMs", m_inference_interval_ms);
 
     SPDLOG_INFO("Loading ONNX model: {}", m_model_path);
 
     m_net = cv::dnn::readNetFromONNX(m_model_path);
     m_net.setPreferableBackend(cv::dnn::DNN_BACKEND_CUDA);
     m_net.setPreferableTarget(cv::dnn::DNN_TARGET_CUDA);
-
-    return !m_net.empty();
+    if (m_net.empty()) {
+      SPDLOG_ERROR("Failed to load ONNX model: {}", m_model_path);
+      return false;
+    }
+    SPDLOG_INFO("model_path: {}, inference_interval_ms: {}", m_model_path, m_inference_interval_ms);
+    return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("Init failed: {}", e.what());
     return false;
@@ -96,15 +98,16 @@ void DetectObjects::post_process_yolo(const cv::cuda::GpuMat &frame,
 
 SynchronousProcessingResult DetectObjects::process(cv::cuda::GpuMat &frame,
                                                    PipelineContext &ctx) {
-  if (ctx.frame_seq_num % m_frame_interval != 0) {
+  using namespace std::chrono;
+  const auto now_ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+  if (now_ms - m_last_inference_time_ms < m_inference_interval_ms) {
     ctx.yolo = m_prev_yolo_ctx;
     return success_and_continue;
   }
-
+  m_last_inference_time_ms = now_ms;
   if (frame.empty() || m_net.empty())
     return failure_and_continue;
 
-  // Clear previous results
   ctx.yolo.inference_outputs.clear();
   ctx.yolo.inference_input_size = m_model_input_size;
 
@@ -144,4 +147,4 @@ SynchronousProcessingResult DetectObjects::process(cv::cuda::GpuMat &frame,
   }
 }
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

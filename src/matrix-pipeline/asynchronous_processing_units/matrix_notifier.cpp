@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 bool MatrixNotifier::check_if_people_detected(const PipelineContext &ctx) {
   bool person_detected = false;
@@ -202,4 +202,4 @@ void MatrixNotifier::on_frame_ready(cv::cuda::GpuMat &frame,
                  ctx, is_people_detected);
 }
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

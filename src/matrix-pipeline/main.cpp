@@ -82,8 +82,8 @@ int main(int argc, char *argv[]) {
 
   configure_spdlog();
 
-  SPDLOG_INFO("Cuda Motion started (git commit: {})", GIT_COMMIT_HASH);
-  CudaMotion::Utils::install_signal_handler(signal_handler_cb);
+  SPDLOG_INFO("matrix-pi started (git commit: {})", GIT_COMMIT_HASH);
+  MatrixPipeline::Utils::install_signal_handler(signal_handler_cb);
   cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_ERROR);
   SPDLOG_INFO("cv::getBuildInformation(): {}",
               string(cv::getBuildInformation()));
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
   SPDLOG_INFO("Loading json settings from {}", configPath);
   ifstream is(configPath);
   settings = json::parse(is, nullptr, true, true);
-  auto mgr = make_unique<CudaMotion::DeviceManager>();
+  auto mgr = make_unique<MatrixPipeline::DeviceManager>();
   mgr->StartEv();
 
   // naive way to handle race condition of drogon::app().run(),

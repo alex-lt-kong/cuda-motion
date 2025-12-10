@@ -5,7 +5,7 @@
 
 #include <variant>
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 // class IAsynchronousProcessingUnit;
 
 using ProcessingUnitVariant =
@@ -18,4 +18,4 @@ template <class... Ts> struct overload : Ts... {
 };
 template <class... Ts> overload(Ts...) -> overload<Ts...>;
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

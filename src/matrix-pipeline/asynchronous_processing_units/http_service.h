@@ -21,7 +21,7 @@
 
 using namespace drogon;
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 class HttpService;
 
@@ -278,7 +278,7 @@ private:
       if (!check_auth(auth_header)) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k401Unauthorized);
-        resp->addHeader("WWW-Authenticate", "Basic realm=\"CudaMotion\"");
+        resp->addHeader("WWW-Authenticate", "Basic realm=\"MatrixPipeline\"");
         resp->setBody("Unauthorized");
         callback(resp);
         return false;
@@ -324,4 +324,4 @@ private:
   std::list<std::weak_ptr<trantor::TcpConnection>> m_stream_clients;
 };
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

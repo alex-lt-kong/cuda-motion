@@ -2,7 +2,7 @@
 
 #include <opencv2/cudawarping.hpp>
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 SynchronousProcessingResult
 RotateFrame::process(cv::cuda::GpuMat &frame,
@@ -32,4 +32,4 @@ bool RotateFrame::init(const njson &config) {
   m_angle = config["angle"];
   return true;
 };
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

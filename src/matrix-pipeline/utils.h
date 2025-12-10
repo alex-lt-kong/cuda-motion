@@ -15,7 +15,7 @@
 #include <vector>
 
 
-namespace CudaMotion::Utils {
+namespace MatrixPipeline::Utils {
 using njson = nlohmann::json;
 typedef auto(*signal_handler_callback)(int) -> void;
 

@@ -10,7 +10,7 @@
 #include <deque>
 #include <utility>
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 class CalculateChangeRate final : public ISynchronousProcessingUnit {
 private:
@@ -146,4 +146,4 @@ public:
   }
 };
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

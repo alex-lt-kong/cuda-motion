@@ -11,7 +11,7 @@
 
 using njson = nlohmann::json;
 
-namespace CudaMotion {
+namespace MatrixPipeline {
 struct videoWritingContext {
   std::string evaluatedVideoPath;
   float fps;
@@ -32,13 +32,9 @@ private:
 
   std::mutex mtx_vr;
   std::atomic<bool> delayed_vc_open_retry_registered{false};
-  cv::Ptr<cv::cudacodec::VideoReader> vr {nullptr};
-  void always_fill_in_frame(
-                            int expected_frame_height, int expected_frame_width,
-                            cv::cuda::GpuMat &frame,
+  cv::Ptr<cv::cudacodec::VideoReader> vr{nullptr};
+  void always_fill_in_frame(cv::cuda::GpuMat &frame,
                             ProcessingUnit::PipelineContext &ctx);
-  void handle_video_capture(
-                            const ProcessingUnit::PipelineContext &ctx,
-                            const std::string &video_feed);
+  void handle_video_capture(const ProcessingUnit::PipelineContext &ctx);
 };
-} // namespace CudaMotion
+} // namespace MatrixPipeline

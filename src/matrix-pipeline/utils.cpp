@@ -9,7 +9,7 @@
 
 using namespace std;
 
-namespace CudaMotion::Utils {
+namespace MatrixPipeline::Utils {
 
 signal_handler_callback sh_callback;
 
@@ -96,4 +96,4 @@ void install_signal_handler(signal_handler_callback cb) {
                         strerror(errno) + ")");
   }
 }
-} // namespace CudaMotion::Utils
+} // namespace MatrixPipeline::Utils

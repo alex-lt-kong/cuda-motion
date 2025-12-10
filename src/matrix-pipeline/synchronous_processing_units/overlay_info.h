@@ -2,222 +2,215 @@
 
 #include "../interfaces/i_synchronous_processing_unit.h"
 
+#include <fmt/chrono.h>
+#include <fmt/core.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/opencv.hpp>
+#include <spdlog/spdlog.h>
 
-#include <string>
-#include <chrono>
-#include <ctime>
-#include <iomanip>
-#include <sstream>
 #include <algorithm>
+#include <chrono>
+#include <sstream>
+#include <string>
+#include <vector>
 
 using njson = nlohmann::json;
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 class OverlayInfo final : public ISynchronousProcessingUnit {
 private:
-  // --- Configuration Flags ---
-  bool m_show_stats{true};
-  bool m_show_device_name{true};
-  bool m_show_date_time{true};
-  bool m_show_outline{true};
+  // --- Configuration ---
+  std::string m_format_template;
 
   // --- Visual Settings ---
-  // If > 0, calculates size based on frame height %.
-  // Default 0.015 = 1.5% of frame height.
-  float m_text_height_ratio{0.015f};
+  float m_text_height_ratio{0.01f}; // 1% of frame height
+  int m_margin_x{5};
+  int m_margin_y{5};
 
-  // Absolute size in PIXELS. Used if m_text_height_ratio is 0.
-  // Default to 24 pixels (readable on most 1080p screens).
-  int m_target_font_size_px{24};
-
-  // Calculated per-frame for OpenCV drawing
+  // Calculated per-frame
   float m_current_opencv_scale{1.0f};
   int m_current_thickness{2};
+  int m_line_height_px{0};
 
   cv::Scalar m_text_color{255, 255, 255};
   cv::Scalar m_glow_color{2, 2, 2};
+  // 0.0 = disable. 0.25 = border is 25% of font height.
+  float m_outline_ratio{0.25f};
+  float m_current_outline_thickness;
 
-  // --- Data: Device ---
-  std::string m_device_name{"Unknown Device"};
-
-  // --- Reusable Buffers ---
+  // --- Buffers ---
   cv::Mat h_text_strip;
   cv::cuda::GpuMat d_text_strip;
   cv::cuda::GpuMat d_strip_gray;
   cv::cuda::GpuMat d_mask;
 
-  // Constant: The base pixel height of FONT_HERSHEY_DUPLEX at scale 1.0
   static constexpr float BASE_FONT_HEIGHT_PX = 22.0f;
 
 public:
   inline OverlayInfo() = default;
   inline ~OverlayInfo() override = default;
 
-  /**
-   * @brief Configures overlay.
-   * JSON Keys:
-   * - fontSizePx: (int) Height in Pixels (e.g., 32). Disables dynamic ratio.
-   * - textHeightRatio: (float) Height relative to frame (e.g., 0.02).
-   */
   bool init(const njson &config) override {
     try {
-      // 1. Load Flags
-      if (config.contains("showStats")) m_show_stats = config["showStats"].get<bool>();
-      if (config.contains("showDeviceName")) m_show_device_name = config["showDeviceName"].get<bool>();
-      if (config.contains("showDateTime")) m_show_date_time = config["showDateTime"].get<bool>();
-      if (config.contains("showOutline")) m_show_outline = config["showOutline"].get<bool>();
 
-      // 2. Load Visual Config
+      m_text_height_ratio = config.value("textHeightRatio", m_text_height_ratio);
+      m_outline_ratio = config.value("outlineRatio", m_outline_ratio);
 
-      // OPTION A: Absolute Pixels
-      if (config.contains("fontSizePx")) {
-          m_target_font_size_px = config["fontSizePx"].get<int>();
-          // Safety: Don't allow invisible text
-          if (m_target_font_size_px < 8) m_target_font_size_px = 8;
+      m_format_template = config.value(
+          "text", "{deviceName},\nChg: {changeRate:.2f}, FPS: "
+                  "{fps:.1f}\n{frameCaptureTime:%Y-%m-%d %H:%M:%S}");
 
-          // Disable dynamic ratio since user requested specific pixel size
-          m_text_height_ratio = 0.0f;
-      }
-
-      // OPTION B: Relative Ratio (Takes precedence if both provided)
-      if (config.contains("textHeightRatio")) {
-          m_text_height_ratio = config["textHeightRatio"].get<float>();
-      }
-
-      // Manual thickness override (optional)
-      if (config.contains("thickness")) {
-          // If user hardcodes thickness, we might store it,
-          // but usually dynamic thickness is better.
-          // We'll treat this as a "base" but calculation below might override.
-          m_current_thickness = config["thickness"].get<int>();
-      }
-
-      // 3. Load Device Data
-      if (config.contains("deviceName")) m_device_name = config["deviceName"].get<std::string>();
-      SPDLOG_INFO("textHeightRatio: {}, fontSizePx: {}", m_text_height_ratio, m_target_font_size_px);
+      SPDLOG_INFO("outline_ratio: {}, text_height_ratio: {}, format_template: {}", m_outline_ratio, m_text_height_ratio, m_format_template);
       return true;
     } catch (const std::exception &e) {
-      SPDLOG_ERROR("OverlayInfo::init: {}", e.what());
+      SPDLOG_ERROR("error: {}", e.what());
       return false;
     }
   }
 
-  [[nodiscard]] SynchronousProcessingResult process(cv::cuda::GpuMat &frame, PipelineContext& meta_data) override {
-    if (frame.empty()) return failure_and_continue;
+  [[nodiscard]] SynchronousProcessingResult
+  process(cv::cuda::GpuMat &frame, PipelineContext &ctx) override {
+    if (frame.empty())
+      return success_and_continue;
 
-    // --- 1. Determine Target Pixel Height ---
-    float final_px_height = 0.0f;
+    // --- 1. Prepare Data & Format String ---
+    // A. Resolve Timestamp
+    auto now_tp = (ctx.capture_timestamp_ms > 0)
+                      ? std::chrono::system_clock::time_point(
+                            std::chrono::milliseconds(ctx.capture_timestamp_ms))
+                      : std::chrono::system_clock::now();
 
-    if (m_text_height_ratio > 0.0f) {
-        // Dynamic Mode
-        final_px_height = frame.rows * m_text_height_ratio;
-    } else {
-        // Absolute Mode
-        final_px_height = static_cast<float>(m_target_font_size_px);
+    // B. Convert to Local Time (std::tm)
+    // This ensures {dateTimeNow:%Y-%m-%d} works correctly and uses Local Time
+    // zone.
+    std::time_t now_c = std::chrono::system_clock::to_time_t(now_tp);
+    std::tm now_tm;
+    // Note: localtime_r is the thread-safe version on Linux/POSIX.
+    // If you are on Windows, use localtime_s(&now_tm, &now_c);
+    localtime_r(&now_c, &now_tm);
+
+    std::string full_text;
+    try {
+      full_text = fmt::format(fmt::runtime(m_format_template),
+                              fmt::arg("deviceName", ctx.device_info.name),
+                              fmt::arg("fps", ctx.fps),
+                              fmt::arg("changeRate", ctx.change_rate),
+                              fmt::arg("frameCaptureTime", now_tm));
+    } catch (const std::exception &e) {
+      full_text = std::string("FMT Error: ") + e.what();
     }
 
-    // Clamp minimum readable size (approx 10px)
-    if (final_px_height < 10.0f) final_px_height = 10.0f;
+    if (full_text.empty())
+      return success_and_continue;
 
-    // --- 2. Convert Pixels -> OpenCV Scale ---
-    // Scale = TargetPixels / BasePixels
-    m_current_opencv_scale = final_px_height / BASE_FONT_HEIGHT_PX;
-
-    // --- 3. Calculate Thickness ---
-    // Heuristic: Thicker font for larger text.
-    // Approx 1 thickness per 20px height looks decent for Duplex.
-    m_current_thickness = std::max(1, static_cast<int>(final_px_height / 20.0f));
-
-    // --- 4. Prepare Strip ---
-    // Strip height is Font Height + Padding (1.5x)
-    int stripHeight = static_cast<int>(final_px_height * 1.5f);
-    if (stripHeight > frame.rows) stripHeight = frame.rows;
-
-    cv::Size stripSize(frame.cols, stripHeight);
-    if (h_text_strip.size() != stripSize || h_text_strip.type() != frame.type()) {
-      h_text_strip.create(stripSize, frame.type());
+    // --- 2. Split into Lines ---
+    std::vector<std::string> lines;
+    std::stringstream ss(full_text);
+    std::string line;
+    while (std::getline(ss, line, '\n')) {
+      lines.push_back(line);
     }
 
-    // Center text vertically in the strip
-    // Baseline offset approx same as font height for simple centering
-    int textY = (stripHeight + static_cast<int>(final_px_height)) / 2;
-    // Slight adjustment for baseline rendering
-    textY -= static_cast<int>(final_px_height * 0.1f);
+    if (lines.empty())
+      return success_and_continue;
 
-    // --- Draw Bottom Strip ---
-    if (m_show_stats || m_show_device_name) {
-      h_text_strip.setTo(cv::Scalar::all(0));
+    // --- 3. Update Font Metrics ---
+    updateFontMetrics(frame.rows);
 
-      if (m_show_stats) {
-        char buff[128];
-        float rate = (meta_data.change_rate >= 0) ? meta_data.change_rate * 100.0f : 0.0f;
-        snprintf(buff, sizeof(buff) - 1, "%.2f%%, %.1ffps", rate, meta_data.fps);
-        drawText(h_text_strip, buff, cv::Point(10, textY));
+    // --- 4. Prepare Rendering Surface ---
+    int stripHeight =
+        (static_cast<int>(lines.size()) * m_line_height_px) + (2 * m_margin_y);
+    if (stripHeight > frame.rows)
+      stripHeight = frame.rows;
+
+    if (h_text_strip.cols != frame.cols || h_text_strip.rows != stripHeight ||
+        h_text_strip.type() != CV_8UC3) {
+      h_text_strip.create(stripHeight, frame.cols, CV_8UC3);
+    }
+
+    h_text_strip.setTo(cv::Scalar::all(0));
+
+    // --- 5. Draw Lines (Left Aligned) ---
+    int currentY = m_margin_y + static_cast<int>(BASE_FONT_HEIGHT_PX *
+                                                 m_current_opencv_scale);
+
+    // CHANGED: Simpler X calculation for Left Alignment
+    int x = m_margin_x;
+
+    for (const auto &txt : lines) {
+      if (txt.empty()) {
+        currentY += m_line_height_px;
+        continue;
       }
 
-      if (m_show_device_name) {
-        int bl = 0;
-        cv::Size textSize = cv::getTextSize(m_device_name, cv::FONT_HERSHEY_DUPLEX, m_current_opencv_scale, m_current_thickness, &bl);
-        int textX = frame.cols - textSize.width - 10;
-        drawText(h_text_strip, m_device_name, cv::Point(textX, textY));
-      }
+      // We no longer need to measure text width for alignment,
+      // but we still call getTextSize inside putText internally by OpenCV.
+      // For left alignment, X is constant.
+      cv::Point org(x, currentY);
 
-      uploadAndOverlay(frame, cv::Rect(0, frame.rows - stripHeight, frame.cols, stripHeight));
+      // CHANGED: Use outlineRatio logic
+      if (m_outline_ratio > 0.0f) {
+        // Draw thicker outline behind
+        cv::putText(h_text_strip, txt, org, cv::FONT_HERSHEY_DUPLEX, m_current_opencv_scale,
+                    m_glow_color, m_current_outline_thickness, cv::LINE_AA);
+      }
+      // Draw main text
+      cv::putText(h_text_strip, txt, org, cv::FONT_HERSHEY_DUPLEX,
+                  m_current_opencv_scale, m_text_color, m_current_thickness,
+                  cv::LINE_AA);
+
+      currentY += m_line_height_px;
     }
 
-    // --- Draw Top Strip ---
-    if (m_show_date_time) {
-      h_text_strip.setTo(cv::Scalar::all(0));
-
-      std::time_t now_c;
-      if (meta_data.capture_timestamp_ms > 0) {
-          auto duration = std::chrono::milliseconds(meta_data.capture_timestamp_ms);
-          auto time_point = std::chrono::system_clock::time_point(duration);
-          now_c = std::chrono::system_clock::to_time_t(time_point);
-      } else {
-          now_c = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-      }
-
-      std::tm now_tm;
-      localtime_r(&now_c, &now_tm);
-
-      std::stringstream ss;
-      ss << std::put_time(&now_tm, "%Y-%m-%d %H:%M:%S");
-
-      drawText(h_text_strip, ss.str(), cv::Point(10, textY));
-
-      uploadAndOverlay(frame, cv::Rect(0, 0, frame.cols, stripHeight));
-    }
+    // --- 6. Upload and Overlay ---
+    uploadAndOverlay(frame, cv::Rect(0, 0, frame.cols, stripHeight));
 
     return success_and_continue;
   }
 
 private:
-  void drawText(cv::Mat &img, const std::string &text, cv::Point org) {
-    if (m_show_outline) {
-      cv::putText(img, text, org, cv::FONT_HERSHEY_DUPLEX, m_current_opencv_scale,
-                  m_glow_color, m_current_thickness * 5, cv::LINE_8, false);
+  void updateFontMetrics(int frameRows) {
+    // 1. Calculate base text height
+    float final_px_height = std::max(frameRows * m_text_height_ratio, 6.0f);
+
+    m_current_opencv_scale = final_px_height / BASE_FONT_HEIGHT_PX;
+    m_current_thickness = std::max(1, static_cast<int>(final_px_height / 20.0f));
+
+    // 2. Calculate Border Size
+    int border_px = 0;
+    if (m_outline_ratio > 0.0f) {
+      border_px = static_cast<int>(final_px_height * m_outline_ratio);
+      // Safety: Ensure at least 1px if ratio is set
+      if (border_px < 1) border_px = 1;
+
+      m_current_outline_thickness = m_current_thickness + (2 * border_px);
+    } else {
+      m_current_outline_thickness = 0;
     }
-    cv::putText(img, text, org, cv::FONT_HERSHEY_DUPLEX, m_current_opencv_scale,
-                m_text_color, m_current_thickness, cv::LINE_8, false);
+
+    // 3. Fix Line Height
+    // Logic: (Font Height + Standard Spacing) + (Top Border + Bottom Border)
+    m_line_height_px = static_cast<int>(final_px_height * 1.2f) + (2 * border_px);
   }
 
   void uploadAndOverlay(cv::cuda::GpuMat &frame, cv::Rect roiRect) {
-    d_text_strip.upload(h_text_strip);
-    if (d_text_strip.channels() > 1) {
-      cv::cuda::cvtColor(d_text_strip, d_strip_gray, cv::COLOR_BGR2GRAY);
-    } else {
-      d_strip_gray = d_text_strip;
-    }
-    cv::cuda::threshold(d_strip_gray, d_mask, 0, 255, cv::THRESH_BINARY);
-    cv::cuda::GpuMat roi = frame(roiRect);
+    cv::Rect validRoi = roiRect & cv::Rect(0, 0, frame.cols, frame.rows);
+    if (validRoi.empty())
+      return;
+
+    cv::Mat cpuSrc =
+        h_text_strip(cv::Rect(0, 0, validRoi.width, validRoi.height));
+    d_text_strip.upload(cpuSrc);
+
+    cv::cuda::cvtColor(d_text_strip, d_strip_gray, cv::COLOR_BGR2GRAY);
+    cv::cuda::threshold(d_strip_gray, d_mask, 1, 255, cv::THRESH_BINARY);
+
+    cv::cuda::GpuMat roi = frame(validRoi);
     d_text_strip.copyTo(roi, d_mask);
   }
 };
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

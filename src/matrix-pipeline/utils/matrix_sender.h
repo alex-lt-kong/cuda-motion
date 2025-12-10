@@ -8,7 +8,7 @@
 using njson = nlohmann::json;
 using uchar = unsigned char;
 
-namespace CudaMotion::Utils {
+namespace MatrixPipeline::Utils {
 
 class MatrixSender {
 private:

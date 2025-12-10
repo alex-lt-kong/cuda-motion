@@ -5,7 +5,7 @@
 
 #include <vector>
 
-namespace CudaMotion::Utils{
+namespace MatrixPipeline::Utils{
 
 class NvJpegEncoder {
 public:

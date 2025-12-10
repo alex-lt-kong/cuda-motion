@@ -12,7 +12,7 @@
 #include <memory>
 #include <chrono>
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 class ZeroMqPublisher : public IAsynchronousProcessingUnit {
 private:
@@ -176,5 +176,5 @@ private:
     }
 };
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit
 */

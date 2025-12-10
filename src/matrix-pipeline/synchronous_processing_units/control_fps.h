@@ -4,7 +4,7 @@
 #include <deque>
 #include <nlohmann/json.hpp>
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 class ControlFps final : public ISynchronousProcessingUnit {
 private:
@@ -82,4 +82,4 @@ public:
   }
 };
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

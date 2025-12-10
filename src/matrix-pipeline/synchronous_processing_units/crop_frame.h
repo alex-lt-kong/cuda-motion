@@ -7,7 +7,7 @@
 #include <opencv2/opencv.hpp>
 
 using njson = nlohmann::json;
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 class CropFrame final : public ISynchronousProcessingUnit {
 private:

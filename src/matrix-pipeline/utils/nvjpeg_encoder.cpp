@@ -2,7 +2,7 @@
 
 #include <spdlog/spdlog.h>
 
-namespace CudaMotion::Utils {
+namespace MatrixPipeline::Utils {
 NvJpegEncoder::NvJpegEncoder() {
   check(nvjpegCreateSimple(&m_handle), "CreateSimple");
   check(nvjpegEncoderStateCreate(m_handle, &m_state, nullptr), "StateCreate");
@@ -59,4 +59,4 @@ bool NvJpegEncoder::encode(const cv::cuda::GpuMat &src,
         "RetrieveData");
   return true;
 }
-} // namespace CudaMotion::Utils
+} // namespace MatrixPipeline::Utils

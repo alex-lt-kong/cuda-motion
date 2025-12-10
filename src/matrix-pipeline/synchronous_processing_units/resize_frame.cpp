@@ -8,7 +8,7 @@
 
 using njson = nlohmann::json;
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 bool ResizeFrame::init(const njson &config) {
   try {
@@ -93,4 +93,4 @@ ResizeFrame::process(cv::cuda::GpuMat &frame,
     return failure_and_continue;
   }
 }
-}; // namespace CudaMotion::ProcessingUnit
+}; // namespace MatrixPipeline::ProcessingUnit

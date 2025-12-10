@@ -17,16 +17,16 @@
 #include <spdlog/spdlog.h>
 #include <thread>
 
-namespace CudaMotion {
+namespace MatrixPipeline {
 namespace Utils {
 
 class NvJpegEncoder;
 } // namespace Utils
 class PipelineExecutor;
-} // namespace CudaMotion
+} // namespace MatrixPipeline
 using njson = nlohmann::json;
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 struct AsyncPayload {
   cv::cuda::GpuMat frame;
@@ -191,4 +191,4 @@ public:
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
 };
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

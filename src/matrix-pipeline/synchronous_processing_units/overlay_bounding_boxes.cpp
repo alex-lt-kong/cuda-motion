@@ -11,7 +11,7 @@
 #include <cstdlib>
 #include <algorithm>
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
 
 bool OverlayBoundingBoxes::init([[maybe_unused]]const njson &config) {
     // 1. Initialize Class Names (Standard COCO 80 classes)
@@ -119,4 +119,4 @@ SynchronousProcessingResult OverlayBoundingBoxes::process(cv::cuda::GpuMat &fram
     }
 }
 
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

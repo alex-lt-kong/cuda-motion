@@ -13,12 +13,10 @@
 
 #include <regex>
 #include <sys/socket.h>
-#include <variant>
 
 using namespace std;
 
-namespace CudaMotion {
-
+namespace MatrixPipeline {
 
 void DeviceManager::InternalThreadEntry() {
   PipelineExecutor exe;
@@ -27,24 +25,28 @@ void DeviceManager::InternalThreadEntry() {
     return;
   }
 
-
   cv::cuda::GpuMat frame;
-  // cv::Ptr<cv::cudacodec::VideoReader> vr = nullptr;
-  const auto video_feed = settings["device"]["uri"].get<std::string>();
-  const auto expected_frame_width =
-      settings["device"]["expectedFrameSize"]["width"].get<int>();
-  const auto expected_frame_height =
-      settings["device"]["expectedFrameSize"]["height"].get<int>();
 
   ProcessingUnit::PipelineContext ctx;
+  try {
+    const auto device = settings["device"];
+    ctx.device_info = {.name = device.value("name", "Unnamed Device"),
+                       .uri = device["uri"].get<std::string>(),
+                       .expected_frame_size = {
+                           device["expectedFrameSize"]["width"].get<int>(),
+                           device["expectedFrameSize"]["height"].get<int>()}};
+  } catch (const std::exception &e) {
+    SPDLOG_ERROR("Failed to parse device info: {}", e.what());
+    return;
+  }
+
   ctx.capture_from_this_device_since_ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::system_clock::now().time_since_epoch())
           .count();
   while (ev_flag == 0) {
-    always_fill_in_frame(expected_frame_height, expected_frame_width, frame,
-                         ctx);
-    handle_video_capture(ctx, video_feed);
+    always_fill_in_frame(frame, ctx);
+    handle_video_capture(ctx);
     exe.on_frame_ready(frame, ctx);
   }
 
@@ -52,9 +54,8 @@ void DeviceManager::InternalThreadEntry() {
   SPDLOG_INFO("[{}] thread quits gracefully", deviceName);
 }
 
-void DeviceManager::always_fill_in_frame(
-    const int expected_frame_height, const int expected_frame_width,
-    cv::cuda::GpuMat &frame, ProcessingUnit::PipelineContext &ctx) {
+void DeviceManager::always_fill_in_frame(cv::cuda::GpuMat &frame,
+                                         ProcessingUnit::PipelineContext &ctx) {
   auto captured_from_real_device = false;
 
   try {
@@ -63,19 +64,20 @@ void DeviceManager::always_fill_in_frame(
     if (vr == nullptr) {
       if (ctx.frame_seq_num % interval_by_frames == 0)
         SPDLOG_WARN("vr == nullptr, frame_seq_num: {} (this "
-                     "message is throttled to once per {} frames)",
-                     ctx.frame_seq_num, interval_by_frames);
+                    "message is throttled to once per {} frames)",
+                    ctx.frame_seq_num, interval_by_frames);
     } else if (!vr->nextFrame(frame)) {
       if (ctx.frame_seq_num % interval_by_frames == 0)
         SPDLOG_ERROR("VideoReader->nextFrame(frame) returns false, "
                      "frame_seq_num: {} (this "
                      "message is throttled to once per {} frames)",
                      ctx.frame_seq_num, interval_by_frames);
-    } else if (frame.empty() || frame.size().height != expected_frame_height ||
-               frame.size().width != expected_frame_width) {
+    } else if (frame.empty() ||
+               frame.size() != ctx.device_info.expected_frame_size) {
       SPDLOG_ERROR("VideoReader->nextFrame((frame) returns frame with "
                    "unexpected size. expect ({}x{}) vs actual ({}x{})",
-                   expected_frame_width, expected_frame_height,
+                   ctx.device_info.expected_frame_size.width,
+                   ctx.device_info.expected_frame_size.height,
                    frame.size().width, frame.size().height);
     } else {
       captured_from_real_device = true;
@@ -87,7 +89,8 @@ void DeviceManager::always_fill_in_frame(
   if (!ctx.captured_from_real_device) {
     // emulate an 30-fps video device lol
     this_thread::sleep_for(1000ms / 34);
-    frame.create(expected_frame_height, expected_frame_width, CV_8UC3);
+    frame.create(ctx.device_info.expected_frame_size.height,
+                 ctx.device_info.expected_frame_size.width, CV_8UC3);
     frame.setTo(cv::Scalar(128, 128, 128));
   }
   ctx.capture_timestamp_ms =
@@ -95,19 +98,16 @@ void DeviceManager::always_fill_in_frame(
           std::chrono::system_clock::now().time_since_epoch())
           .count();
   if (captured_from_real_device != ctx.captured_from_real_device) {
-    ctx.capture_from_this_device_since_ms =
-        ctx.capture_timestamp_ms;
+    ctx.capture_from_this_device_since_ms = ctx.capture_timestamp_ms;
   }
   ctx.captured_from_real_device = captured_from_real_device;
   ++ctx.frame_seq_num;
 }
 
 void DeviceManager::handle_video_capture(
-    const ProcessingUnit::PipelineContext &ctx, const std::string &video_feed) {
+    const ProcessingUnit::PipelineContext &ctx) {
 
-  auto register_delayed_vc_open_retry = [this](const ProcessingUnit::
-                                                   PipelineContext &ctx,
-                                               const std::string &video_feed) {
+  auto register_delayed_vc_open_retry = [this, ctx]() {
     {
       std::lock_guard lock(mtx_vr);
       if (delayed_vc_open_retry_registered)
@@ -128,12 +128,13 @@ void DeviceManager::handle_video_capture(
                 ctx.captured_from_real_device, device_down_for_sec,
                 delay_sec_before_attempt);
     std::thread t(
-        [this](const long delay_sec_before_attempt, std::string video_feed) {
+        [this](const long delay_sec_before_attempt,
+               ProcessingUnit::PipelineContext ctx) {
           const auto delay_sec_before_attempt_ = delay_sec_before_attempt;
           SPDLOG_INFO(
               "timer started, delay_sec_before_attempt ({}) and then invoke "
               "cv::cudacodec::createVideoReader({})",
-              delay_sec_before_attempt_, video_feed);
+              delay_sec_before_attempt_, ctx.device_info.uri);
           std::this_thread::sleep_for(
               std::chrono::seconds(delay_sec_before_attempt_));
           {
@@ -141,30 +142,32 @@ void DeviceManager::handle_video_capture(
             SPDLOG_INFO(
                 "delay_sec_before_attempt ({}) reached, about to invoke "
                 "cv::cudacodec::createVideoReader({})",
-                delay_sec_before_attempt_, video_feed);
+                delay_sec_before_attempt_, ctx.device_info.uri);
             auto params = cv::cudacodec::VideoReaderInitParams();
             // https://docs.opencv.org/4.9.0/dd/d7d/structcv_1_1cudacodec_1_1VideoReaderInitParams.html
             params.allowFrameDrop = true;
             try {
-              vr = cv::cudacodec::createVideoReader(video_feed, {}, params);
+              vr = cv::cudacodec::createVideoReader(ctx.device_info.uri, {},
+                                                    params);
               vr->set(cv::cudacodec::ColorFormat::BGR);
               SPDLOG_INFO("cv::cudacodec::createVideoReader({}) succeeded",
-                          video_feed);
+                          ctx.device_info.uri);
             } catch (const cv::Exception &e) {
               spdlog::error("cudacodec::createVideoReader({}) failed: {}",
-                            video_feed, e.what());
+                            ctx.device_info.uri, e.what());
             }
-            // need to wait so that the event loop will not register a timer too soon
+            // need to wait so that the event loop will not register a timer too
+            // soon
             std::this_thread::sleep_for(5000ms);
             delayed_vc_open_retry_registered = false;
           }
         },
-        delay_sec_before_attempt, video_feed);
+        delay_sec_before_attempt, ctx);
     t.detach();
   };
 
   if (!ctx.captured_from_real_device) [[unlikely]] {
-    register_delayed_vc_open_retry(ctx, video_feed);
+    register_delayed_vc_open_retry();
   }
 }
-} // namespace CudaMotion
+} // namespace MatrixPipeline

@@ -5,7 +5,13 @@
 #include <cstdint>
 #include <algorithm>
 
-namespace CudaMotion::ProcessingUnit {
+namespace MatrixPipeline::ProcessingUnit {
+
+struct DeviceInfo {
+  std::string name;
+  std::string uri;
+  cv::Size expected_frame_size;
+};
 
 struct YoloContext {
   std::vector<cv::Mat> inference_outputs;
@@ -17,6 +23,7 @@ struct YoloContext {
 };
 
 struct PipelineContext {
+  DeviceInfo device_info;
   // false means it is a gray image
   bool captured_from_real_device = false;
   int64_t capture_timestamp_ms = 0;
@@ -28,4 +35,4 @@ struct PipelineContext {
 
   YoloContext yolo;
 };
-} // namespace CudaMotion::ProcessingUnit
+} // namespace MatrixPipeline::ProcessingUnit

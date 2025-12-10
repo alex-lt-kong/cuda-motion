@@ -1,5 +1,5 @@
 #pragma once
 
-namespace CudaMotion::Utils {
+namespace MatrixPipeline::Utils {
 enum VideoRecordingState { IDLE, RECORDING };
 }
