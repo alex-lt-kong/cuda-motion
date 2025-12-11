@@ -1,4 +1,4 @@
-#include "../interfaces/i_synchronous_processing_unit.h"
+#include "detect_objects.h"
 
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
@@ -25,6 +25,7 @@ bool DetectObjects::init(const njson &config) {
     if (config.contains("inputHeight"))
       m_model_input_size.height = config["inputHeight"].get<int>();
     m_inference_interval_ms = config.value("inferenceIntervalMs", m_inference_interval_ms);
+    m_confidence_threshold = config.value("confidenceThreshold", m_confidence_threshold);
 
     SPDLOG_INFO("Loading ONNX model: {}", m_model_path);
 
@@ -35,7 +36,7 @@ bool DetectObjects::init(const njson &config) {
       SPDLOG_ERROR("Failed to load ONNX model: {}", m_model_path);
       return false;
     }
-    SPDLOG_INFO("model_path: {}, inference_interval_ms: {}", m_model_path, m_inference_interval_ms);
+    SPDLOG_INFO("model_path: {}, inference_interval_ms: {}, confidence_threshold: {}", m_model_path, m_inference_interval_ms, m_confidence_threshold);
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("Init failed: {}", e.what());
@@ -48,9 +49,9 @@ void DetectObjects::post_process_yolo(const cv::cuda::GpuMat &frame,
   const std::vector<cv::Mat> &outputs = ctx.yolo.inference_outputs;
 
   // Calculate Scale Factor (Frame vs Input Blob)
-  double x_factor =
+  const double x_factor =
       static_cast<double>(frame.cols) / ctx.yolo.inference_input_size.width;
-  double y_factor =
+  const double y_factor =
       static_cast<double>(frame.rows) / ctx.yolo.inference_input_size.height;
 
   // --- YOLO Output Parsing ---
@@ -74,25 +75,26 @@ void DetectObjects::post_process_yolo(const cv::cuda::GpuMat &frame,
     double max_class_score;
     cv::minMaxLoc(scores, 0, &max_class_score, 0, &class_id_point);
 
-    if (max_class_score > m_conf_thres) {
+    if (max_class_score > m_confidence_threshold) {
       float cx = row_ptr[0];
       float cy = row_ptr[1];
       float w = row_ptr[2];
       float h = row_ptr[3];
 
-      int left = int((cx - 0.5 * w) * x_factor);
-      int top = int((cy - 0.5 * h) * y_factor);
-      int width = int(w * x_factor);
-      int height = int(h * y_factor);
+      auto left = static_cast<int>((cx - 0.5 * w) * x_factor);
+      auto top = static_cast<int>((cy - 0.5 * h) * y_factor);
+      auto width = static_cast<int>(w * x_factor);
+      auto height = static_cast<int>(h * y_factor);
 
       ctx.yolo.boxes.emplace_back(left, top, width, height);
       ctx.yolo.confidences.push_back(static_cast<float>(max_class_score));
       ctx.yolo.class_ids.push_back(class_id_point.x);
+      ctx.yolo.is_in_roi.push_back(true);
     }
   }
 
   ctx.yolo.indices.clear();
-  cv::dnn::NMSBoxes(ctx.yolo.boxes, ctx.yolo.confidences, m_conf_thres,
+  cv::dnn::NMSBoxes(ctx.yolo.boxes, ctx.yolo.confidences, m_confidence_threshold,
                     m_nms_thres, ctx.yolo.indices);
 }
 
@@ -143,6 +145,8 @@ SynchronousProcessingResult DetectObjects::process(cv::cuda::GpuMat &frame,
 
   } catch (const cv::Exception &e) {
     SPDLOG_ERROR("Inference Error: {}", e.what());
+    m_inference_interval_ms = INT64_MAX;
+    SPDLOG_WARN("Inference is disabled to prevent flooding of log");
     return failure_and_continue;
   }
 }

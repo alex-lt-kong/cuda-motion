@@ -63,7 +63,7 @@ public:
           "text", "{deviceName},\nChg: {changeRate:.2f}, FPS: "
                   "{fps:.1f}\n{frameCaptureTime:%Y-%m-%d %H:%M:%S}");
 
-      SPDLOG_INFO("outline_ratio: {}, text_height_ratio: {}, format_template: {}", m_outline_ratio, m_text_height_ratio, m_format_template);
+      SPDLOG_INFO("outline_ratio: {}, text_height_ratio: {}, format_template: {:?}", m_outline_ratio, m_text_height_ratio, m_format_template);
       return true;
     } catch (const std::exception &e) {
       SPDLOG_ERROR("error: {}", e.what());

@@ -3,7 +3,6 @@
 #include "../utils/nvjpeg_encoder.h"
 
 #include <nlohmann/json.hpp>
-// #include <fmt/format.h>
 #include <fmt/chrono.h>
 
 #include <chrono>
@@ -39,7 +38,7 @@ void MatrixNotifier::handle_image(const cv::cuda::GpuMat &frame,
     return;
   }
   m_sender->send_jpeg(jpeg_bytes, frame.cols, frame.rows, fmt::format(
-              "matrix-pipeline-matrix-notifier-{:%Y-%m-%dT%H:%M:%SZ}.jpg",
+              "{:%Y-%m-%dT%H:%M:%SZ}.jpg",
               std::chrono::system_clock::now()));
 }
 
@@ -122,7 +121,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       m_sender->send_video_from_memory(
           data,
           fmt::format(
-              "matrix-pipeline-matrix-notifier-{:%Y-%m-%dT%H:%M:%SZ}.mp4",
+              "{:%Y-%m-%dT%H:%M:%SZ}.mp4",
               std::chrono::system_clock::now()),
           static_cast<size_t>(m_current_video_length_in_frame * 1000 / m_target_fps), jpeg_data,
           m_max_roi_value_frame.size().width,
@@ -187,7 +186,8 @@ bool MatrixNotifier::init(const njson &config) {
   m_sender = std::make_unique<Utils::MatrixSender>(
       m_matrix_homeserver, m_matrix_access_token, m_matrix_room_id);
   m_gpu_encoder = std::make_unique<Utils::NvJpegEncoder>();
-  m_sender->sendText("MatrixPipeline started");
+  if (config.value("testMatrixConnectivity", false))
+    m_sender->sendText("MatrixPipeline started");
   return true;
 }
 

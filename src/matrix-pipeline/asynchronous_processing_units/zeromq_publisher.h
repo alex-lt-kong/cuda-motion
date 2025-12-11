@@ -78,7 +78,7 @@ public:
     }
 
 protected:
-    void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &meta_data) override {
+    void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override {
         if (frame.empty()) return;
 
         try {
@@ -86,7 +86,7 @@ protected:
             cm::proto::FrameMsg proto_msg;
 
             // 2. Populate Metadata (Nested Message)
-            populate_pipeline_ctx(proto_msg.mutable_ctx(), meta_data);
+            populate_pipeline_ctx(proto_msg.mutable_ctx(), ctx);
 
             // 3. Handle Image Data
             if (m_use_compression) {

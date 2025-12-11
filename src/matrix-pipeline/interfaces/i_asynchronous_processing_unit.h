@@ -9,12 +9,12 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/cudacodec.hpp>
+#include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
-#include <spdlog/spdlog.h>
 #include <thread>
 
 namespace MatrixPipeline {
@@ -30,7 +30,7 @@ namespace MatrixPipeline::ProcessingUnit {
 
 struct AsyncPayload {
   cv::cuda::GpuMat frame;
-  PipelineContext meta_data;
+  PipelineContext ctx;
 };
 
 class IAsynchronousProcessingUnit {
@@ -52,9 +52,8 @@ public:
   SynchronousProcessingResult enqueue(const cv::cuda::GpuMat &frame,
                                       const PipelineContext &meta_data) {
     const auto frame_deep_copy = frame.clone();
-
     {
-      std::lock_guard<std::mutex> lock(m_queue_mutex);
+      std::lock_guard lock(m_queue_mutex);
       m_processing_queue.push(AsyncPayload{frame_deep_copy, meta_data});
     }
 
@@ -109,7 +108,7 @@ private:
       AsyncPayload payload;
 
       {
-        std::unique_lock<std::mutex> lock(m_queue_mutex);
+        std::unique_lock lock(m_queue_mutex);
 
         // Wait until the queue has data OR we are asked to stop
         m_cv.wait(lock, [this] {
@@ -124,13 +123,23 @@ private:
 
         payload = m_processing_queue.front();
         m_processing_queue.pop();
-        if (const auto queue_size = m_processing_queue.size();
-            queue_size > 30) {
-          SPDLOG_INFO("Processing queue size is above threshold ({})",
-                      queue_size);
+        auto queue_size = m_processing_queue.size();
+        if (constexpr auto warning_queue_size = 10;
+            queue_size > warning_queue_size) {
+          constexpr auto critical_queue_size = 60;
+          SPDLOG_WARN("queue_size ({}) is above warning_queue_size ({})",
+                      queue_size, warning_queue_size);
+          while (queue_size > critical_queue_size) {
+            auto [frame, ctx] = m_processing_queue.front();
+            m_processing_queue.pop();
+            queue_size = m_processing_queue.size();
+            SPDLOG_ERROR("queue_size ({}) is above critical_queue_size ({}), "
+                         "frame {} discarded to avoid OOM",
+                         queue_size, critical_queue_size, ctx.frame_seq_num);
+          }
         }
       }
-      on_frame_ready(payload.frame, payload.meta_data);
+      on_frame_ready(payload.frame, payload.ctx);
     }
   }
 
@@ -181,10 +190,10 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
                     [[maybe_unused]] const PipelineContext &ctx,
                     const bool is_people_detected) const;
   void handle_video(const cv::cuda::GpuMat &frame,
-  [[maybe_unused]] const PipelineContext &ctx,
-  const bool is_people_detected);
+                    [[maybe_unused]] const PipelineContext &ctx,
+                    const bool is_people_detected);
 
-  static float calculate_roi_value(const YoloContext& yolo);
+  static float calculate_roi_value(const YoloContext &yolo);
 
 public:
   bool init(const njson &config) override;

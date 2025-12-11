@@ -209,14 +209,15 @@ export OPENCV_FFMPEG_WRITER_OPTIONS="hw_encoders_any;cuda"
     export INSTALL_PATH=/usr/local 
     mkdir -p "$INSTALL_PATH"
     # reveal the CUDA architecture and we build for it only
-    export CUDA_ARCH_BIN=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader)
+    export CUDA_ARCH_BIN=$(nvidia-smi --query-gpu=compute_cap --format=noheader,csv | tail -n1)
     # Find my own FFmpeg
     export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
     # ts: test support
     # cudafilters: a test dependency for cudaimgproc
     # dnn: deep neural network support
     # objdetect: for facial detection and recognition
-    export BUILD_LIST="core,imgproc,videoio,imgcodecs,cudev,cudacodec,ts,cudaarithm,cudaimgproc,cudawarping,cudafilters,dnn,objdetect"
+    # cudaarithm: for cv::cuda::addWeighted call
+    export BUILD_LIST="core,imgproc,videoio,imgcodecs,cudev,cudacodec,ts,cudaarithm,cudaimgproc,cudawarping,cudafilters,dnn,objdetect,cudaarithm"
     
 cmake \
 -D CMAKE_BUILD_TYPE=Release \
@@ -232,6 +233,7 @@ cmake \
 -D BUILD_PERF_TESTS=OFF \
 -D BUILD_TESTS=ON \
 -D OPENCV_DNN_CUDA=ON \
+-D WITH_GSTREAMER=ON \
 -D CUDA_ARCH_BIN="${CUDA_ARCH_BIN}" \
 -D OPENCV_TEST_DATA_PATH=~/repos/opencv_extra/testdata \
 ..
@@ -245,7 +247,7 @@ cmake \
   -- Found NVCUVENC:  /usr/lib/x86_64-linux-gnu/nvidia/current/libnvidia-encode.so
   ...
   --   NVIDIA CUDA:                   YES (ver 11.8, CUFFT CUBLAS NVCUVID NVCUVENC)
-  --     NVIDIA GPU arch:             35 37 50 52 60 61 70 75 80 86
+  --     NVIDIA GPU arch:             86
   --     NVIDIA PTX archs:
   ```
   

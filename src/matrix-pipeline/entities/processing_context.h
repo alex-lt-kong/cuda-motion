@@ -18,6 +18,7 @@ struct YoloContext {
   cv::Size inference_input_size;
   std::vector<cv::Rect> boxes;
   std::vector<size_t> class_ids;
+  std::vector<bool> is_in_roi;
   std::vector<float> confidences;
   std::vector<int> indices;
 };
@@ -32,6 +33,7 @@ struct PipelineContext {
   size_t processing_unit_idx = 0;
   float change_rate = -1;
   float fps = 0.0;
+  std::chrono::steady_clock::time_point latency_start_time;
 
   YoloContext yolo;
 };

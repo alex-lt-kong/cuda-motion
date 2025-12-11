@@ -6,10 +6,10 @@
 #include <drogon/drogon.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/core/utils/logger.hpp>
-#include <spdlog/spdlog.h>
 #include <spdlog/async.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 
 #include <fstream>
 #include <iostream>
@@ -39,16 +39,15 @@ void configure_spdlog() {
     // 1. Define the sinks (destinations)
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 
-    std::vector<spdlog::sink_ptr> sinks {console_sink};
+    std::vector<spdlog::sink_ptr> sinks{console_sink};
 
     // 2. Create the async logger
     // Note the use of create_async
     auto async_logger = std::make_shared<spdlog::async_logger>(
-        "cuda-motion",
-        sinks.begin(),
-        sinks.end(),
+        "cuda-motion", sinks.begin(), sinks.end(),
         spdlog::thread_pool(), // Pass the globally initialized thread pool
-        spdlog::async_overflow_policy::overrun_oldest // Choose the overflow policy
+        spdlog::async_overflow_policy::overrun_oldest // Choose the overflow
+                                                      // policy
     );
 
     // 3. Register it globally
@@ -58,10 +57,9 @@ void configure_spdlog() {
     spdlog::set_level(spdlog::level::debug);
     // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
     // Including microseconds is handy for naive profiling
-    spdlog::set_pattern("%Y-%m-%dT%T.%e | %8l | %s:%# (%!) | %v");
+    spdlog::set_pattern("%Y-%m-%dT%T.%e | %5t | %8l | %27s:%-3#:%-12! | %v");
 
-
-  } catch (const spdlog::spdlog_ex& ex) {
+  } catch (const spdlog::spdlog_ex &ex) {
     std::cerr << "Log initialization failed: " << ex.what() << std::endl;
   }
 }
@@ -96,18 +94,21 @@ int main(int argc, char *argv[]) {
 
   // naive way to handle race condition of drogon::app().run(),
   this_thread::sleep_for(chrono::seconds(5));
-  SPDLOG_INFO("Starting drogon thread");
-  app()
-      .setLogLevel(trantor::Logger::kWarn)
-      .setThreadNum(4)
-      .disableSigtermHandling()
-      .run();
-
-  SPDLOG_INFO("Drogon exited");
+  try {
+    SPDLOG_INFO("Starting drogon thread");
+    app()
+        .setLogLevel(trantor::Logger::kWarn)
+        .setThreadNum(4)
+        .disableSigtermHandling()
+        .run();
+    SPDLOG_INFO("Drogon exited");
+  } catch (const std::exception &e) {
+    SPDLOG_ERROR("{}, drogon is not enabled", e.what());
+  }
 
   mgr->JoinEv();
 
   SPDLOG_INFO("All device event loop threads exited gracefully");
- // spdlog::shutdown();
+  // spdlog::shutdown();
   return 0;
 }

@@ -63,49 +63,7 @@ public:
   process(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
 };
 
-class DetectObjects final : public ISynchronousProcessingUnit {
-private:
-  std::string m_model_path;
-  cv::Size m_model_input_size = {640, 640}; // Default YOLO size
-  cv::dnn::Net m_net;
-  float m_conf_thres = 0.5f;
-  float m_nms_thres = 0.45f;
-  int m_frame_interval = 10;
-  int64_t m_inference_interval_ms = 100;
-  int64_t m_last_inference_time_ms = 0;
-  YoloContext m_prev_yolo_ctx;
 
-  void post_process_yolo(const cv::cuda::GpuMat &frame,
-                         PipelineContext &ctx) const;
-
-public:
-  bool init(const njson &config) override;
-
-  SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
-                                      PipelineContext &ctx) override;
-};
-
-class OverlayBoundingBoxes final : public ISynchronousProcessingUnit {
-public:
-  OverlayBoundingBoxes() = default;
-  ~OverlayBoundingBoxes() override = default;
-
-  bool init(const njson &config) override;
-
-  SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
-                                      PipelineContext &ctx) override;
-
-private:
-  // --- State ---
-  std::vector<std::string> m_class_names;
-  std::vector<cv::Scalar> m_colors;
-
-  // --- Reusable Buffers (Avoid re-allocation) ---
-  cv::Mat h_overlay_canvas;          // Host (CPU) Canvas
-  cv::cuda::GpuMat d_overlay_canvas; // Device (GPU) Canvas
-  cv::cuda::GpuMat d_overlay_gray;   // Intermediate Gray for masking
-  cv::cuda::GpuMat d_overlay_mask;   // Final Mask
-};
 
 class DebugOutput final : public ISynchronousProcessingUnit {
   std::string m_custom_text;
@@ -118,5 +76,4 @@ public:
   SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
                                       PipelineContext &ctx) override;
 };
-
 } // namespace MatrixPipeline::ProcessingUnit

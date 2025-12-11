@@ -1,14 +1,12 @@
-#include "../interfaces/i_synchronous_processing_unit.h"
+#include "overlay_bounding_boxes.h"
 
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
-#include <opencv2/cudawarping.hpp>
 #include <opencv2/imgproc.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/fmt/fmt.h>
 
 #include <ctime>
-#include <cstdlib>
 #include <algorithm>
 
 namespace MatrixPipeline::ProcessingUnit {
@@ -30,7 +28,7 @@ bool OverlayBoundingBoxes::init([[maybe_unused]]const njson &config) {
     // 2. Initialize Random Colors
     // We seed with time to get different colors on different runs, 
     // or you can fix the seed for consistency.
-    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    std::srand(0); // we want deterministic coloring
     m_colors.clear();
     m_colors.reserve(80);
     for (int i = 0; i < 80; i++) {
@@ -49,36 +47,46 @@ SynchronousProcessingResult OverlayBoundingBoxes::process(cv::cuda::GpuMat &fram
     try {
         // 1. Prepare CPU Canvas
         // Ensure CPU canvas matches the GPU frame size/type
-        if (h_overlay_canvas.size() != frame.size() || h_overlay_canvas.type() != frame.type()) {
-            h_overlay_canvas.create(frame.size(), frame.type());
-        }
-        
-        // Clear canvas to black (0,0,0) - this is our transparent key
-        h_overlay_canvas.setTo(cv::Scalar::all(0));
+      if (h_overlay_canvas.size() != frame.size() ||
+          h_overlay_canvas.type() != frame.type()) {
+        h_overlay_canvas.create(frame.size(), frame.type());
+      }
 
-        // 2. Draw Detections on CPU Canvas
-        for (int idx : ctx.yolo.indices) {
-            int class_id = ctx.yolo.class_ids[idx];
-            
-            // Safety Checks
-            if (class_id < 0 || static_cast<size_t>(class_id) >= m_class_names.size()) continue; 
-            
-            // Optional: Hardcoded filter from original requirements (Person/Vehicles only)
-            if (class_id > 10) continue;
+      // Clear canvas to black (0,0,0) - this is our transparent key
+      h_overlay_canvas.setTo(cv::Scalar::all(0));
 
-            const auto &box = ctx.yolo.boxes[idx];
-            float conf = ctx.yolo.confidences[idx];
+      // 2. Draw Detections on CPU Canvas
+      for (int idx : ctx.yolo.indices) {
+        int class_id = ctx.yolo.class_ids[idx];
 
-            std::string label = m_class_names[class_id];
-            std::string label_text = fmt::format("{} {:.2f}", label, conf);
-            
-            cv::Scalar color = (static_cast<size_t>(class_id) < m_colors.size()) 
-                                ? m_colors[class_id] : cv::Scalar(0, 255, 0);
+        // Safety Checks
+        if (class_id < 0 ||
+            static_cast<size_t>(class_id) >= m_class_names.size())
+          continue;
 
-            // Draw Bounding Box
-            cv::rectangle(h_overlay_canvas, box, color, 2);
+        // Optional: Hardcoded filter from original requirements
+        // (Person/Vehicles only)
+        if (class_id > 10)
+          continue;
 
-            // Draw Label Background
+        const auto &box = ctx.yolo.boxes[idx];
+        float conf = ctx.yolo.confidences[idx];
+
+        std::string label = m_class_names[class_id];
+        std::string label_text = fmt::format("{}{} {:.2f} ", !ctx.yolo.is_in_roi[idx] ? "(!)" : "", label, conf);
+
+        cv::Scalar color;
+        if (!ctx.yolo.is_in_roi[idx])
+          color = cv::Scalar(0, 0, 255);
+        else
+          color = (static_cast<size_t>(class_id) < m_colors.size())
+                      ? m_colors[class_id]
+                      : cv::Scalar(0, 255, 0);
+
+        // Draw Bounding Box
+        cv::rectangle(h_overlay_canvas, box, color, 2);
+
+        // Draw Label Background
             int baseLine;
             cv::Size labelSize = cv::getTextSize(label_text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
             int top = std::max(box.y, labelSize.height);

@@ -17,22 +17,8 @@ set(PROTO_FILE ${CMAKE_CURRENT_SOURCE_DIR}/proto/frame_msg.proto)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILE})
 
 add_subdirectory(utils)
-
-add_library(rotate_frame
-        synchronous_processing_units/rotate_frame.cpp
-        interfaces/i_synchronous_processing_unit.h
-)
-
-add_library(resize_frame
-        synchronous_processing_units/resize_frame.cpp
-        interfaces/i_synchronous_processing_unit.h
-)
-
-add_library(debug_output
-        synchronous_processing_units/debug_oputput.cpp
-        interfaces/i_synchronous_processing_unit.h
-)
-target_link_libraries(debug_output spdlog::spdlog)
+add_subdirectory(synchronous_processing_units)
+add_subdirectory(asynchronous_processing_units)
 
 add_library(matrix_notifier
         asynchronous_processing_units/matrix_notifier.cpp
@@ -41,16 +27,6 @@ add_library(matrix_notifier
 target_link_libraries(matrix_notifier nvjpeg_encoder ram_video_buffer matrix_sender)
 target_link_libraries(matrix_notifier ${OpenCV_LIBS} CUDA::nvjpeg spdlog::spdlog cpr::cpr nlohmann_json::nlohmann_json)
 
-add_library(detect_objects
-        synchronous_processing_units/detect_objects.cpp
-        interfaces/i_synchronous_processing_unit.h
-)
-target_link_libraries(detect_objects spdlog::spdlog)
-
-add_library(overlay_bounding_boxes
-        synchronous_processing_units/overlay_bounding_boxes.cpp
-        interfaces/i_synchronous_processing_unit.h
-)
 
 add_library(asynchronous_processing_unit
         asynchronous_processing_units/asynchronous_processing_unit.cpp
@@ -68,12 +44,15 @@ add_executable(mp
 
 target_link_libraries(mp
         PRIVATE
+        annotate_bounding_boxes
         matrix_notifier
         debug_output
         rotate_frame
+        rtsp_producer
         resize_frame
         detect_objects
         overlay_bounding_boxes
+        measure_latency
         asynchronous_processing_unit
 )
 target_link_libraries(mp

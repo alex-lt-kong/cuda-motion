@@ -13,51 +13,91 @@ graph TD
     %% Define Styles
     classDef mainThread fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
     classDef asyncThread fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef latThread fill:#ffebee,stroke:#c62828,stroke-width:2px,stroke-dasharray: 2 2;
     classDef io fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
 
     %% Input
     RTSP([Camera RTSP Source]):::io --> Rotation
 
+    %% ============================================================
+    %% MAIN PIPELINE
+    %% ============================================================
     subgraph Main_Pipeline [Main Processing Thread]
         direction TB
-        Rotation(Rotate 270°) --> ChangeRate(Calc Change Rate)
-        ChangeRate --> Ovl1(Overlay Info)
+        Rotation(Rotate 270°) --> ChangeRate(Calc Change Rate<br/>5000ms)
+        ChangeRate --> Ovl1(Overlay Info<br/>Generic)
+        
+        %% Flow continues to FPS Control
         Ovl1 --> FPS(Control FPS)
-        FPS --> Crop(Crop Frame)
-
-        %% Note: The line continues here, but we show splits visually
-        Crop --> Resize(Resize Frame 0.5x)
-        Resize --> Ovl3(Overlay Info)
+        FPS --> Crop(Crop Frame<br/>L:0 R:0.07 T:0.25 B:0.4)
+        Crop --> OvlMain(Overlay Info<br/>Device Stats)
     end
 
-    %% ASYNC BRANCH 1: High Res Stream
-    Crop -.->|Clone & Push to Queue| Async1_Start(Async Queue):::asyncThread
+    %% ============================================================
+    %% ASYNC BRANCH 1: High Res View
+    %% MOVED: Branches off from Ovl1 (Before FPS & Before Crop)
+    %% ============================================================
+    Ovl1 -.->|Clone & Push| Async1_Start(Async Queue):::asyncThread
     subgraph Async_Worker_1 [Async Thread 1: High Res View]
         direction TB
         Async1_Start --> Async1_Ovl(Overlay Info)
-        Async1_Ovl --> HTTP1{{HTTP Server :54322}}:::io
+        Async1_Ovl --> HTTP_HR{{"HTTP Server :54320<br/>(High Res)"}}:::io
     end
 
-    %% ASYNC BRANCH 2: AI & Recording (Low Res)
-    Ovl3 -.->|Clone & Push to Queue| Async2_Start(Async Queue):::asyncThread
-    subgraph Async_Worker_2 [Async Thread 2: AI Analytics]
+    %% ============================================================
+    %% ASYNC BRANCH 2: YOLOv11s (Port 54321)
+    %% Branches from end of pipeline (Cropped & Low FPS)
+    %% ============================================================
+    OvlMain -.->|Clone & Push| Async2_Start(Async Queue):::asyncThread
+    subgraph Async_Worker_2 [Async Thread 2: YOLOv11s]
         direction TB
-        Async2_Start --> YOLO(Detect Objects<br/>YOLOv11s)
-        YOLO --> BBox(Overlay BBoxes)
-        BBox --> HTTP2{{HTTP Server :54321}}:::io
-        HTTP2 --> Writer(Video Writer<br/>save .mp4):::io
-        Writer --> Matrix(Matrix Notifier):::io
+        Async2_Start --> YOLO_S(Detect YOLOv11s<br/>Interval: 10)
+        YOLO_S --> BBox_S(Overlay BBoxes)
+        
+        %% Latency Measure
+        BBox_S --> LatStart_S(Latency Start):::latThread
+        LatStart_S --> Ovl_S(Overlay Info<br/>Model: yolo11s)
+        Ovl_S --> LatEnd_S(Latency End):::latThread
+
+        %% Output
+        LatEnd_S --> HTTP1{{HTTP Server :54321}}:::io
+        HTTP1 --> Writer1(Video Writer<br/>.mp4):::io
+        Writer1 --> Matrix1(Matrix Notifier):::io
     end
 
-    %% ASYNC BRANCH 3: ZeroMQ
-    Ovl3 -.->|Clone & Push to Queue| Async3_Start(Async Queue):::asyncThread
-    subgraph Async_Worker_3 [Async Thread 3: Integration]
-        Async3_Start --> ZMQ{{ZeroMQ Pub :5678}}:::io
+    %% ============================================================
+    %% ASYNC BRANCH 3: YOLOv11m (Port 54322)
+    %% ============================================================
+    OvlMain -.->|Clone & Push| Async3_Start(Async Queue):::asyncThread
+    subgraph Async_Worker_3 [Async Thread 3: YOLOv11m]
+        direction TB
+        Async3_Start --> YOLO_M(Detect YOLOv11m<br/>Interval: 10)
+        YOLO_M --> BBox_M(Overlay BBoxes)
+        
+        %% Latency Measure
+        BBox_M --> LatStart_M(Latency Start):::latThread
+        LatStart_M --> Ovl_M(Overlay Info<br/>Model: yolo11m)
+        Ovl_M --> LatEnd_M{{"Latency End<br/>P50/P90/P99"}}:::latThread
+
+        %% Output
+        LatEnd_M --> HTTP2{{HTTP Server :54322}}:::io
+        HTTP2 --> Writer2(Video Writer<br/>.mp4):::io
+        Writer2 --> Matrix2(Matrix Notifier):::io
+    end
+
+    %% ============================================================
+    %% ASYNC BRANCH 4: ZeroMQ (Integration)
+    %% ============================================================
+    OvlMain -.->|Clone & Push| Async4_Start(Async Queue):::asyncThread
+    subgraph Async_Worker_4 [Async Thread 4: Integration]
+        Async4_Start --> ZMQ{{ZeroMQ Pub :5678}}:::io
     end
 
     %% Styling classes assignment
-    class Rotation,ChangeRate,Ovl1,FPS,Crop,Resize,Ovl3 mainThread;
-    class Async1_Ovl,YOLO,BBox asyncThread;
+    class Rotation,ChangeRate,Ovl1,FPS,Crop,OvlMain mainThread;
+    class YOLO_S,BBox_S,Ovl_S asyncThread;
+    class YOLO_M,BBox_M,Ovl_M asyncThread;
+    class Async1_Ovl asyncThread;
 ```
 
 ## Dependencies
