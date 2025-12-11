@@ -28,7 +28,7 @@ bool OverlayBoundingBoxes::init([[maybe_unused]]const njson &config) {
     // 2. Initialize Random Colors
     // We seed with time to get different colors on different runs, 
     // or you can fix the seed for consistency.
-    std::srand(1); // we want deterministic coloring
+    std::srand(2); // we want deterministic coloring
     m_colors.clear();
     m_colors.reserve(80);
     for (int i = 0; i < 80; i++) {
