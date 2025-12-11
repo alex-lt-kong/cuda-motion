@@ -70,7 +70,7 @@ AnnotateBoundingBoxes::process(cv::cuda::GpuMat &frame, PipelineContext &ctx) {
       m_overlay_buffer.setTo(cv::Scalar(0, 255, 0));
     }
 
-    constexpr double alpha = 0.1;
+    constexpr double alpha = 0.05;
 
     auto is_restrictive = [](const Range &r) {
       return r.min_val > 0.001f || r.max_val < 0.999f;

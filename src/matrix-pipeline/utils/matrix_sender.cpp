@@ -1,10 +1,11 @@
 #include "matrix_sender.h"
 
-#include <chrono>
 #include <cpr/cpr.h>
-#include <cpr/callback.h>
-#include <fstream>
 #include <spdlog/spdlog.h>
+
+#include <thread>
+#include <chrono>
+#include <fstream>
 #include <stdexcept>
 
 namespace MatrixPipeline::Utils {
@@ -56,12 +57,13 @@ std::string MatrixSender::upload(const std::string &data,
   try {
     auto j = njson::parse(r.text);
     return j["content_uri"];
-  } catch (...) {
+  } catch (const std::exception &e) {
+    SPDLOG_ERROR("Unable to parse response from matrix server: {}", e.what());
     return "";
   }
 }
 
-void MatrixSender::send_event(const njson &contentBody,
+bool MatrixSender::send_event(const njson &contentBody,
                               const std::string &msgType) const {
   auto now = std::chrono::system_clock::now().time_since_epoch().count();
   const std::string txnId = std::to_string(now);
@@ -88,17 +90,16 @@ void MatrixSender::send_event(const njson &contentBody,
   });
   session.SetBody(cpr::Body{payload.dump()});
 
-  // 2. Conditionally apply Verbose
-  if (spdlog::get_level() == spdlog::level::debug) {
-  //  session.SetOption();
-  }
+
 
   // 3. Send the request
   if (cpr::Response r = session.Put(); r.status_code != 200) {
-    SPDLOG_ERROR("Send message failed: {}, {}", r.status_code, r.reason);
+    SPDLOG_ERROR("Send message failed.  status_code: {}, reason: {}", r.status_code, r.reason);
+    return false;
   } else {
     SPDLOG_INFO("Send message {} successfully", msgType);
     SPDLOG_DEBUG("payload: {}", payload.dump(2));
+    return true;
   }
 }
 
@@ -206,7 +207,15 @@ void MatrixSender::send_video_from_memory(const std::string &video_data,
   }
 
   content["info"] = info;
-  send_event(content, "m.video");
+  constexpr size_t max_retry_count = 5;
+  for (size_t i = 0; i < max_retry_count; ++i) {
+      if (send_event(content, "m.video"))
+        break;
+    const auto retry_delay_sec = i * 5;
+    SPDLOG_ERROR("failed, {}-th retry in {} sec. max_retry_count: {}", i+1, retry_delay_sec, max_retry_count);
+    std::this_thread::sleep_for(std::chrono::seconds(retry_delay_sec));
+  }
+
 }
 
 } // namespace MatrixPipeline::Utils

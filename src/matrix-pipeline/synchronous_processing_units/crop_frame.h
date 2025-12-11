@@ -37,7 +37,8 @@ public:
         return false;
       }
       return true;
-    } catch (...) {
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR("{}", e.what());
       return false;
     }
   }

@@ -28,7 +28,7 @@ bool OverlayBoundingBoxes::init([[maybe_unused]]const njson &config) {
     // 2. Initialize Random Colors
     // We seed with time to get different colors on different runs, 
     // or you can fix the seed for consistency.
-    std::srand(0); // we want deterministic coloring
+    std::srand(1); // we want deterministic coloring
     m_colors.clear();
     m_colors.reserve(80);
     for (int i = 0; i < 80; i++) {
@@ -77,7 +77,7 @@ SynchronousProcessingResult OverlayBoundingBoxes::process(cv::cuda::GpuMat &fram
 
         cv::Scalar color;
         if (!ctx.yolo.is_in_roi[idx])
-          color = cv::Scalar(0, 0, 255);
+          color = cv::Scalar(127, 127, 127);
         else
           color = (static_cast<size_t>(class_id) < m_colors.size())
                       ? m_colors[class_id]

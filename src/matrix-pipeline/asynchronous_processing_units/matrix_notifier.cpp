@@ -14,7 +14,7 @@ namespace MatrixPipeline::ProcessingUnit {
 bool MatrixNotifier::check_if_people_detected(const PipelineContext &ctx) {
   bool person_detected = false;
   for (const auto idx : ctx.yolo.indices) {
-    if (const auto class_id = ctx.yolo.class_ids[idx]; class_id == 0) {
+    if (ctx.yolo.class_ids[idx] == 0 && ctx.yolo.is_in_roi[idx]) {
       person_detected = true;
       break;
     }

@@ -23,7 +23,7 @@ private:
   std::string upload(const std::string& data, const std::string& contentType) const;
 
   // Internal helper to perform HTTP PUT for events
-  void send_event(const njson& contentBody, const std::string& msgType) const;
+  bool send_event(const njson& contentBody, const std::string& msgType) const;
 
   // Helper to read file from disk
   std::string readFile(const std::string& path);
