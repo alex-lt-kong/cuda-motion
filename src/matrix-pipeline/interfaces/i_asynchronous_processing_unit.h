@@ -126,7 +126,7 @@ private:
         auto queue_size = m_processing_queue.size();
         if (constexpr auto warning_queue_size = 10;
             queue_size > warning_queue_size) {
-          constexpr auto critical_queue_size = 60;
+          constexpr auto critical_queue_size = 30;
           SPDLOG_WARN("queue_size ({}) is above warning_queue_size ({})",
                       queue_size, warning_queue_size);
           while (queue_size > critical_queue_size) {

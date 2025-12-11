@@ -68,7 +68,7 @@ MeasureLatency::process([[maybe_unused]] cv::cuda::GpuMat &frame,
 
     // --- NEW: Check if enough time has passed to log ---
     if ((now - m_last_log_time) >= window_duration) {
-      SPDLOG_INFO("{}", this->to_string(get_percentile_stats()));
+      SPDLOG_INFO("{}: {}", m_label, this->to_string(get_percentile_stats()));
       m_last_log_time = now;
     }
   }
