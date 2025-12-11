@@ -16,8 +16,9 @@ public:
 
 private:
   struct Range {
-    double min_val = 0.0;
-    double max_val = 1.0;
+    // Make the range slightly larger to handle suspected precision is
+    double min_val = -0.001;
+    double max_val = 1.001;
   };
 
   Range m_left_constraint;

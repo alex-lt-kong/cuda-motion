@@ -77,7 +77,7 @@ AnnotateBoundingBoxes::process(cv::cuda::GpuMat &frame, PipelineContext &ctx) {
     };
 
     // Helper: Define ROI and Blend ONLY that area
-    auto draw_corridor_roi = [&](const Range &r, bool is_vertical) {
+    auto draw_corridor_roi = [&](const Range &r, const bool is_vertical) {
       if (!is_restrictive(r))
         return;
 
@@ -129,13 +129,12 @@ AnnotateBoundingBoxes::process(cv::cuda::GpuMat &frame, PipelineContext &ctx) {
   if (ctx.yolo.is_in_roi.size() != box_count) {
     ctx.yolo.is_in_roi.resize(box_count);
   }
-  // ... rest of logic code ...
 
   if (box_count == 0)
     return success_and_continue;
 
-  float f_w = static_cast<float>(img_w);
-  float f_h = static_cast<float>(img_h);
+  const auto f_w = static_cast<float>(img_w);
+  const auto f_h = static_cast<float>(img_h);
 
   for (size_t i = 0; i < box_count; ++i) {
     const cv::Rect &box = ctx.yolo.boxes[i];
