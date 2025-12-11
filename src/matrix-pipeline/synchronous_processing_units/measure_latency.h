@@ -35,7 +35,7 @@ private:
   Position m_position{Position::START};
   std::vector<double> m_target_percentiles{0.5, 0.9, 0.99};
 
-  // Default 5.0 seconds, updated via JSON
+  std::string m_label;
   double m_window_duration_sec{5.0};
 
   // History stores: <Time of measurement, Latency in microseconds>

@@ -20,14 +20,9 @@ bool MeasureLatency::init(const njson &config) {
     return false;
   }
 
-  // 2. Parse Percentiles
-  // This looks for "percentiles"; if missing, it assigns m_target_percentiles
-  // to itself (keeping default)
   m_target_percentiles = config.value("percentiles", m_target_percentiles);
-
-  // 3. Parse Rolling Window
-  m_window_duration_sec =
-      config.value("rollingWindowSec", m_window_duration_sec);
+  m_window_duration_sec = config.value("rollingWindowSec", m_window_duration_sec);
+  m_label = config.value("label", m_label);
 
   if (m_window_duration_sec <= 0.0) {
     SPDLOG_WARN("rollingWindowSec must be > 0. Resetting to default 5.0s");
