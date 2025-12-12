@@ -26,9 +26,12 @@ namespace MatrixPipeline::ProcessingUnit {
 
 bool PipelineExecutor::init(const njson &settings) {
   using namespace ProcessingUnit;
-  for (nlohmann::basic_json<>::size_type i = 0; i < settings.size(); ++i) {
+  SPDLOG_INFO("settings.dump(): {}", settings.dump());
+  const auto &settings_pipeline = settings["pipeline"];
+  for (nlohmann::basic_json<>::size_type i = 0; i < settings_pipeline.size();
+       ++i) {
     ProcessingUnitVariant ptr;
-    const std::string type = settings[i]["type"].get<std::string>();
+    const std::string type = settings_pipeline[i]["type"].get<std::string>();
     if (type == "SynchronousProcessingUnit::rotation") {
       ptr = std::make_unique<RotateFrame>();
     } else if (type == "SynchronousProcessingUnit::overlayInfo") {
@@ -65,14 +68,17 @@ bool PipelineExecutor::init(const njson &settings) {
       SPDLOG_WARN("Unrecognized pipeline unit, type: {}, idx: {}", type, i);
       continue;
     }
+    SPDLOG_INFO("Adding {}-th processing unit, type: {}", i, type);
     if (std::visit(
             overload{
                 [&](const std::unique_ptr<ISynchronousProcessingUnit> &ptr_) {
-                  return ptr_->init(settings[i]);
+                  return ptr_->init(settings_pipeline[i]);
                 },
                 [&](const std::unique_ptr<IAsynchronousProcessingUnit> &ptr_) {
-                  if (!ptr_->init(settings[i]))
+                  if (!ptr_->init(settings_pipeline[i])) {
+                    SPDLOG_ERROR("returned false!");
                     return false;
+                  }
                   ptr_->start();
                   return true;
                 },

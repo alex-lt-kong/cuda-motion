@@ -1,7 +1,7 @@
 #include "device_manager.h"
+#include "asynchronous_processing_units/asynchronous_processing_unit.h"
 #include "global_vars.h"
 #include "synchronous_processing_units/pipeline_executor.h"
-
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/core/types.hpp>
@@ -17,14 +17,14 @@ namespace MatrixPipeline {
 
 void DeviceManager::InternalThreadEntry() {
 
-  auto exe = ProcessingUnit::PipelineExecutor();
-
+  // auto exe = ProcessingUnit::PipelineExecutor();
+  auto apu = ProcessingUnit::AsynchronousProcessingUnit();
   // PipelineExecutor exe;
-  if (!exe.init(settings["pipeline"])) {
-    SPDLOG_INFO("root apu starting...");
+  if (!apu.init(settings)) {
+    SPDLOG_ERROR("root apu NOT starting...");
     return;
   }
-
+  apu.start();
   cv::cuda::GpuMat frame;
 
   ProcessingUnit::PipelineContext ctx;
@@ -47,7 +47,7 @@ void DeviceManager::InternalThreadEntry() {
   while (ev_flag == 0) {
     always_fill_in_frame(frame, ctx);
     handle_video_capture(ctx);
-    exe.process(frame, ctx);
+    apu.enqueue(frame, ctx);
   }
 
   vr.release();

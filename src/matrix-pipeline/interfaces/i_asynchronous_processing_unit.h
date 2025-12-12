@@ -12,6 +12,7 @@
 #include <spdlog/spdlog.h>
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
@@ -104,6 +105,8 @@ private:
    * Pops items from the queue and delegates to process_frame().
    */
   void dequeue_loop() {
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+    // std::this_thread::sleep_for(5000ms);
     while (m_running.load() || !is_queue_empty()) {
       AsyncPayload payload;
 
