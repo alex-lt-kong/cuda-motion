@@ -105,8 +105,8 @@ private:
    * Pops items from the queue and delegates to process_frame().
    */
   void dequeue_loop() {
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-    // std::this_thread::sleep_for(5000ms);
+    // std::this_thread::sleep_for(std::chrono::seconds(5));
+    SPDLOG_INFO("Now start dequeue_loop()");
     while (m_running.load() || !is_queue_empty()) {
       AsyncPayload payload;
 

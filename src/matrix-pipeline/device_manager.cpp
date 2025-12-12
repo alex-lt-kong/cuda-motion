@@ -1,7 +1,7 @@
 #include "device_manager.h"
 #include "asynchronous_processing_units/asynchronous_processing_unit.h"
 #include "global_vars.h"
-#include "synchronous_processing_units/pipeline_executor.h"
+// #include "synchronous_processing_units/pipeline_executor.h"
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/core/types.hpp>

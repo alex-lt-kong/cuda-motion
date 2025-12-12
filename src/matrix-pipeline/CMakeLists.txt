@@ -30,7 +30,6 @@ add_library(device_manager
 target_link_libraries(device_manager
         PRIVATE
         utils
-        pipeline_executor
         matrix_notifier
         debug_output
         rotate_frame

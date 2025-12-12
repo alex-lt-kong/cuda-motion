@@ -44,6 +44,7 @@ add_library(overlay_bounding_boxes
 )
 
 
-add_library(pipeline_executor
-        pipeline_executor.cpp pipeline_executor.h
-)
+#add_library(pipeline_executor
+#        pipeline_executor.cpp pipeline_executor.h
+#)
+#target_link_libraries(pipeline_executor spdlog::spdlog CUDA::nvjpeg)

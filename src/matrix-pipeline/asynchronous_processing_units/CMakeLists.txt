@@ -15,4 +15,16 @@ add_library(asynchronous_processing_unit
         asynchronous_processing_unit.cpp asynchronous_processing_unit.h
         ../interfaces/i_asynchronous_processing_unit.h
 )
-target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg)
+target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
+        utils
+        # pipeline_executor
+        matrix_notifier
+        debug_output
+        rotate_frame
+        rtsp_producer
+        resize_frame
+        detect_objects
+        prune_object_detection_results
+        collect_stats
+        overlay_bounding_boxes
+        measure_latency)
