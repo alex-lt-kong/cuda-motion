@@ -26,13 +26,24 @@ add_library(detect_objects
 )
 target_link_libraries(detect_objects spdlog::spdlog)
 
-add_library(annotate_bounding_boxes
-        annotate_bounding_boxes.cpp annotate_bounding_boxes.h
+add_library(prune_object_detection_results
+        prune_object_detection_results.cpp prune_object_detection_results.h
         ../interfaces/i_synchronous_processing_unit.h
 )
+target_link_libraries(prune_object_detection_results spdlog::spdlog ${OpenCV_LIBS})
+
+add_library(collect_stats
+        collect_stats.cpp collect_stats.h
+        ../interfaces/i_synchronous_processing_unit.h
+)
+target_link_libraries(collect_stats spdlog::spdlog ${OpenCV_LIBS})
 
 add_library(overlay_bounding_boxes
         overlay_bounding_boxes.cpp overlay_bounding_boxes.h
         ../interfaces/i_synchronous_processing_unit.h
 )
-target_link_libraries(annotate_bounding_boxes spdlog::spdlog ${OpenCV_LIBS})
+
+
+add_library(pipeline_executor
+        pipeline_executor.cpp pipeline_executor.h
+)

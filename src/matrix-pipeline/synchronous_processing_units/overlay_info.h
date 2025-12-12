@@ -26,7 +26,7 @@ private:
   std::string m_format_template;
 
   // --- Visual Settings ---
-  float m_text_height_ratio{0.015f}; // 1.5% of frame height
+  float m_text_height_ratio{0.02f}; // 2% of frame height
   int m_margin_x{5};
   int m_margin_y{5};
 

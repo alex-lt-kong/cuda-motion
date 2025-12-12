@@ -94,17 +94,13 @@ int main(int argc, char *argv[]) {
 
   // naive way to handle race condition of drogon::app().run(),
   this_thread::sleep_for(chrono::seconds(5));
-  try {
-    SPDLOG_INFO("Starting drogon thread");
-    app()
-        .setLogLevel(trantor::Logger::kWarn)
-        .setThreadNum(4)
-        .disableSigtermHandling()
-        .run();
-    SPDLOG_INFO("Drogon exited");
-  } catch (const std::exception &e) {
-    SPDLOG_ERROR("{}, drogon is not enabled", e.what());
-  }
+
+  app()
+      .setLogLevel(trantor::Logger::kWarn)
+      .setThreadNum(4)
+      .disableSigtermHandling()
+      .run();
+  SPDLOG_INFO("Drogon exited");
 
   mgr->JoinEv();
 

@@ -1,9 +1,6 @@
 #include "device_manager.h"
-#include "asynchronous_processing_units/http_service.h"
-#include "asynchronous_processing_units/video_writer.h"
-#include "asynchronous_processing_units/zeromq_publisher.h"
 #include "global_vars.h"
-#include "pipeline_executor.h"
+#include "synchronous_processing_units/pipeline_executor.h"
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda.hpp>
@@ -19,9 +16,12 @@ using namespace std;
 namespace MatrixPipeline {
 
 void DeviceManager::InternalThreadEntry() {
-  PipelineExecutor exe;
+
+  auto exe = ProcessingUnit::PipelineExecutor();
+
+  // PipelineExecutor exe;
   if (!exe.init(settings["pipeline"])) {
-    throw std::runtime_error("pipeline initialization failed");
+    SPDLOG_INFO("root apu starting...");
     return;
   }
 
@@ -47,11 +47,11 @@ void DeviceManager::InternalThreadEntry() {
   while (ev_flag == 0) {
     always_fill_in_frame(frame, ctx);
     handle_video_capture(ctx);
-    exe.on_frame_ready(frame, ctx);
+    exe.process(frame, ctx);
   }
 
   vr.release();
-  SPDLOG_INFO("[{}] thread quits gracefully", deviceName);
+  SPDLOG_INFO("thread quits gracefully");
 }
 
 void DeviceManager::always_fill_in_frame(cv::cuda::GpuMat &frame,

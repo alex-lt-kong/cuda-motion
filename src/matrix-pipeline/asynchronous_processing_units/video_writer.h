@@ -69,7 +69,7 @@ public:
                     std::chrono::system_clock::time_point timestamp) {
     std::string filename = path_template;
     static const std::regex placeholder_regex(
-        R"(\{video_start_time(?::([^}]+))?\})");
+        R"(\{videoStartTime(?::([^}]+))?\})");
     std::smatch match;
     if (std::regex_search(filename, match, placeholder_regex)) {
       auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -106,7 +106,7 @@ public:
 protected:
   // Renamed from process() to on_frame_ready()
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override {
-    if (frame.empty())
+    if (frame.empty() || m_state == Utils::VideoRecordingState::DISABLED)
       return;
 
     const double change_rate = ctx.change_rate;
@@ -220,6 +220,8 @@ private:
       SPDLOG_ERROR("cv::cudacodec::createVideoWriter({}) failed: {}",
                    m_file_path, e.what());
       m_writer.release();
+      m_state = Utils::VideoRecordingState::DISABLED;
+      SPDLOG_WARN("Disabling videoWriter uni");
       return false;
     }
     return m_writer != nullptr;

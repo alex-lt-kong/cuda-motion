@@ -20,42 +20,29 @@ add_subdirectory(utils)
 add_subdirectory(synchronous_processing_units)
 add_subdirectory(asynchronous_processing_units)
 
-add_library(matrix_notifier
-        asynchronous_processing_units/matrix_notifier.cpp
-        interfaces/i_asynchronous_processing_unit.h
+
+add_library(utils
+        utils.cpp utils.h
 )
-target_link_libraries(matrix_notifier nvjpeg_encoder ram_video_buffer matrix_sender)
-target_link_libraries(matrix_notifier ${OpenCV_LIBS} CUDA::nvjpeg spdlog::spdlog cpr::cpr nlohmann_json::nlohmann_json)
-
-
-add_library(asynchronous_processing_unit
-        asynchronous_processing_units/asynchronous_processing_unit.cpp
-        interfaces/i_asynchronous_processing_unit.h
+add_library(device_manager
+        device_manager.cpp device_manager.h
 )
-target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg)
-
-add_executable(mp
-        main.cpp
-        device_manager.cpp
-        global_vars.cpp
-        utils.cpp
-        ${PROTO_SRCS} ${PROTO_HDRS}
-)
-
-target_link_libraries(mp
+target_link_libraries(device_manager
         PRIVATE
-        annotate_bounding_boxes
+        utils
+        pipeline_executor
         matrix_notifier
         debug_output
         rotate_frame
         rtsp_producer
         resize_frame
         detect_objects
+        prune_object_detection_results
+        collect_stats
         overlay_bounding_boxes
         measure_latency
-        asynchronous_processing_unit
-)
-target_link_libraries(mp
+        asynchronous_processing_unit)
+target_link_libraries(device_manager
         PRIVATE
         ${OpenCV_LIBS} rt ssl crypto fmt::fmt
         Drogon::Drogon
@@ -64,6 +51,18 @@ target_link_libraries(mp
         CUDA::nvjpeg
         cppzmq cppzmq-static
         protobuf::libprotoc protobuf::libprotobuf protobuf::libprotobuf-lite
+)
+
+add_executable(mp
+        main.cpp
+        global_vars.cpp
+        ${PROTO_SRCS} ${PROTO_HDRS}
+)
+target_link_libraries(mp
+        PRIVATE
+        utils
+        device_manager
+        spdlog::spdlog
 )
 
 add_custom_command(

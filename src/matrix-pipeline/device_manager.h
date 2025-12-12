@@ -12,6 +12,7 @@
 using njson = nlohmann::json;
 
 namespace MatrixPipeline {
+
 struct videoWritingContext {
   std::string evaluatedVideoPath;
   float fps;
