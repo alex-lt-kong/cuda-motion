@@ -3,10 +3,10 @@
 #include <cpr/cpr.h>
 #include <spdlog/spdlog.h>
 
-#include <thread>
 #include <chrono>
 #include <fstream>
 #include <stdexcept>
+#include <thread>
 
 namespace MatrixPipeline::Utils {
 
@@ -40,34 +40,41 @@ std::string MatrixSender::readFile(const std::string &path) {
 
 std::string MatrixSender::upload(const std::string &data,
                                  const std::string &contentType) const {
-  std::string url = homeServer + "/_matrix/media/r0/upload";
+  std::string url = homeServer + "/_matrix/media/v3/upload";
 
-  cpr::Response r =
-      cpr::Post(cpr::Url{url},
-                cpr::Header{{"Authorization", "Bearer " + accessToken},
-                            {"Content-Type", contentType}},
-                cpr::Body{data});
+  constexpr int max_retry_count = 10;
 
-  if (r.status_code != 200) {
-    SPDLOG_ERROR("Upload failed, status_code: {}, text: {}", r.status_code,
-                 r.text);
-    return "";
+  cpr::Response r;
+  for (int i = 0; i < max_retry_count; ++i) {
+    r = cpr::Post(cpr::Url{url},
+                  cpr::Header{{"Authorization", "Bearer " + accessToken},
+                              {"Content-Type", contentType}},
+                  /*cpr::Proxies{
+                      {"http", "socks5://localhost:7890"},
+                      {"https", "socks5://localhost:7890"},
+                  },*/
+                  cpr::Body{data});
+    if (r.status_code == 200) {
+      try {
+        auto j = njson::parse(r.text);
+        return j["content_uri"];
+      } catch (const std::exception &e) {
+        SPDLOG_ERROR("Unable to parse response from matrix server: {}",
+                     e.what());
+      }
+    }
+    SPDLOG_ERROR("Upload failed, status_code: {}, text: {}, retry {}/{}",
+                 r.status_code, r.text, i + 1, max_retry_count);
+    std::this_thread::sleep_for(std::chrono::seconds(i * 10));
   }
-
-  try {
-    auto j = njson::parse(r.text);
-    return j["content_uri"];
-  } catch (const std::exception &e) {
-    SPDLOG_ERROR("Unable to parse response from matrix server: {}", e.what());
-    return "";
-  }
+  return "";
 }
 
 bool MatrixSender::send_event(const njson &contentBody,
                               const std::string &msgType) const {
   auto now = std::chrono::system_clock::now().time_since_epoch().count();
   const std::string txnId = std::to_string(now);
-  const std::string url = homeServer + "/_matrix/client/r0/rooms/" + roomId +
+  const std::string url = homeServer + "/_matrix/client/v3/rooms/" + roomId +
                           "/send/m.room.message/" + txnId;
 
   njson payload;
@@ -89,12 +96,13 @@ bool MatrixSender::send_event(const njson &contentBody,
       {"Content-Type", "application/json"} // Fixed typo here too
   });
   session.SetBody(cpr::Body{payload.dump()});
-
-
+  // session.SetProxies(cpr::Proxies{{"http", "socks5://localhost:7890"},
+  //                                 {"https", "socks5://localhost:7890"}});
 
   // 3. Send the request
   if (cpr::Response r = session.Put(); r.status_code != 200) {
-    SPDLOG_ERROR("Send message failed.  status_code: {}, reason: {}", r.status_code, r.reason);
+    SPDLOG_ERROR("Send message failed.  status_code: {}, reason: {}",
+                 r.status_code, r.reason);
     return false;
   } else {
     SPDLOG_INFO("Send message {} successfully", msgType);
@@ -127,7 +135,6 @@ void MatrixSender::sendText(const std::string &message) {
 
 void MatrixSender::send_jpeg(const std::string &jpeg_bytes, int width,
                              int height, const std::string &caption) {
-
   if (std::string mxc = upload(jpeg_bytes, "image/jpeg"); !mxc.empty()) {
     njson content;
     content["body"] = caption;
@@ -209,13 +216,13 @@ void MatrixSender::send_video_from_memory(const std::string &video_data,
   content["info"] = info;
   constexpr size_t max_retry_count = 5;
   for (size_t i = 0; i < max_retry_count; ++i) {
-      if (send_event(content, "m.video"))
-        break;
+    if (send_event(content, "m.video"))
+      break;
     const auto retry_delay_sec = i * 5;
-    SPDLOG_ERROR("failed, {}-th retry in {} sec. max_retry_count: {}", i+1, retry_delay_sec, max_retry_count);
+    SPDLOG_ERROR("failed, {}-th retry in {} sec. max_retry_count: {}", i + 1,
+                 retry_delay_sec, max_retry_count);
     std::this_thread::sleep_for(std::chrono::seconds(retry_delay_sec));
   }
-
 }
 
 } // namespace MatrixPipeline::Utils

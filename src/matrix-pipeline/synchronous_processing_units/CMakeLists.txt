@@ -2,6 +2,8 @@ add_library(rotate_frame
         rotate_frame.cpp
         ../interfaces/i_synchronous_processing_unit.h
 )
+target_link_libraries(rotate_frame spdlog::spdlog)
+
 
 add_library(resize_frame
         resize_frame.cpp

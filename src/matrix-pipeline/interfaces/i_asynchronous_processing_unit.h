@@ -51,11 +51,38 @@ public:
    * shallow copy.
    */
   SynchronousProcessingResult enqueue(const cv::cuda::GpuMat &frame,
-                                      const PipelineContext &meta_data) {
-    const auto frame_deep_copy = frame.clone();
+                                      const PipelineContext &ctx) {
+
+    cv::cuda::GpuMat frame_clone;
+    try {
+      frame_clone = frame.clone();
+    } catch (const cv::Exception &e) {
+      SPDLOG_WARN("cv::Exception at frame clone(): {}", e.what());
+      return failure_and_continue;
+    }
     {
       std::lock_guard lock(m_queue_mutex);
-      m_processing_queue.push(AsyncPayload{frame_deep_copy, meta_data});
+
+      auto queue_size = m_processing_queue.size();
+      if (constexpr auto warning_queue_size = 10;
+          queue_size > warning_queue_size) {
+        constexpr auto critical_queue_size = 30;
+        SPDLOG_WARN("queue_size ({}) is above warning_queue_size ({})",
+                    queue_size, warning_queue_size);
+        if (queue_size > critical_queue_size) {
+          SPDLOG_ERROR("queue_size ({}) is above critical_queue_size ({}), "
+                       "discard {} frames to avoid OOM",
+                       queue_size, critical_queue_size,
+                       queue_size - warning_queue_size);
+          while (queue_size > warning_queue_size) {
+            // auto [frame, ctx] = m_processing_queue.front();
+            m_processing_queue.pop();
+            queue_size = m_processing_queue.size();
+          }
+        }
+      }
+
+      m_processing_queue.push(AsyncPayload{frame_clone, ctx});
     }
 
     // 3. Wake up the worker thread
@@ -106,7 +133,7 @@ private:
    */
   void dequeue_loop() {
     // std::this_thread::sleep_for(std::chrono::seconds(5));
-    SPDLOG_INFO("Now start dequeue_loop()");
+    // SPDLOG_INFO("Now start dequeue_loop()");
     while (m_running.load() || !is_queue_empty()) {
       AsyncPayload payload;
 
@@ -126,21 +153,6 @@ private:
 
         payload = m_processing_queue.front();
         m_processing_queue.pop();
-        auto queue_size = m_processing_queue.size();
-        if (constexpr auto warning_queue_size = 10;
-            queue_size > warning_queue_size) {
-          constexpr auto critical_queue_size = 30;
-          SPDLOG_WARN("queue_size ({}) is above warning_queue_size ({})",
-                      queue_size, warning_queue_size);
-          while (queue_size > critical_queue_size) {
-            auto [frame, ctx] = m_processing_queue.front();
-            m_processing_queue.pop();
-            queue_size = m_processing_queue.size();
-            SPDLOG_ERROR("queue_size ({}) is above critical_queue_size ({}), "
-                         "frame {} discarded to avoid OOM",
-                         queue_size, critical_queue_size, ctx.frame_seq_num);
-          }
-        }
       }
       on_frame_ready(payload.frame, payload.ctx);
     }

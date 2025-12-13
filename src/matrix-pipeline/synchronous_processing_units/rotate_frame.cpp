@@ -1,12 +1,17 @@
 #include "../interfaces/i_synchronous_processing_unit.h"
 
 #include <opencv2/cudawarping.hpp>
+#include <spdlog/spdlog.h>
 
 namespace MatrixPipeline::ProcessingUnit {
 
 SynchronousProcessingResult
 RotateFrame::process(cv::cuda::GpuMat &frame,
                      [[maybe_unused]] PipelineContext &meta_data) {
+  if (frame.empty()) {
+    SPDLOG_WARN("frame.empty(), return failure_and_stop");
+    return failure_and_stop;
+  }
   switch (m_angle) {
   case 90:
     cv::cuda::rotate(frame.clone(), frame,
