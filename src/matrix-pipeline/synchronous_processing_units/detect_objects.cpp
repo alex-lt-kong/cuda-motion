@@ -24,8 +24,10 @@ bool DetectObjects::init(const njson &config) {
       m_model_input_size.width = config["inputWidth"].get<int>();
     if (config.contains("inputHeight"))
       m_model_input_size.height = config["inputHeight"].get<int>();
-    m_inference_interval_ms = config.value("inferenceIntervalMs", m_inference_interval_ms);
-    m_confidence_threshold = config.value("confidenceThreshold", m_confidence_threshold);
+    m_inference_interval_ms =
+        config.value("inferenceIntervalMs", m_inference_interval_ms);
+    m_confidence_threshold =
+        config.value("confidenceThreshold", m_confidence_threshold);
 
     SPDLOG_INFO("Loading ONNX model: {}", m_model_path);
 
@@ -36,7 +38,10 @@ bool DetectObjects::init(const njson &config) {
       SPDLOG_ERROR("Failed to load ONNX model: {}", m_model_path);
       return false;
     }
-    SPDLOG_INFO("model_path: {}, inference_interval_ms: {}, confidence_threshold: {}", m_model_path, m_inference_interval_ms, m_confidence_threshold);
+    SPDLOG_INFO("model_path: {}, inference_interval_ms: {}, "
+                "confidence_threshold: {}, model_input_size: {}x{}",
+                m_model_path, m_inference_interval_ms, m_confidence_threshold,
+                m_model_input_size.width, m_model_input_size.height);
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("Init failed: {}", e.what());
@@ -94,14 +99,16 @@ void DetectObjects::post_process_yolo(const cv::cuda::GpuMat &frame,
   }
 
   ctx.yolo.indices.clear();
-  cv::dnn::NMSBoxes(ctx.yolo.boxes, ctx.yolo.confidences, m_confidence_threshold,
-                    m_nms_thres, ctx.yolo.indices);
+  cv::dnn::NMSBoxes(ctx.yolo.boxes, ctx.yolo.confidences,
+                    m_confidence_threshold, m_nms_thres, ctx.yolo.indices);
 }
 
 SynchronousProcessingResult DetectObjects::process(cv::cuda::GpuMat &frame,
                                                    PipelineContext &ctx) {
   using namespace std::chrono;
-  const auto now_ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+  const auto now_ms =
+      duration_cast<milliseconds>(system_clock::now().time_since_epoch())
+          .count();
   if (now_ms - m_last_inference_time_ms < m_inference_interval_ms) {
     ctx.yolo = m_prev_yolo_ctx;
     return success_and_continue;
@@ -122,12 +129,12 @@ SynchronousProcessingResult DetectObjects::process(cv::cuda::GpuMat &frame,
     cv::cuda::cvtColor(resized_frame, resized_frame, cv::COLOR_BGR2RGB);
 
     // 2. Pre-process: Create Blob (Requires CPU transfer currently)
-    cv::Mat cpu_small_frame;
-    resized_frame.download(cpu_small_frame);
+    cv::Mat h_frame;
+    resized_frame.download(h_frame);
 
     cv::Mat blob;
-    cv::dnn::blobFromImage(cpu_small_frame, blob, 1.0 / 255.0, cv::Size(),
-                           cv::Scalar(), false, false);
+    cv::dnn::blobFromImage(h_frame, blob, 1.0 / 255.0, cv::Size(), cv::Scalar(),
+                           false, false);
 
     // 3. Inference
     m_net.setInput(blob);
