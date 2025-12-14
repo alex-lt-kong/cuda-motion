@@ -96,6 +96,7 @@ bool MatrixSender::send_event(const njson &contentBody,
       {"Content-Type", "application/json"} // Fixed typo here too
   });
   session.SetBody(cpr::Body{payload.dump()});
+  // session.SetVerbose(cpr::Verbose{true});
   // session.SetProxies(cpr::Proxies{{"http", "socks5://localhost:7890"},
   //                                 {"https", "socks5://localhost:7890"}});
 

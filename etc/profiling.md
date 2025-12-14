@@ -6,9 +6,9 @@
 
   - Then build as usual: `make -j2`
 
-- Run `./cs` and exit it normally. A `gmon.out` file will be generated.
+- Run `./mp` and exit it normally. A `gmon.out` file will be generated.
 
-- Run `gprof` to analyze `gmon.out` to get human-readable result: `gprof ./cs > ./gmon.rpt`
+- Run `gprof` to analyze `gmon.out` to get human-readable result: `gprof ./mp > ./gmon.rpt`
 
 - Unfortunately, gprof is only able to catch around 20% of CPU time with the
   remaining 80% missing.

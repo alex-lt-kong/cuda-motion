@@ -1,16 +1,39 @@
 {
-  "$schema" : "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
-  "dependencies" : [ "stb", "cpr", "nlohmann-json", "cppzmq", "readerwriterqueue", "cxxopts", "fmt", {
-    "name" : "spdlog",
-    "version>=" : "1.16.0"
-  }, {
-    "name" : "drogon",
-    "version>=" : "1.9.11"
-  }, {
-    "name" : "protobuf",
-    "version>=" : "5.29.5#3"
-  } ],
-  "builtin-baseline" : "4c4abc2e8727221ede31021349386dac674309b0",
-  "version" : "0.0.2",
-  "name" : "cuda-motion"
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "dependencies": [
+    "stb",
+    "nlohmann-json",
+    "cppzmq",
+    "readerwriterqueue",
+    "cxxopts",
+    "fmt",
+    {
+      "name": "spdlog",
+      "version>=": "1.16.0"
+    },
+    {
+      "name": "drogon",
+      "version>=": "1.9.11"
+    },
+    {
+      "name": "protobuf",
+      "version>=": "5.29.5#3"
+    },
+    {
+      "name": "cpr",
+      "default-features": false
+    },
+    {
+      "name": "curl",
+      "default-features": false,
+      "features": [
+        "gnutls",
+        "http2",
+        "non-http"
+      ]
+    }
+  ],
+  "builtin-baseline": "4c4abc2e8727221ede31021349386dac674309b0",
+  "version": "0.0.2",
+  "name": "cuda-motion"
 }

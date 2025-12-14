@@ -1,14 +1,14 @@
 #include "matrix_notifier.h"
-#include "../utils.h"
 #include "../utils/nvjpeg_encoder.h"
 
 #include <fmt/chrono.h>
 #include <nlohmann/json.hpp>
 
+#
 #include <chrono>
+#include <future>
 #include <string>
 #include <vector>
-
 namespace MatrixPipeline::ProcessingUnit {
 
 bool MatrixNotifier::check_if_people_detected(const PipelineContext &ctx) {
@@ -38,13 +38,19 @@ void MatrixNotifier::handle_image(const cv::cuda::GpuMat &frame,
     return;
   }
   m_sender->send_jpeg(jpeg_bytes, frame.cols, frame.rows,
-                      fmt::format("{:%Y-%m-%dT%H:%M:%SZ}.jpg",
+                      fmt::format("{:%Y-%m-%dT%H:%M:%S}.jpg",
                                   std::chrono::system_clock::now()));
 }
 
 void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
                                   [[maybe_unused]] const PipelineContext &ctx,
                                   const bool is_people_detected) {
+  auto now_sec = [] {
+    using namespace std::chrono;
+    return duration_cast<seconds>(system_clock::now().time_since_epoch())
+        .count();
+  };
+
   if (!m_is_send_video_enabled)
     return;
 
@@ -74,13 +80,14 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       m_writer = cv::cudacodec::createVideoWriter(
           symlink_path, frame.size(), cv::cudacodec::Codec::H264, m_target_fps,
           cv::cudacodec::ColorFormat::BGR, params);
-      m_current_video_length_in_frame = 0;
-      m_current_video_length_without_people_in_frame = 0;
+
+      m_current_video_start_at_sec = now_sec();
+      m_current_video_without_detection_since_sec = now_sec();
       m_max_roi_score = -1;
       m_state = Utils::VideoRecordingState::RECORDING;
       SPDLOG_INFO("Start video recording for matrix message, saved file to "
                   "symlink_path {}, video_length_in_frame: {}",
-                  symlink_path, m_video_max_length_in_frame);
+                  symlink_path, m_video_max_length_in_sec);
     } catch (const cv::Exception &e) {
       SPDLOG_ERROR("cv::cudacodec::VideoWriter({}) failed: {}", symlink_path,
                    e.what());
@@ -96,10 +103,14 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
     // Unlinking the name won't stop the writing, but it keeps /tmp clean.
     unlink(symlink_path.c_str());
   }
+  const auto is_max_length_reached =
+      now_sec() - m_current_video_start_at_sec >= m_video_max_length_in_sec;
+  const auto is_max_length_without_detection_reached =
+      now_sec() - m_current_video_without_detection_since_sec >=
+      m_video_max_length_without_detection_in_sec;
 
-  if (m_current_video_length_in_frame >= m_video_max_length_in_frame ||
-      m_current_video_length_without_people_in_frame >=
-          m_video_max_length_without_people_detected_in_frame) {
+  if (is_max_length_reached || is_max_length_without_detection_reached) {
+
     m_writer.release();
     const std::shared_ptr ram_buf = std::move(m_ram_buf);
     std::thread([&, ram_buf] {
@@ -114,20 +125,20 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       if (!m_gpu_encoder->encode(m_max_roi_score_frame, jpeg_data, 90)) {
         SPDLOG_ERROR("m_gpu_encoder->encode() failed");
       }
-      const auto is_max_length_reached =
-          m_current_video_length_in_frame >= m_video_max_length_in_frame;
+
+      const auto video_length_sec = now_sec() - m_current_video_start_at_sec;
       SPDLOG_INFO(
-          "Matrix video recording stopped because {}, size: {}KB + {}KB",
-          is_max_length_reached ? "max video length reached"
-                                : "no person detected for too long",
-          ram_buf->size / 1024, jpeg_data.size() / 1024);
+          "Matrix video recording stopped (is_max_length_reached: {}, "
+          "is_max_length_without_detection_reached: {}), "
+          "video size: {}KB + thumbnail size {}KB, video_length_sec: {}",
+          is_max_length_reached, is_max_length_without_detection_reached,
+          ram_buf->size / 1024, jpeg_data.size() / 1024, video_length_sec);
       m_sender->send_video_from_memory(
           data,
-          fmt::format("{:%Y-%m-%dT%H:%M:%SZ}.mp4",
+          fmt::format("{:%Y-%m-%dT%H:%M:%S}.mp4",
                       std::chrono::system_clock::now()),
-          static_cast<size_t>(m_current_video_length_in_frame * 1000 /
-                              m_target_fps),
-          jpeg_data, m_max_roi_score_frame.size().width,
+          video_length_sec * 1000, jpeg_data,
+          m_max_roi_score_frame.size().width,
           m_max_roi_score_frame.size().height);
     }).detach();
     m_state = Utils::VideoRecordingState::IDLE;
@@ -140,11 +151,8 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
   }
 
   m_writer->write(frame);
-  ++m_current_video_length_in_frame;
-  if (!is_people_detected)
-    ++m_current_video_length_without_people_in_frame;
-  else
-    m_current_video_length_without_people_in_frame = 0;
+  if (is_people_detected)
+    m_current_video_without_detection_since_sec = now_sec();
 }
 
 float MatrixNotifier::calculate_roi_score(const YoloContext &yolo) {
@@ -175,12 +183,12 @@ bool MatrixNotifier::init(const njson &config) {
       config.value("isSendImageEnabled", m_is_send_image_enabled);
   m_is_send_video_enabled =
       config.value("isSendVideoEnabled", m_is_send_video_enabled);
-  m_video_max_length_in_frame =
-      config.value("videoMaxLengthInFrame", m_video_max_length_in_frame);
+  m_video_max_length_in_sec =
+      config.value("videoMaxLengthInSeconds", m_video_max_length_in_sec);
   m_target_quality = config.value("videoTargetQuality", m_target_quality);
-  m_video_max_length_without_people_detected_in_frame =
-      config.value("videoMaxLengthWithoutPeopleDetectedInFrame",
-                   m_video_max_length_without_people_detected_in_frame);
+  m_video_max_length_without_detection_in_sec =
+      config.value("videoMaxLengthWithoutPeopleDetectedInSeconds",
+                   m_video_max_length_without_detection_in_sec);
   SPDLOG_INFO("matrix_homeserver: {}, matrix_room_id: {}, matrix_access_token: "
               "{}, notification_interval_frame: {}",
               m_matrix_homeserver, m_matrix_room_id, m_matrix_access_token,
@@ -191,7 +199,7 @@ bool MatrixNotifier::init(const njson &config) {
   if (m_is_send_video_enabled)
     SPDLOG_INFO("is_send_video_enabled: {}, video_length_in_frame: {}, "
                 "target_quality: {} (0-51, lower is better)",
-                m_is_send_video_enabled, m_video_max_length_in_frame,
+                m_is_send_video_enabled, m_video_max_length_in_sec,
                 m_target_quality);
   m_sender = std::make_unique<Utils::MatrixSender>(
       m_matrix_homeserver, m_matrix_access_token, m_matrix_room_id);

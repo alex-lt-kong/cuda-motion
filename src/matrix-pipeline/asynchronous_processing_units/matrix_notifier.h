@@ -13,11 +13,11 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
   int m_notification_interval_frame{300};
   bool m_is_send_image_enabled{true};
   bool m_is_send_video_enabled{true};
-  size_t m_video_max_length_in_frame{30 * 10};
-  size_t m_video_max_length_without_people_detected_in_frame{30 * 10};
+  long m_video_max_length_in_sec{60};
+  long m_video_max_length_without_detection_in_sec{10};
 
-  size_t m_current_video_length_in_frame{0};
-  size_t m_current_video_length_without_people_in_frame{0};
+  long m_current_video_start_at_sec{0};
+  long m_current_video_without_detection_since_sec{0};
   float m_max_roi_score{0.0f};
   cv::cuda::GpuMat m_max_roi_score_frame{-1};
   const double m_target_fps{25.0};
@@ -44,4 +44,4 @@ public:
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
 };
 
-}
+} // namespace MatrixPipeline::ProcessingUnit
