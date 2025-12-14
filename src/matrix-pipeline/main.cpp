@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
 
   configure_spdlog();
 
-  SPDLOG_INFO("matrix-pi started (git commit: {})", GIT_COMMIT_HASH);
+  SPDLOG_INFO("matrix-pipeline started (git commit: {})", GIT_COMMIT_HASH);
   MatrixPipeline::Utils::install_signal_handler(signal_handler_cb);
   cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_ERROR);
   SPDLOG_INFO("cv::getBuildInformation(): {}",
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
   mgr->StartEv();
 
   // naive way to handle race condition of drogon::app().run(),
-  this_thread::sleep_for(chrono::seconds(5));
+  this_thread::sleep_for(chrono::seconds(10));
 
   app()
       .setLogLevel(trantor::Logger::kWarn)

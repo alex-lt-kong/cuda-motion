@@ -15,36 +15,6 @@ signal_handler_callback sh_callback;
 
 atomic<ssize_t> executionCounter = -1;
 
-void execExternalProgramAsync(mutex &mtx, const string cmd,
-                              const string &deviceName) {
-  thread th_exec([&mtx, deviceName, cmd]() {
-    if (mtx.try_lock()) {
-      // We must increment executionID before execution instead of after it;
-      // otherwise, if the 1st execution gets stuck, the 2nd execution might
-      // unexpectedly use the same executionId as the 1st execution.
-      auto executionId = ++executionCounter;
-      SPDLOG_INFO("[{}] Calling external program: [{}] in a separate child "
-                   "process. (executionId: {})",
-                   deviceName, cmd, executionId);
-      int retval = 0;
-      try {
-        retval = system(cmd.c_str());
-        SPDLOG_INFO(
-            "[{}] External program: [{}] returned {} (executionId: {})",
-            deviceName, cmd, retval, executionId);
-      } catch (const exception &e) {
-        spdlog::error("[{}] Failed calling {}: {}", deviceName, cmd, e.what());
-      }
-
-      mtx.unlock();
-    } else {
-      spdlog::warn("[{}] mutex is locked, meaning that another [{}] "
-                   "instance is still running",
-                   deviceName, cmd);
-    }
-  });
-  th_exec.detach();
-}
 
 static void signal_handler(int signum) noexcept {
   if (signum == SIGCHLD) {

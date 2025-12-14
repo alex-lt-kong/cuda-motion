@@ -38,6 +38,7 @@ target_link_libraries(device_manager
         detect_objects
         prune_object_detection_results
         collect_stats
+        overlay_info
         overlay_bounding_boxes
         measure_latency
         asynchronous_processing_unit)

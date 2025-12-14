@@ -19,9 +19,6 @@ namespace MatrixPipeline::Utils {
 using njson = nlohmann::json;
 typedef auto(*signal_handler_callback)(int) -> void;
 
-void execExternalProgramAsync(std::mutex &mtx, const std::string cmd,
-                              const std::string &deviceName);
-
 void install_signal_handler(signal_handler_callback cb);
 
 }

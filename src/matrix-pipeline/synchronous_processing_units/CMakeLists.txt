@@ -37,11 +37,17 @@ target_link_libraries(prune_object_detection_results spdlog::spdlog ${OpenCV_LIB
 add_library(collect_stats
         collect_stats.cpp collect_stats.h
         ../interfaces/i_synchronous_processing_unit.h
+        overlay_info.cpp
 )
 target_link_libraries(collect_stats spdlog::spdlog ${OpenCV_LIBS})
 
 add_library(overlay_bounding_boxes
         overlay_bounding_boxes.cpp overlay_bounding_boxes.h
+        ../interfaces/i_synchronous_processing_unit.h
+)
+
+add_library(overlay_info
+        overlay_info.cpp overlay_info.h
         ../interfaces/i_synchronous_processing_unit.h
 )
 
