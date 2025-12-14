@@ -6,10 +6,10 @@
 
 #
 #include <chrono>
+#include <fmt/format.h>
 #include <future>
 #include <string>
 #include <vector>
-#include <fmt/format.h>
 
 namespace MatrixPipeline::ProcessingUnit {
 
@@ -116,29 +116,32 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       const std::string data(static_cast<const char *>(ram_buf->m_data_ptr),
                              ram_buf->size);
 
-      std::string jpeg_data ;
+      std::string jpeg_data;
       if (!m_gpu_encoder->encode(m_max_roi_score_frame, jpeg_data, 90)) {
         SPDLOG_ERROR("m_gpu_encoder->encode() failed");
       }
 
-      const auto video_length = steady_clock::now() - m_current_video_start_at;
-      const auto video_duration_ms = static_cast<long>(m_current_video_frame_count * 1000 / m_target_fps);
+      const auto video_duration_ms =
+          static_cast<long>(m_current_video_frame_count * 1000 / m_target_fps);
       SPDLOG_INFO(
           "Matrix video recording stopped (is_max_length_reached: {}, "
           "is_max_length_without_detection_reached: {}), "
           "video size: {}KB + thumbnail size {}KB, video_length(sec): {}",
           is_max_length_reached, is_max_length_without_detection_reached,
-          ram_buf->size / 1024, jpeg_data.size() / 1024, video_duration_ms / 1000);
+          ram_buf->size / 1024, jpeg_data.size() / 1024,
+          video_duration_ms / 1000);
       const auto send_video_start_at = steady_clock::now();
       m_sender->send_video_from_memory(
           data,
           fmt::format("{:%Y-%m-%dT%H:%M:%S}.mp4",
                       std::chrono::system_clock::now()),
-          video_duration_ms, jpeg_data,
-          m_max_roi_score_frame.size().width,
+          video_duration_ms, jpeg_data, m_max_roi_score_frame.size().width,
           m_max_roi_score_frame.size().height);
       const auto send_video_end_at = steady_clock::now();
-      SPDLOG_INFO("send_video_from_memory() took {}ms", duration_cast<milliseconds>(send_video_end_at - send_video_start_at).count());
+      SPDLOG_INFO(
+          "send_video_from_memory() took {}ms",
+          duration_cast<milliseconds>(send_video_end_at - send_video_start_at)
+              .count());
     }).detach();
     m_state = Utils::VideoRecordingState::IDLE;
     return;
@@ -197,9 +200,11 @@ bool MatrixNotifier::init(const njson &config) {
     SPDLOG_INFO("is_send_image_enabled: {}, notification_interval_frame: {}",
                 m_is_send_image_enabled, m_notification_interval_frame);
   if (m_is_send_video_enabled)
-    SPDLOG_INFO("is_send_video_enabled: {}, video_length_in_frame: {}, "
+    SPDLOG_INFO("is_send_video_enabled: {}, video_max_length(sec): {}, "
+                "video_max_length_without_detection(sec): {}, "
                 "target_quality: {} (0-51, lower is better)",
-                m_is_send_video_enabled, m_video_max_length, m_target_quality);
+                m_is_send_video_enabled, m_video_max_length,
+                m_video_max_length_without_detection.count(), m_target_quality);
   m_sender = std::make_unique<Utils::MatrixSender>(
       m_matrix_homeserver, m_matrix_access_token, m_matrix_room_id);
   m_gpu_encoder = std::make_unique<Utils::NvJpegEncoder>();
