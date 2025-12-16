@@ -13,6 +13,7 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
   int m_notification_interval_frame{300};
   bool m_is_send_image_enabled{true};
   bool m_is_send_video_enabled{true};
+  double m_min_frame_change_rate{0.0};
   std::chrono::seconds m_video_max_length{60};
   std::chrono::seconds  m_video_max_length_without_detection{10};
 
@@ -21,7 +22,7 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
   std::chrono::time_point<std::chrono::steady_clock>  m_current_video_without_detection_since;
   float m_max_roi_score{0.0f};
   cv::cuda::GpuMat m_max_roi_score_frame{-1};
-  const double m_target_fps{25.0};
+  const double m_fallback_fps{25.0};
   // 0-51, lower is better, effectively acts like CRF.
   // A value of ~25-30 is usually good for NVENC H.264.
   uint8_t m_target_quality{30};

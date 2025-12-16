@@ -2,11 +2,10 @@
 #include "../utils/nvjpeg_encoder.h"
 
 #include <fmt/chrono.h>
+#include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
-#
 #include <chrono>
-#include <fmt/format.h>
 #include <future>
 #include <string>
 #include <vector>
@@ -46,7 +45,8 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
                                   [[maybe_unused]] const PipelineContext &ctx,
                                   const bool is_people_detected) {
   using namespace std::chrono;
-  if (!is_people_detected && m_state == Utils::VideoRecordingState::IDLE)
+  if ((!is_people_detected || m_min_frame_change_rate > ctx.change_rate) &&
+      m_state == Utils::VideoRecordingState::IDLE)
     return;
 
   if (m_state == Utils::VideoRecordingState::IDLE) {
@@ -69,14 +69,13 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       // 2. Set Rate Control to Variable Bitrate
       params.rateControlMode = cv::cudacodec::ENC_PARAMS_RC_VBR;
       params.targetQuality = m_target_quality;
-
       m_writer = cv::cudacodec::createVideoWriter(
-          symlink_path, frame.size(), cv::cudacodec::Codec::HEVC, m_target_fps,
+          symlink_path, frame.size(), cv::cudacodec::Codec::HEVC,
+          ctx.fps > 0 ? ctx.fps : m_fallback_fps,
           cv::cudacodec::ColorFormat::BGR, params);
 
-      m_current_video_start_at = std::chrono::steady_clock::now();
-      m_current_video_without_detection_since =
-          std::chrono::steady_clock::now();
+      m_current_video_start_at = steady_clock::now();
+      m_current_video_without_detection_since = steady_clock::now();
       m_current_video_frame_count = 0;
       m_max_roi_score = -1;
       m_state = Utils::VideoRecordingState::RECORDING;
@@ -122,7 +121,8 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       }
 
       const auto video_duration_ms =
-          static_cast<long>(m_current_video_frame_count * 1000 / m_target_fps);
+          static_cast<long>(m_current_video_frame_count * 1000 /
+                            (ctx.fps > 0 ? ctx.fps : m_fallback_fps));
       SPDLOG_INFO(
           "Matrix video recording stopped (is_max_length_reached: {}, "
           "is_max_length_without_detection_reached: {}), "
@@ -189,6 +189,8 @@ bool MatrixNotifier::init(const njson &config) {
   m_video_max_length = std::chrono::seconds(
       config.value("videoMaxLengthInSeconds", m_video_max_length.count()));
   m_target_quality = config.value("videoTargetQuality", m_target_quality);
+  m_min_frame_change_rate =
+      config.value("minFrameChangeRate", m_min_frame_change_rate);
   m_video_max_length_without_detection = std::chrono::seconds(
       config.value("videoMaxLengthWithoutPeopleDetectedInSeconds",
                    m_video_max_length_without_detection.count()));

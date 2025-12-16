@@ -6,7 +6,7 @@ target_link_libraries(rotate_frame spdlog::spdlog)
 
 
 add_library(resize_frame
-        resize_frame.cpp
+        resize_frame.cpp resize_frame.h
         ../interfaces/i_synchronous_processing_unit.h
 )
 
@@ -20,6 +20,8 @@ add_library(debug_output
         debug_oputput.cpp
         ../interfaces/i_synchronous_processing_unit.h
 )
+target_link_libraries(debug_output spdlog::spdlog)
+
 target_link_libraries(debug_output spdlog::spdlog)
 
 add_library(detect_objects

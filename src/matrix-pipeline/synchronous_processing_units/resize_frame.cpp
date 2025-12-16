@@ -1,4 +1,4 @@
-#include "../interfaces/i_synchronous_processing_unit.h"
+#include "resize_frame.h"
 
 #include <nlohmann/json.hpp>
 #include <opencv2/cudawarping.hpp> // Required for cv::cuda::resize
