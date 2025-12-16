@@ -1,5 +1,5 @@
 add_library(rotate_frame
-        rotate_frame.cpp
+        rotate_frame.cpp rotate_frame.h
         ../interfaces/i_synchronous_processing_unit.h
 )
 target_link_libraries(rotate_frame spdlog::spdlog)
@@ -24,17 +24,17 @@ target_link_libraries(debug_output spdlog::spdlog)
 
 target_link_libraries(debug_output spdlog::spdlog)
 
-add_library(detect_objects
-        detect_objects.cpp detect_objects.h
+add_library(yolo_detect
+        yolo_detect.cpp yolo_detect.h
         ../interfaces/i_synchronous_processing_unit.h
 )
-target_link_libraries(detect_objects spdlog::spdlog)
+target_link_libraries(yolo_detect spdlog::spdlog)
 
-add_library(prune_object_detection_results
-        prune_object_detection_results.cpp prune_object_detection_results.h
+add_library(yolo_prune_detection_results
+        yolo_prune_detection_results.cpp yolo_prune_detection_results.h
         ../interfaces/i_synchronous_processing_unit.h
 )
-target_link_libraries(prune_object_detection_results spdlog::spdlog ${OpenCV_LIBS})
+target_link_libraries(yolo_prune_detection_results spdlog::spdlog ${OpenCV_LIBS})
 
 add_library(collect_stats
         collect_stats.cpp collect_stats.h
@@ -43,18 +43,13 @@ add_library(collect_stats
 )
 target_link_libraries(collect_stats spdlog::spdlog ${OpenCV_LIBS})
 
-add_library(overlay_bounding_boxes
-        overlay_bounding_boxes.cpp overlay_bounding_boxes.h
+add_library(yolo_overlay_bounding_boxes
+        yolo_overlay_bounding_boxes.cpp yolo_overlay_bounding_boxes.h
         ../interfaces/i_synchronous_processing_unit.h
 )
+target_link_libraries(yolo_overlay_bounding_boxes spdlog::spdlog)
 
 add_library(overlay_info
         overlay_info.cpp overlay_info.h
         ../interfaces/i_synchronous_processing_unit.h
 )
-
-
-#add_library(pipeline_executor
-#        pipeline_executor.cpp pipeline_executor.h
-#)
-#target_link_libraries(pipeline_executor spdlog::spdlog CUDA::nvjpeg)

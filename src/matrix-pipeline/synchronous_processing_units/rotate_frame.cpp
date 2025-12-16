@@ -1,4 +1,4 @@
-#include "../interfaces/i_synchronous_processing_unit.h"
+#include "rotate_frame.h"
 
 #include <opencv2/cudawarping.hpp>
 #include <spdlog/spdlog.h>

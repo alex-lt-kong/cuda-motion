@@ -4,17 +4,18 @@
 #include "../asynchronous_processing_units/rtsp_producer.h"
 #include "../asynchronous_processing_units/video_writer.h"
 #include "../asynchronous_processing_units/zeromq_publisher.h"
-#include "../synchronous_processing_units/resize_frame.h"
 #include "../entities/processing_context.h"
 #include "../entities/processing_units_variant.h"
 #include "../interfaces/i_synchronous_processing_unit.h"
 #include "../synchronous_processing_units/collect_stats.h"
+#include "../synchronous_processing_units/rotate_frame.h"
 #include "../synchronous_processing_units/crop_frame.h"
-#include "../synchronous_processing_units/detect_objects.h"
 #include "../synchronous_processing_units/measure_latency.h"
-#include "../synchronous_processing_units/overlay_bounding_boxes.h"
 #include "../synchronous_processing_units/overlay_info.h"
-#include "../synchronous_processing_units/prune_object_detection_results.h"
+#include "../synchronous_processing_units/resize_frame.h"
+#include "../synchronous_processing_units/yolo_detect.h"
+#include "../synchronous_processing_units/yolo_overlay_bounding_boxes.h"
+#include "../synchronous_processing_units/yolo_prune_detection_results.h"
 
 #include <iostream>
 
@@ -45,18 +46,21 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
     } else if (type == "SynchronousProcessingUnit::measureLatency") {
       ptr = std::make_unique<MeasureLatency>();
     } else if (type ==
-               "SynchronousProcessingUnit::pruneObjectDetectionResults") {
-      ptr = std::make_unique<PruneObjectDetectionResults>();
+                   "SynchronousProcessingUnit::pruneObjectDetectionResults" ||
+               type == "SynchronousProcessingUnit::yoloPruneDetectionResults") {
+      ptr = std::make_unique<YoloPruneDetectionResults>();
     } else if (type == "AsynchronousProcessingUnit::videoWriter") {
       ptr = std::make_unique<VideoWriter>();
     } else if (type == "AsynchronousProcessingUnit::rtspProducer") {
       ptr = std::make_unique<RtspProducer>();
     } else if (type == "AsynchronousProcessingUnit::httpService") {
       ptr = std::make_unique<HttpService>();
-    } else if (type == "SynchronousProcessingUnit::detectObjects") {
-      ptr = std::make_unique<DetectObjects>();
-    } else if (type == "SynchronousProcessingUnit::overlayBoundingBoxes") {
-      ptr = std::make_unique<OverlayBoundingBoxes>();
+    } else if (type == "SynchronousProcessingUnit::detectObjects" ||
+               type == "SynchronousProcessingUnit::yoloDetect") {
+      ptr = std::make_unique<YoloDetect>();
+    } else if (type == "SynchronousProcessingUnit::overlayBoundingBoxes" ||
+               type == "SynchronousProcessingUnit::yoloOverlayBoundingBoxes") {
+      ptr = std::make_unique<YoloOverlayBoundingBoxes>();
     } else if (type ==
                "AsynchronousProcessingUnit::asynchronousProcessingUnit") {
       ptr = std::make_unique<AsynchronousProcessingUnit>();
@@ -76,7 +80,7 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
                   if (!ptr_->init(settings_pipeline[i]))
                     return false;
                   ptr_->start();
-                return true;
+                  return true;
                 },
             },
             ptr)) {
@@ -89,9 +93,8 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
   return true;
 }
 
-void
-AsynchronousProcessingUnit::on_frame_ready(cv::cuda::GpuMat &frame,
-                                           PipelineContext &ctx) {
+void AsynchronousProcessingUnit::on_frame_ready(cv::cuda::GpuMat &frame,
+                                                PipelineContext &ctx) {
   // std::lock_guard g(m_mutex);
   for (size_t i = 0; i < m_processing_units.size(); ++i) {
     ctx.processing_unit_idx = i;
@@ -101,7 +104,7 @@ AsynchronousProcessingUnit::on_frame_ready(cv::cuda::GpuMat &frame,
               return ptr->process(frame, ctx);
             },
             [&](const std::unique_ptr<IAsynchronousProcessingUnit> &ptr) {
-              return  ptr->enqueue(frame, ctx);
+              return ptr->enqueue(frame, ctx);
             },
         },
         m_processing_units[i]);

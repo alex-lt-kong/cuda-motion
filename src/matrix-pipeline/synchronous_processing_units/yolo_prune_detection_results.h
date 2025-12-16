@@ -7,7 +7,7 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-class PruneObjectDetectionResults final : public ISynchronousProcessingUnit {
+class YoloPruneDetectionResults final : public ISynchronousProcessingUnit {
 public:
   bool init(const njson &config) override;
 

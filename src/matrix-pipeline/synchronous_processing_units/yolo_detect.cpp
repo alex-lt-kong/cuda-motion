@@ -1,9 +1,10 @@
-#include "detect_objects.h"
+#include "yolo_detect.h"
 
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/cudawarping.hpp>
 #include <opencv2/dnn.hpp>
+#include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
 
 #include <string>
@@ -11,7 +12,7 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-bool DetectObjects::init(const njson &config) {
+bool YoloDetect::init(const njson &config) {
   try {
     if (!config.contains("modelPath")) {
       SPDLOG_ERROR("modelPath not defined");
@@ -28,7 +29,6 @@ bool DetectObjects::init(const njson &config) {
         config.value("inferenceIntervalMs", m_inference_interval_ms);
     m_confidence_threshold =
         config.value("confidenceThreshold", m_confidence_threshold);
-
     SPDLOG_INFO("Loading ONNX model: {}", m_model_path);
 
     m_net = cv::dnn::readNetFromONNX(m_model_path);
@@ -49,8 +49,8 @@ bool DetectObjects::init(const njson &config) {
   }
 }
 
-void DetectObjects::post_process_yolo(const cv::cuda::GpuMat &frame,
-                                      PipelineContext &ctx) const {
+void YoloDetect::post_process_yolo(const cv::cuda::GpuMat &frame,
+                                   PipelineContext &ctx) const {
   const std::vector<cv::Mat> &outputs = ctx.yolo.inference_outputs;
 
   // Calculate Scale Factor (Frame vs Input Blob)
@@ -103,8 +103,8 @@ void DetectObjects::post_process_yolo(const cv::cuda::GpuMat &frame,
                     m_confidence_threshold, m_nms_thres, ctx.yolo.indices);
 }
 
-SynchronousProcessingResult DetectObjects::process(cv::cuda::GpuMat &frame,
-                                                   PipelineContext &ctx) {
+SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
+                                                PipelineContext &ctx) {
   using namespace std::chrono;
   const auto now_ms =
       duration_cast<milliseconds>(system_clock::now().time_since_epoch())
@@ -113,6 +113,7 @@ SynchronousProcessingResult DetectObjects::process(cv::cuda::GpuMat &frame,
     ctx.yolo = m_prev_yolo_ctx;
     return success_and_continue;
   }
+
   m_last_inference_time_ms = now_ms;
   if (frame.empty() || m_net.empty())
     return failure_and_continue;

@@ -23,21 +23,6 @@ public:
                                               PipelineContext &ctx) = 0;
 };
 
-class RotateFrame final : public ISynchronousProcessingUnit {
-private:
-  int m_angle{0};
-
-public:
-  RotateFrame() = default;
-  ~RotateFrame() override = default;
-
-  SynchronousProcessingResult
-  process(cv::cuda::GpuMat &frame,
-          [[maybe_unused]] PipelineContext &meta_data) override;
-
-  bool init(const njson &config) override;
-};
-
 
 class DebugOutput final : public ISynchronousProcessingUnit {
   std::string m_custom_text;

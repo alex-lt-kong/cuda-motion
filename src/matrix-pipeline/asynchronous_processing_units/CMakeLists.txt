@@ -17,14 +17,14 @@ add_library(asynchronous_processing_unit
 )
 target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         utils
-        # pipeline_executor
         matrix_notifier
         debug_output
         rotate_frame
         rtsp_producer
         resize_frame
-        detect_objects
-        prune_object_detection_results
         collect_stats
-        overlay_bounding_boxes
-        measure_latency)
+        measure_latency
+        yolo_detect
+        yolo_prune_detection_results
+        yolo_overlay_bounding_boxes
+)

@@ -4,7 +4,7 @@
 
 namespace MatrixPipeline::ProcessingUnit{
 
-class DetectObjects final : public ISynchronousProcessingUnit {
+class YoloDetect final : public ISynchronousProcessingUnit {
 private:
   std::string m_model_path;
   cv::Size m_model_input_size = {640, 640}; // Default YOLO size

@@ -1,11 +1,11 @@
-#include "prune_object_detection_results.h"
+#include "yolo_prune_detection_results.h"
 
 #include <opencv2/cudaarithm.hpp>
 #include <spdlog/spdlog.h>
 
 namespace MatrixPipeline::ProcessingUnit {
 
-bool PruneObjectDetectionResults::init(const njson &config) {
+bool YoloPruneDetectionResults::init(const njson &config) {
   // 1. Parse Edge Constraints
   if (config.contains("edgeConstraints")) {
     const auto &constraints = config["edgeConstraints"];
@@ -50,8 +50,8 @@ bool PruneObjectDetectionResults::init(const njson &config) {
   return true;
 }
 
-PruneObjectDetectionResults::Range
-PruneObjectDetectionResults::parse_constraint(const njson &constraints,
+YoloPruneDetectionResults::Range
+YoloPruneDetectionResults::parse_constraint(const njson &constraints,
                                         const std::string &key) {
   Range range; // Defaults to 0.0 - 1.0
   if (constraints.contains(key)) {
@@ -65,7 +65,7 @@ PruneObjectDetectionResults::parse_constraint(const njson &constraints,
 }
 
 SynchronousProcessingResult
-PruneObjectDetectionResults::process(cv::cuda::GpuMat &frame, PipelineContext &ctx) {
+YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame, PipelineContext &ctx) {
   int img_w = frame.cols;
   int img_h = frame.rows;
 
