@@ -62,6 +62,7 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
                                label, conf);
 
       cv::Scalar color;
+      // SPDLOG_INFO("frame_seq_num: {}, idx: {}, is_detection_valid: {}", ctx.frame_seq_num, idx, (int)ctx.yolo.is_detection_valid[idx]);
       if (!ctx.yolo.is_detection_valid[idx])
         color = cv::Scalar(127, 127, 127);
       else {

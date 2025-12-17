@@ -155,7 +155,7 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame,
   // ---------------------------------------------------------
   size_t box_count = ctx.yolo.boxes.size();
   if (ctx.yolo.is_detection_valid.size() != box_count) {
-    ctx.yolo.is_detection_valid = std::vector<bool>(box_count);
+    ctx.yolo.is_detection_valid = std::vector<short>(box_count);
   }
 
   if (box_count == 0)
@@ -204,6 +204,10 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame,
     ctx.yolo.is_detection_valid[idx] =
         (valid_left && valid_right && valid_top && valid_bottom && valid_size &&
          m_class_ids_of_interest.contains(ctx.yolo.class_ids[idx]));
+    /*
+    SPDLOG_INFO("frame_seq_num: {}, idx: {}, ctx.yolo.class_ids[idx]: {}, m_class_ids_of_interest: [{}], m_class_ids_of_interest.contains(): {}, ctx.yolo.is_detection_valid[idx]: {}",
+      ctx.frame_seq_num, idx, ctx.yolo.class_ids[idx], fmt::join(m_class_ids_of_interest, ", "), m_class_ids_of_interest.contains(ctx.yolo.class_ids[idx]), ctx.yolo.is_detection_valid[idx] );
+      */
   }
 
   return success_and_continue;

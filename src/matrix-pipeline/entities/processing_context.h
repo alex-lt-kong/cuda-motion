@@ -18,7 +18,7 @@ struct YoloContext {
   cv::Size inference_input_size;
   std::vector<cv::Rect> boxes;
   std::vector<size_t> class_ids;
-  std::vector<bool> is_detection_valid;
+  std::vector<short> is_detection_valid;
   std::vector<float> confidences;
   std::vector<int> indices;
 };
