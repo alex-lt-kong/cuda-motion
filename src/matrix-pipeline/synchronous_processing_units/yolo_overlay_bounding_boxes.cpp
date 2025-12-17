@@ -14,10 +14,11 @@ namespace MatrixPipeline::ProcessingUnit {
 bool YoloOverlayBoundingBoxes::init([[maybe_unused]] const njson &config) {
   m_class_names = config.value("classNames", m_class_names);
   std::srand(4); // we want deterministic coloring
-  m_colors.clear();
+  // m_colors.clear();
+  /*
   for (size_t i = 0; i < m_class_names.size(); ++i) {
-    m_colors.emplace_back(std::rand() % 255, std::rand() % 255, std::rand() % 255);
-  }
+    ;
+  }*/
   SPDLOG_INFO("class_names: {}", fmt::join(m_class_names, ", "));
   return true;
 }
@@ -56,16 +57,20 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
         label = m_class_names[class_id];
       }
 
-      label_text = fmt::format(
-          "{}{} {:.2f} ", !ctx.yolo.is_in_roi[idx] ? "(!)" : "", label, conf);
+      label_text = fmt::format("{}{} {:.2f} ",
+                               !ctx.yolo.is_detection_valid[idx] ? "(!)" : "",
+                               label, conf);
 
       cv::Scalar color;
-      if (!ctx.yolo.is_in_roi[idx])
+      if (!ctx.yolo.is_detection_valid[idx])
         color = cv::Scalar(127, 127, 127);
-      else
-        color = (static_cast<size_t>(class_id) < m_colors.size())
-                    ? m_colors[class_id]
-                    : cv::Scalar(0, 255, 0);
+      else {
+        while (m_colors.size() <= class_id) {
+          m_colors.emplace_back(std::rand() % 255, std::rand() % 255,
+                                std::rand() % 255);
+        }
+        color = m_colors[class_id];
+      }
 
       // Draw Bounding Box
       cv::rectangle(h_overlay_canvas, box, color, 2);

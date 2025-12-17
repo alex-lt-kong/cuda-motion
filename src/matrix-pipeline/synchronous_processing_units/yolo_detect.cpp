@@ -94,7 +94,7 @@ void YoloDetect::post_process_yolo(const cv::cuda::GpuMat &frame,
       ctx.yolo.boxes.emplace_back(left, top, width, height);
       ctx.yolo.confidences.push_back(static_cast<float>(max_class_score));
       ctx.yolo.class_ids.push_back(class_id_point.x);
-      ctx.yolo.is_in_roi.push_back(true);
+      ctx.yolo.is_detection_valid.push_back(false);
     }
   }
 

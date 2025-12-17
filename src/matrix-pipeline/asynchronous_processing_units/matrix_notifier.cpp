@@ -12,21 +12,19 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-bool MatrixNotifier::check_if_people_detected(const PipelineContext &ctx) {
-  bool person_detected = false;
+bool MatrixNotifier::is_any_detection_interesting(const PipelineContext &ctx) {
   for (const auto idx : ctx.yolo.indices) {
-    if (ctx.yolo.class_ids[idx] == 0 && ctx.yolo.is_in_roi[idx]) {
-      person_detected = true;
-      break;
+    if (ctx.yolo.is_detection_valid[idx]) {
+      return true;
     }
   }
-  return person_detected;
+  return false;
 }
 
 void MatrixNotifier::handle_image(const cv::cuda::GpuMat &frame,
                                   [[maybe_unused]] const PipelineContext &ctx,
-                                  const bool is_people_detected) const {
-  if (!is_people_detected)
+                                  const bool is_interesting) const {
+  if (!is_interesting)
     return;
   if (ctx.frame_seq_num % m_notification_interval_frame != 0)
     return;
@@ -161,7 +159,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
 float MatrixNotifier::calculate_roi_score(const YoloContext &yolo) {
   float roi_value = 0.0;
   for (const auto idx : yolo.indices) {
-    if (yolo.class_ids[idx] == 0 && yolo.is_in_roi[idx]) {
+    if (yolo.class_ids[idx] == 0 && yolo.is_detection_valid[idx]) {
       roi_value += yolo.boxes[idx].area() * yolo.confidences[idx] *
                    pow(yolo.indices.size(), 0.5);
     }
@@ -217,11 +215,11 @@ bool MatrixNotifier::init(const njson &config) {
 
 void MatrixNotifier::on_frame_ready(cv::cuda::GpuMat &frame,
                                     [[maybe_unused]] PipelineContext &ctx) {
-  auto is_people_detected = check_if_people_detected(ctx);
+  const auto is_interesting = is_any_detection_interesting(ctx);
   if (m_is_send_image_enabled)
-    handle_image(frame, ctx, is_people_detected);
+    handle_image(frame, ctx, is_interesting);
   if (m_is_send_video_enabled)
-    handle_video(frame, ctx, is_people_detected);
+    handle_video(frame, ctx, is_interesting);
 }
 
 } // namespace MatrixPipeline::ProcessingUnit

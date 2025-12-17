@@ -1,5 +1,6 @@
 #include "yolo_prune_detection_results.h"
 
+#include <fmt/ranges.h>
 #include <opencv2/cudaarithm.hpp>
 #include <spdlog/spdlog.h>
 
@@ -23,18 +24,25 @@ bool YoloPruneDetectionResults::init(const njson &config) {
       if (constraints.contains("minAreaRatio")) {
         m_size_limit_mode = SizeMode::MIN_RATIO;
         m_size_limit_val = constraints["minAreaRatio"].get<double>();
-        SPDLOG_INFO("Constraint: Box must be larger than {:.2f}% of frame", m_size_limit_val * 100.0);
-      }
-      else if (constraints.contains("maxAreaRatio")) {
+        SPDLOG_INFO("Constraint: Box must be larger than {:.2f}% of frame",
+                    m_size_limit_val * 100.0);
+      } else if (constraints.contains("maxAreaRatio")) {
         m_size_limit_mode = SizeMode::MAX_RATIO;
         m_size_limit_val = constraints["maxAreaRatio"].get<double>();
-        SPDLOG_INFO("Constraint: Box must be smaller than {:.2f}% of frame", m_size_limit_val * 100.0);
+        SPDLOG_INFO("Constraint: Box must be smaller than {:.2f}% of frame",
+                    m_size_limit_val * 100.0);
       }
     }
   }
 
   // 2. Parse Visualization Config
-  m_debug_overlay_alpha = config.value("debugOverlayAlpha", m_debug_overlay_alpha);
+  m_debug_overlay_alpha =
+      config.value("debugOverlayAlpha", m_debug_overlay_alpha);
+
+  const auto class_ids_of_interest_vector =
+      config.value("classIdsOfInterest", std::vector<int>{});
+  for (const auto &idx : class_ids_of_interest_vector)
+    m_class_ids_of_interest.insert(idx);
 
   SPDLOG_INFO("region_constraint: L:[{:.2f}, {:.2f}], R:[{:.2f}, "
               "{:.2f}], T:[{:.2f}, {:.2f}], B:[{:.2f}, {:.2f}], "
@@ -45,14 +53,15 @@ bool YoloPruneDetectionResults::init(const njson &config) {
               m_bottom_constraint.min_val, m_bottom_constraint.max_val,
               m_debug_overlay_alpha);
   SPDLOG_INFO("size_limit_val: {} size_limit_mode: {}", m_size_limit_val,
-              static_cast<int>( m_size_limit_mode));
-
+              static_cast<int>(m_size_limit_mode));
+  SPDLOG_INFO("class_ids_of_interest: {}",
+              fmt::join(class_ids_of_interest_vector, ", "));
   return true;
 }
 
 YoloPruneDetectionResults::Range
 YoloPruneDetectionResults::parse_constraint(const njson &constraints,
-                                        const std::string &key) {
+                                            const std::string &key) {
   Range range; // Defaults to 0.0 - 1.0
   if (constraints.contains(key)) {
     auto obj = constraints[key];
@@ -65,7 +74,8 @@ YoloPruneDetectionResults::parse_constraint(const njson &constraints,
 }
 
 SynchronousProcessingResult
-YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame, PipelineContext &ctx) {
+YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame,
+                                   PipelineContext &ctx) {
   int img_w = frame.cols;
   int img_h = frame.rows;
 
@@ -140,12 +150,12 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame, PipelineContext &ctx
     draw_corridor_roi(m_bottom_constraint, false);
   }
 
- // ---------------------------------------------------------
+  // ---------------------------------------------------------
   // 2. LOGIC (Filter Boxes) - Updated with Size Check
   // ---------------------------------------------------------
   size_t box_count = ctx.yolo.boxes.size();
-  if (ctx.yolo.is_in_roi.size() != box_count) {
-    ctx.yolo.is_in_roi.resize(box_count);
+  if (ctx.yolo.is_detection_valid.size() != box_count) {
+    ctx.yolo.is_detection_valid = std::vector<bool>(box_count);
   }
 
   if (box_count == 0)
@@ -157,8 +167,8 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame, PipelineContext &ctx
   // Pre-calculate frame area for ratio checks
   double frame_area = static_cast<double>(img_w) * static_cast<double>(img_h);
 
-  for (size_t i = 0; i < box_count; ++i) {
-    const cv::Rect &box = ctx.yolo.boxes[i];
+  for (const auto idx : ctx.yolo.indices) {
+    const cv::Rect &box = ctx.yolo.boxes[idx];
 
     // --- A. Edge Logic ---
     float box_left = box.x / f_w;
@@ -178,21 +188,22 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame, PipelineContext &ctx
     // --- B. Size Logic (New) ---
     bool valid_size = true;
     if (m_size_limit_mode != SizeMode::NONE) {
-        double box_area = static_cast<double>(box.width * box.height);
-        double ratio = box_area / frame_area;
+      double box_area = static_cast<double>(box.width * box.height);
+      double ratio = box_area / frame_area;
 
-        if (m_size_limit_mode == SizeMode::MIN_RATIO) {
-            // Criterion 1: Must be BIGGER than ratio (e.g., > 10%)
-            valid_size = (ratio >= m_size_limit_val);
-        } else {
-            // Criterion 2: Must be SMALLER than ratio (e.g., < 80%)
-            valid_size = (ratio <= m_size_limit_val);
-        }
+      if (m_size_limit_mode == SizeMode::MIN_RATIO) {
+        // Criterion 1: Must be BIGGER than ratio (e.g., > 10%)
+        valid_size = (ratio >= m_size_limit_val);
+      } else {
+        // Criterion 2: Must be SMALLER than ratio (e.g., < 80%)
+        valid_size = (ratio <= m_size_limit_val);
+      }
     }
 
     // Combine all checks
-    ctx.yolo.is_in_roi[i] =
-        (valid_left && valid_right && valid_top && valid_bottom && valid_size);
+    ctx.yolo.is_detection_valid[idx] =
+        (valid_left && valid_right && valid_top && valid_bottom && valid_size &&
+         m_class_ids_of_interest.contains(ctx.yolo.class_ids[idx]));
   }
 
   return success_and_continue;

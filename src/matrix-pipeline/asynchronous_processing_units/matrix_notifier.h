@@ -30,11 +30,11 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
   std::unique_ptr<Utils::RamVideoBuffer> m_ram_buf{nullptr};
   Utils::VideoRecordingState m_state{Utils::IDLE};
 
-  static bool check_if_people_detected(const PipelineContext &ctx);
+  static bool is_any_detection_interesting(const PipelineContext &ctx);
 
   void handle_image(const cv::cuda::GpuMat &frame,
                     [[maybe_unused]] const PipelineContext &ctx,
-                    const bool is_people_detected) const;
+                    const bool is_interesting) const;
   void handle_video(const cv::cuda::GpuMat &frame,
                     [[maybe_unused]] const PipelineContext &ctx,
                     const bool is_people_detected);

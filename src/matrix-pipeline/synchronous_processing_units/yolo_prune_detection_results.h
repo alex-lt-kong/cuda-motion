@@ -3,7 +3,7 @@
 #include "../interfaces/i_synchronous_processing_unit.h"
 
 #include <nlohmann/json.hpp>
-#include <opencv2/opencv.hpp>
+#include <unordered_set>
 
 namespace MatrixPipeline::ProcessingUnit {
 
@@ -36,9 +36,12 @@ private:
   float m_debug_overlay_alpha = 0.0;
   cv::cuda::GpuMat m_overlay_buffer; // Reuse to avoid reallocation
 
+  std::unordered_set<int> m_class_ids_of_interest;
+
   // Helper to parse a specific edge constraint from JSON
   static Range parse_constraint(const njson &constraints,
                                 const std::string &key);
+
 };
 
 } // namespace MatrixPipeline::ProcessingUnit
