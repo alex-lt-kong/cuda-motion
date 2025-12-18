@@ -1,4 +1,4 @@
-#include "../interfaces/i_synchronous_processing_unit.h"
+#include "debug_output.h"
 
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>

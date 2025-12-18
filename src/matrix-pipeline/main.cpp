@@ -57,7 +57,7 @@ void configure_spdlog() {
     spdlog::set_level(spdlog::level::debug);
     // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
     // Including microseconds is handy for naive profiling
-    spdlog::set_pattern("%Y-%m-%dT%T.%e | %5t | %8l | %27s:%-3#:%-12! | %v");
+    spdlog::set_pattern("%Y-%m-%dT%T.%e | %5t | %8l | %30s:%-3#:%-12! | %v");
 
   } catch (const spdlog::spdlog_ex &ex) {
     std::cerr << "Log initialization failed: " << ex.what() << std::endl;

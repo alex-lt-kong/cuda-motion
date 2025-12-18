@@ -7,8 +7,6 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-CollectStats::CollectStats() = default;
-
 CollectStats::~CollectStats() = default;
 
 bool CollectStats::init(const njson &config) {

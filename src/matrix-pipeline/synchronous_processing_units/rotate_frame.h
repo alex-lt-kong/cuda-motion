@@ -9,7 +9,7 @@ private:
   int m_angle{0};
 
 public:
-  RotateFrame() = default;
+  explicit RotateFrame(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/RotateFrame") {}
   ~RotateFrame() override = default;
 
   SynchronousProcessingResult

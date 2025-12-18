@@ -6,7 +6,6 @@
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/cudacodec.hpp>
 #include <opencv2/videoio.hpp>
-
 #include <spdlog/fmt/chrono.h>
 #include <spdlog/spdlog.h>
 
@@ -31,6 +30,8 @@ struct VideoWriterConfig {
 
 class VideoWriter final : public IAsynchronousProcessingUnit {
 public:
+
+  explicit VideoWriter(const std::string &unit_path) : IAsynchronousProcessingUnit(unit_path  + "/VideoWriter") {}
   ~VideoWriter() override {
     if (m_writer) {
       m_writer.release();

@@ -2,17 +2,14 @@
 
 #include "../entities/processing_context.h"
 #include "../entities/synchronous_processing_result.h"
-#include "../entities/video_recording_state.h"
 #include "../utils/matrix_sender.h"
 #include "../utils/ram_video_buffer.h"
 
 #include <nlohmann/json.hpp>
 #include <opencv2/core/cuda.hpp>
-#include <opencv2/cudacodec.hpp>
 #include <spdlog/spdlog.h>
 
 #include <atomic>
-#include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <queue>
@@ -35,9 +32,17 @@ struct AsyncPayload {
 };
 
 class IAsynchronousProcessingUnit {
+protected:
+  const std::string m_unit_path;
+
 public:
+  explicit IAsynchronousProcessingUnit(std::string unit_path)
+      : m_unit_path(std::move(unit_path)) {
+    SPDLOG_INFO("Initializing asynchronous_processing_unit: {}", m_unit_path);
+  };
   virtual ~IAsynchronousProcessingUnit() {
-    stop(); // Ensure thread is joined on destruction
+    stop();
+    SPDLOG_INFO("asynchronous_processing_unit {} destructed", m_unit_path);
   }
 
   virtual bool init(const njson &config) = 0;

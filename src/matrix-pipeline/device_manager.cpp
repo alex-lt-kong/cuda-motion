@@ -18,7 +18,7 @@ namespace MatrixPipeline {
 void DeviceManager::InternalThreadEntry() {
 
   // auto exe = ProcessingUnit::PipelineExecutor();
-  auto apu = ProcessingUnit::AsynchronousProcessingUnit();
+  auto apu = ProcessingUnit::AsynchronousProcessingUnit("");
   // PipelineExecutor exe;
   if (!apu.init(settings)) {
     SPDLOG_ERROR("root apu NOT starting...");

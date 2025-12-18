@@ -17,8 +17,9 @@ private:
   float m_cropBottom{0.0f};
 
 public:
-  inline CropFrame() = default;
-  inline ~CropFrame() override = default;
+
+  explicit CropFrame(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/CropFrame") {}
+  ~CropFrame() override = default;
 
   /**
    * @brief Initializes cropping parameters from JSON.

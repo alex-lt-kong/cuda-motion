@@ -11,7 +11,7 @@ namespace MatrixPipeline::ProcessingUnit {
 
 class OverlayInfo final : public ISynchronousProcessingUnit {
 public:
-  OverlayInfo();
+  explicit OverlayInfo(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/OverlayInfo") {}
   ~OverlayInfo() override;
 
   bool init(const nlohmann::json &config) override;
@@ -47,7 +47,7 @@ private:
   int m_current_outline_thickness{0};
 
   // --- Buffers ---
-  int m_stripHeight;
+  int m_stripHeight{0};
   cv::Mat m_h_text_strip;
   cv::cuda::GpuMat d_text_strip;
   cv::cuda::GpuMat d_strip_gray;

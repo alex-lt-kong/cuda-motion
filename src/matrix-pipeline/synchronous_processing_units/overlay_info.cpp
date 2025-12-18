@@ -14,9 +14,6 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-// Explicit default constructor/destructor in CPP to allow forward declarations
-// if needed later
-OverlayInfo::OverlayInfo() = default;
 OverlayInfo::~OverlayInfo() = default;
 
 bool OverlayInfo::init(const nlohmann::json &config) {

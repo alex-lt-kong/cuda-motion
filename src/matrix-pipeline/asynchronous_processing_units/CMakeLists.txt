@@ -1,9 +1,3 @@
-add_library(rtsp_producer
-        rtsp_producer.cpp rtsp_producer.h
-        ../interfaces/i_asynchronous_processing_unit.h
-)
-target_link_libraries(rtsp_producer spdlog::spdlog)
-
 add_library(matrix_notifier
         matrix_notifier.cpp matrix_notifier.h
         ../interfaces/i_asynchronous_processing_unit.h
@@ -20,7 +14,6 @@ target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         matrix_notifier
         debug_output
         rotate_frame
-        rtsp_producer
         resize_frame
         collect_stats
         measure_latency

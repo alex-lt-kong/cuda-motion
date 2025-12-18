@@ -20,6 +20,7 @@ private:
                          PipelineContext &ctx) const;
 
 public:
+  explicit YoloDetect(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/YoloDetect") {}
   bool init(const njson &config) override;
 
   SynchronousProcessingResult process(cv::cuda::GpuMat &frame,

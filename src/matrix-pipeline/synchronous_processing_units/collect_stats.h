@@ -11,7 +11,7 @@ namespace MatrixPipeline::ProcessingUnit {
 
 class CollectStats final : public ISynchronousProcessingUnit {
 public:
-  CollectStats();
+  explicit CollectStats(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/CollectStats") {}
   ~CollectStats() override;
 
   bool init(const njson &config) override;

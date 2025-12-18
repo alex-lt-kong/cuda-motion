@@ -1,13 +1,13 @@
 #include "asynchronous_processing_unit.h"
 #include "../asynchronous_processing_units/http_service.h"
 #include "../asynchronous_processing_units/matrix_notifier.h"
-#include "../asynchronous_processing_units/rtsp_producer.h"
 #include "../asynchronous_processing_units/video_writer.h"
 #include "../asynchronous_processing_units/zeromq_publisher.h"
 #include "../entities/processing_context.h"
 #include "../entities/processing_units_variant.h"
 #include "../interfaces/i_synchronous_processing_unit.h"
 #include "../synchronous_processing_units/collect_stats.h"
+#include "../synchronous_processing_units/debug_output.h"
 #include "../synchronous_processing_units/rotate_frame.h"
 #include "../synchronous_processing_units/crop_frame.h"
 #include "../synchronous_processing_units/measure_latency.h"
@@ -32,40 +32,36 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
     ProcessingUnitVariant ptr;
     const std::string type = settings_pipeline[i]["type"].get<std::string>();
     if (type == "SynchronousProcessingUnit::rotation") {
-      ptr = std::make_unique<RotateFrame>();
+      ptr = std::make_unique<RotateFrame>(m_unit_path);
     } else if (type == "SynchronousProcessingUnit::overlayInfo") {
-      ptr = std::make_unique<OverlayInfo>();
+      ptr = std::make_unique<OverlayInfo>(m_unit_path);
     } else if (type == "SynchronousProcessingUnit::cropFrame") {
-      ptr = std::make_unique<CropFrame>();
+      ptr = std::make_unique<CropFrame>(m_unit_path);
     } else if (type == "SynchronousProcessingUnit::debugOutput") {
-      ptr = std::make_unique<DebugOutput>();
+      ptr = std::make_unique<DebugOutput>(m_unit_path);
     } else if (type == "SynchronousProcessingUnit::resizeFrame") {
-      ptr = std::make_unique<ResizeFrame>();
+      ptr = std::make_unique<ResizeFrame>(m_unit_path);
     } else if (type == "SynchronousProcessingUnit::collectStats") {
-      ptr = std::make_unique<CollectStats>();
+      ptr = std::make_unique<CollectStats>(m_unit_path);
     } else if (type == "SynchronousProcessingUnit::measureLatency") {
-      ptr = std::make_unique<MeasureLatency>();
-    } else if (type ==
-                   "SynchronousProcessingUnit::pruneObjectDetectionResults" ||
-               type == "SynchronousProcessingUnit::yoloPruneDetectionResults") {
-      ptr = std::make_unique<YoloPruneDetectionResults>();
+      ptr = std::make_unique<MeasureLatency>(m_unit_path);
+    } else if (type == "SynchronousProcessingUnit::yoloPruneDetectionResults") {
+      ptr = std::make_unique<YoloPruneDetectionResults>(m_unit_path);
     } else if (type == "AsynchronousProcessingUnit::videoWriter") {
-      ptr = std::make_unique<VideoWriter>();
-    } else if (type == "AsynchronousProcessingUnit::rtspProducer") {
-      ptr = std::make_unique<RtspProducer>();
+      ptr = std::make_unique<VideoWriter>(m_unit_path);
     } else if (type == "AsynchronousProcessingUnit::httpService") {
-      ptr = std::make_unique<HttpService>();
+      ptr = std::make_unique<HttpService>(m_unit_path);
     } else if (type == "SynchronousProcessingUnit::detectObjects" ||
                type == "SynchronousProcessingUnit::yoloDetect") {
-      ptr = std::make_unique<YoloDetect>();
+      ptr = std::make_unique<YoloDetect>(m_unit_path);
     } else if (type == "SynchronousProcessingUnit::overlayBoundingBoxes" ||
                type == "SynchronousProcessingUnit::yoloOverlayBoundingBoxes") {
-      ptr = std::make_unique<YoloOverlayBoundingBoxes>();
+      ptr = std::make_unique<YoloOverlayBoundingBoxes>(m_unit_path);
     } else if (type ==
                "AsynchronousProcessingUnit::asynchronousProcessingUnit") {
-      ptr = std::make_unique<AsynchronousProcessingUnit>();
+      ptr = std::make_unique<AsynchronousProcessingUnit>(m_unit_path);
     } else if (type == "AsynchronousProcessingUnit::matrixNotifier") {
-      ptr = std::make_unique<MatrixNotifier>();
+      ptr = std::make_unique<MatrixNotifier>(m_unit_path);
     } else {
       SPDLOG_WARN("Unrecognized pipeline unit, type: {}, idx: {}", type, i);
       continue;

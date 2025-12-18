@@ -16,8 +16,6 @@
 #include <mutex>
 #include <spdlog/spdlog.h>
 #include <string>
-#include <thread>
-#include <vector>
 
 using namespace drogon;
 
@@ -37,10 +35,10 @@ inline std::atomic s_global_handler_registered{false};
  */
 class HttpService : public IAsynchronousProcessingUnit {
 public:
-  HttpService() = default;
+
+  explicit HttpService(const std::string &unit_path) : IAsynchronousProcessingUnit(unit_path  + "/HttpService") {}
 
   ~HttpService() override {
-    stop();
     std::lock_guard<std::mutex> lock(s_registry_mutex);
     if (m_port > 0) {
       s_service_registry.erase(m_port);

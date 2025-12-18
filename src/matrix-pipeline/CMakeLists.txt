@@ -33,7 +33,6 @@ target_link_libraries(device_manager
         matrix_notifier
         debug_output
         rotate_frame
-        rtsp_producer
         resize_frame
         collect_stats
         overlay_info

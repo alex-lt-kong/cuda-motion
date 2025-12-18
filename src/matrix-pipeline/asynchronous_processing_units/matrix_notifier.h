@@ -2,6 +2,9 @@
 
 #include "../interfaces/i_asynchronous_processing_unit.h"
 
+#include "../entities/video_recording_state.h"
+#include <opencv2/cudacodec.hpp>
+
 namespace MatrixPipeline::ProcessingUnit {
 
 class MatrixNotifier final : public IAsynchronousProcessingUnit {
@@ -42,6 +45,7 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
   static float calculate_roi_score(const YoloContext &yolo);
 
 public:
+  explicit MatrixNotifier(const std::string &unit_path) : IAsynchronousProcessingUnit(unit_path  + "/MatrixNotifier") {}
   bool init(const njson &config) override;
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
 };

@@ -18,7 +18,7 @@ private:
   int m_interpolation{cv::INTER_LINEAR};
 
 public:
-  ResizeFrame() = default;
+  explicit ResizeFrame(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/ResizeFrame") {}
   ~ResizeFrame() override = default;
 
   /**

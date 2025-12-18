@@ -14,7 +14,8 @@ class MeasureLatency final : public ISynchronousProcessingUnit {
 public:
   enum class Position { START, END };
 
-  MeasureLatency() = default;
+
+  explicit MeasureLatency(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/MeasureLatency") {}
   ~MeasureLatency() override = default;
 
   bool init(const njson &config) override;

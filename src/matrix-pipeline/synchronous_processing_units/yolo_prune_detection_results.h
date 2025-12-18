@@ -9,6 +9,7 @@ namespace MatrixPipeline::ProcessingUnit {
 
 class YoloPruneDetectionResults final : public ISynchronousProcessingUnit {
 public:
+  explicit YoloPruneDetectionResults(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/YoloPruneDetectionResults") {}
   bool init(const njson &config) override;
 
   SynchronousProcessingResult process(cv::cuda::GpuMat &frame,

@@ -9,6 +9,7 @@ add_library(resize_frame
         resize_frame.cpp resize_frame.h
         ../interfaces/i_synchronous_processing_unit.h
 )
+target_link_libraries(resize_frame spdlog::spdlog)
 
 add_library(measure_latency
         measure_latency.cpp measure_latency.h
@@ -17,11 +18,9 @@ add_library(measure_latency
 target_link_libraries(measure_latency spdlog::spdlog)
 
 add_library(debug_output
-        debug_oputput.cpp
+        debug_output.cpp debug_output.h
         ../interfaces/i_synchronous_processing_unit.h
 )
-target_link_libraries(debug_output spdlog::spdlog)
-
 target_link_libraries(debug_output spdlog::spdlog)
 
 add_library(yolo_detect
