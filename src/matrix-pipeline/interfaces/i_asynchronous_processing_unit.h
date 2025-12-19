@@ -15,12 +15,10 @@
 #include <queue>
 #include <thread>
 
-namespace MatrixPipeline {
-namespace Utils {
+namespace MatrixPipeline::Utils {
 
 class NvJpegEncoder;
-} // namespace Utils
-} // namespace MatrixPipeline
+}
 
 using njson = nlohmann::json;
 
@@ -57,7 +55,7 @@ public:
    */
   SynchronousProcessingResult enqueue(const cv::cuda::GpuMat &frame,
                                       const PipelineContext &ctx) {
-
+    using namespace std::chrono_literals;
     cv::cuda::GpuMat frame_clone;
     try {
       frame_clone = frame.clone();
@@ -71,13 +69,17 @@ public:
       auto queue_size = m_processing_queue.size();
       if (constexpr auto warning_queue_size = 10;
           queue_size > warning_queue_size) {
-        constexpr auto critical_queue_size = 30;
-        SPDLOG_WARN("queue_size ({}) is above warning_queue_size ({})",
-                    queue_size, warning_queue_size);
-        if (queue_size > critical_queue_size) {
-          SPDLOG_ERROR("queue_size ({}) is above critical_queue_size ({}), "
+        constexpr auto warning_throttle_interval = 5s;
+        if (std::chrono::steady_clock::now() - m_last_warning_time > warning_throttle_interval) {
+          SPDLOG_WARN("{}: queue_size ({}) is above warning_queue_size ({}). (This message is throttled to once per {} sec)",
+                     m_unit_path, queue_size, warning_queue_size, warning_throttle_interval.count());
+          m_last_warning_time = std::chrono::steady_clock::now();
+        }
+        if (constexpr auto critical_queue_size = 30;
+            queue_size > critical_queue_size) {
+          SPDLOG_ERROR("{}: queue_size ({}) is above critical_queue_size ({}), "
                        "discard {} frames to avoid OOM",
-                       queue_size, critical_queue_size,
+                       m_unit_path, queue_size, critical_queue_size,
                        queue_size - warning_queue_size);
           while (queue_size > warning_queue_size) {
             // auto [frame, ctx] = m_processing_queue.front();
@@ -105,6 +107,7 @@ public:
     m_running.store(true);
     m_worker_thread =
         std::thread(&IAsynchronousProcessingUnit::dequeue_loop, this);
+    SPDLOG_INFO("asynchronous_processing_unit {} started", m_unit_path);
   }
 
   /**
@@ -173,6 +176,7 @@ private:
   std::condition_variable m_cv;
   std::atomic<bool> m_running{false};
   std::thread m_worker_thread;
+  std::chrono::steady_clock::time_point m_last_warning_time;
 };
 
 } // namespace MatrixPipeline::ProcessingUnit

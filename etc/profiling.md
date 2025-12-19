@@ -54,7 +54,7 @@
       Thread 10 (Thread 0x7f7ee67fc640 (LWP 2713) "cs"):
       #0  0x000055c338579a7d in cv::flipHoriz(unsigned char const*, unsigned long, unsigned char*, unsigned long, cv::Size_<int>, unsigned long) ()
       #1  0x000055c33857bcdf in cv::flip(cv::_InputArray const&, cv::_OutputArray const&, int) ()
-      #2  0x000055c3384d6d45 in deviceManager::InternalThreadEntry (this=0x55c339b36850) at ./camera-server/src/camera-server/device_manager.cpp:853
+      #2  0x000055c3384d6d45 in deviceManager::InternalThreadEntry (this=0x55c339b36850) at ./camera-server/src/camera-server/video_feed_manager.cpp:853
       #3  0x000055c33844aefe in MyEventLoopThread::InternalThreadEntryFunc (This=<optimized out>) at ./camera-server/src/camera-server/event_loop.h:60
       #4  0x00007f7eef1f4b43 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
       #5  0x00007f7eef286a00 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
@@ -71,7 +71,7 @@
       #5  0x000055cfaf95297b in cv::(anonymous namespace)::CvCapture_FFMPEG_proxy::retrieveFrame(int, cv::_OutputArray const&) ()
       #6  0x000055cfaf9011f8 in cv::VideoCapture::retrieve(cv::_OutputArray const&, int) ()
       #7  0x000055cfaf900b44 in cv::VideoCapture::read(cv::_OutputArray const&) ()
-      #8  0x000055cfaf44fa04 in deviceManager::InternalThreadEntry (this=0x55cfb175a850) at ./camera-server/src/camera-server/device_manager.cpp:823
+      #8  0x000055cfaf44fa04 in deviceManager::InternalThreadEntry (this=0x55cfb175a850) at ./camera-server/src/camera-server/video_feed_manager.cpp:823
       #9  0x000055cfaf3c3efe in MyEventLoopThread::InternalThreadEntryFunc (This=<optimized out>) at ./camera-server/src/camera-server/event_loop.h:60
       #10 0x00007f5d010bdb43 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
       #11 0x00007f5d0114fa00 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
@@ -93,7 +93,7 @@
       #10 0x000055f74572f20b in CvCapture_FFMPEG::grabFrame() [clone .part.0] ()
       #11 0x000055f7456e1f52 in cv::VideoCapture::grab() ()
       #12 0x000055f7456e1b31 in cv::VideoCapture::read(cv::_OutputArray const&) ()
-      #13 0x000055f745230a04 in deviceManager::InternalThreadEntry (this=0x55f747524850) at ./camera-server/src/camera-server/device_manager.cpp:823
+      #13 0x000055f745230a04 in deviceManager::InternalThreadEntry (this=0x55f747524850) at ./camera-server/src/camera-server/video_feed_manager.cpp:823
       #14 0x000055f7451a4efe in MyEventLoopThread::InternalThreadEntryFunc (This=<optimized out>) at ./camera-server/src/camera-server/event_loop.h:60
       #15 0x00007fd58e2fdb43 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
       #16 0x00007fd58e38fa00 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
@@ -104,8 +104,8 @@
       #0  0x000055f7454a3f70 in cv::FillConvexPoly(cv::Mat&, cv::Point_<long> const*, int, void const*, int, int) ()
       #1  0x000055f7454aa1b2 in cv::PolyLine(cv::Mat&, cv::Point_<long> const*, int, bool, void const*, int, int, int) ()
       #2  0x000055f7454aafee in cv::putText(cv::_InputOutputArray const&, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, cv::Point_<int>, int, double, cv::Scalar_<double>, int, int, bool) ()
-      #3  0x000055f745223c88 in deviceManager::overlayStats (this=0x55f747524850, frame=..., changeRate=<optimized out>, cooldown=<optimized out>, videoFrameCount=<optimized out>) at ./camera-server/src/camera-server/device_manager.cpp:453
-      #4  0x000055f7452308d2 in deviceManager::InternalThreadEntry (this=0x55f747524850) at ./camera-server/src/camera-server/device_manager.cpp:877
+      #3  0x000055f745223c88 in deviceManager::overlayStats (this=0x55f747524850, frame=..., changeRate=<optimized out>, cooldown=<optimized out>, videoFrameCount=<optimized out>) at ./camera-server/src/camera-server/video_feed_manager.cpp:453
+      #4  0x000055f7452308d2 in deviceManager::InternalThreadEntry (this=0x55f747524850) at ./camera-server/src/camera-server/video_feed_manager.cpp:877
       #5  0x000055f7451a4efe in MyEventLoopThread::InternalThreadEntryFunc (This=<optimized out>) at ./camera-server/src/camera-server/event_loop.h:60
       #6  0x00007fd58e2fdb43 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
       #7  0x00007fd58e38fa00 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81

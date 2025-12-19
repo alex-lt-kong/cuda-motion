@@ -24,10 +24,10 @@ add_subdirectory(asynchronous_processing_units)
 add_library(utils
         utils.cpp utils.h
 )
-add_library(device_manager
-        device_manager.cpp device_manager.h
+add_library(video_feed_manager
+        video_feed_manager.cpp video_feed_manager.h
 )
-target_link_libraries(device_manager
+target_link_libraries(video_feed_manager
         PRIVATE
         utils
         matrix_notifier
@@ -41,7 +41,7 @@ target_link_libraries(device_manager
         yolo_overlay_bounding_boxes
         measure_latency
         asynchronous_processing_unit)
-target_link_libraries(device_manager
+target_link_libraries(video_feed_manager
         PRIVATE
         ${OpenCV_LIBS} rt ssl crypto fmt::fmt
         Drogon::Drogon
@@ -60,7 +60,7 @@ add_executable(mp
 target_link_libraries(mp
         PRIVATE
         utils
-        device_manager
+        video_feed_manager
         spdlog::spdlog
 )
 

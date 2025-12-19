@@ -1,6 +1,6 @@
-#include "device_manager.h"
 #include "global_vars.h"
 #include "utils.h"
+#include "video_feed_manager.h"
 
 #include <cxxopts.hpp>
 #include <drogon/drogon.h>
@@ -19,7 +19,7 @@ using namespace drogon;
 using namespace std;
 using json = nlohmann::json;
 
-string configPath =
+string config_path =
     string(getenv("HOME")) + "/.config/ak-studio/cuda-motion.jsonc";
 
 void signal_handler_cb(__attribute__((unused)) int signum) {
@@ -33,18 +33,18 @@ void configure_spdlog() {
   // A larger queue prevents blocking if the worker thread falls behind
   // temporarily.
   constexpr size_t queue_size = 9527;
-  const size_t thread_count = 1; // One thread is usually enough for logging
+  constexpr size_t thread_count = 1; // One thread is usually enough for logging
   spdlog::init_thread_pool(queue_size, thread_count);
   try {
     // 1. Define the sinks (destinations)
-    auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    const auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 
     std::vector<spdlog::sink_ptr> sinks{console_sink};
 
     // 2. Create the async logger
     // Note the use of create_async
-    auto async_logger = std::make_shared<spdlog::async_logger>(
-        "cuda-motion", sinks.begin(), sinks.end(),
+    const auto async_logger = std::make_shared<spdlog::async_logger>(
+        "matrix-pipeline", sinks.begin(), sinks.end(),
         spdlog::thread_pool(), // Pass the globally initialized thread pool
         spdlog::async_overflow_policy::overrun_oldest // Choose the overflow
                                                       // policy
@@ -54,7 +54,7 @@ void configure_spdlog() {
     spdlog::set_default_logger(async_logger);
 
     // 4. Set pattern and level
-    spdlog::set_level(spdlog::level::debug);
+    spdlog::set_level(spdlog::level::info);
     // Doc: https://github.com/gabime/spdlog/wiki/3.-Custom-formatting
     // Including microseconds is handy for naive profiling
     spdlog::set_pattern("%Y-%m-%dT%T.%e | %5t | %8l | %30s:%-3#:%-12! | %v");
@@ -69,14 +69,14 @@ int main(int argc, char *argv[]) {
   // clang-format off
   options.add_options()
     ("h,help", "print help message")
-    ("c,config-path", "path of the config file", cxxopts::value<string>()->default_value(configPath));
+    ("c,config-path", "path of the config file", cxxopts::value<string>()->default_value(config_path));
   // clang-format on
   auto result = options.parse(argc, argv);
   if (result.count("help") || !result.count("config-path")) {
     std::cout << options.help() << "\n";
     return 0;
   }
-  configPath = result["config-path"].as<std::string>();
+  config_path = result["config-path"].as<std::string>();
 
   configure_spdlog();
 
@@ -86,25 +86,37 @@ int main(int argc, char *argv[]) {
   SPDLOG_INFO("cv::getBuildInformation(): {}",
               string(cv::getBuildInformation()));
 
-  SPDLOG_INFO("Loading json settings from {}", configPath);
-  ifstream is(configPath);
-  settings = json::parse(is, nullptr, true, true);
-  auto mgr = make_unique<MatrixPipeline::DeviceManager>();
-  mgr->StartEv();
+  SPDLOG_INFO("Loading json settings from {}", config_path);
+  ifstream is(config_path);
+  try {
+    settings = json::parse(is, nullptr, true, true);
+  } catch (const std::exception &e) {
+    SPDLOG_ERROR("Failed to parse json from {}: {}", config_path, e.what());
+    return EXIT_FAILURE;
+  }
 
-  // naive way to handle race condition of drogon::app().run(),
-  this_thread::sleep_for(chrono::seconds(10));
+  auto mgr = MatrixPipeline::VideoFeedManager();
+  if (!mgr.init()) {
+    SPDLOG_ERROR("Failed to initialize video feed manager");
+    return EXIT_FAILURE;
+  }
 
-  app()
-      .setLogLevel(trantor::Logger::kWarn)
-      .setThreadNum(4)
-      .disableSigtermHandling()
-      .run();
+  SPDLOG_INFO("Starting Drogon web server");
+  auto th_drogon = std::thread([] {
+    app()
+        .setLogLevel(trantor::Logger::kWarn)
+        .setThreadNum(4)
+        .disableSigtermHandling()
+        .run();
+  });
+
+  SPDLOG_INFO("Starting video feed manager's event loop thread");
+  mgr.feed_capture_ev();
+  SPDLOG_INFO("video feed manager's event loop exited gracefully");
+
+  th_drogon.join();
   SPDLOG_INFO("Drogon exited");
 
-  mgr->JoinEv();
-
-  SPDLOG_INFO("All device event loop threads exited gracefully");
-  // spdlog::shutdown();
-  return 0;
+  SPDLOG_INFO("matrix-pipeline will now exit gracefully");
+  return EXIT_SUCCESS;
 }

@@ -1,10 +1,9 @@
 #pragma once
 
 #include "entities/processing_context.h"
-#include "event_loop.h"
+#include "asynchronous_processing_units/asynchronous_processing_unit.h"
 
 #include <nlohmann/json.hpp>
-#include <opencv2/core/cuda.hpp>
 #include <opencv2/cudacodec.hpp>
 
 #include <string>
@@ -18,17 +17,16 @@ struct videoWritingContext {
   float fps;
 };
 
-class DeviceManager : public EventLoop {
+class VideoFeedManager {
 
 public:
-  DeviceManager() = default;
-  ~DeviceManager() override {}
-  std::string getDeviceName() { return this->deviceName; }
-
-protected:
-  void InternalThreadEntry() override;
+  VideoFeedManager() = default;
+  ~VideoFeedManager() = default;
+  bool init();
+  void feed_capture_ev();
 
 private:
+  ProcessingUnit::AsynchronousProcessingUnit m_apu{""};
   std::string deviceName;
 
   std::mutex mtx_vr;

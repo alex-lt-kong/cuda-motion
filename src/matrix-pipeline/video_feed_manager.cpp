@@ -1,7 +1,6 @@
-#include "device_manager.h"
-#include "asynchronous_processing_units/asynchronous_processing_unit.h"
 #include "global_vars.h"
-// #include "synchronous_processing_units/pipeline_executor.h"
+#include "video_feed_manager.h"
+
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/core/types.hpp>
@@ -15,16 +14,17 @@ using namespace std;
 
 namespace MatrixPipeline {
 
-void DeviceManager::InternalThreadEntry() {
-
-  // auto exe = ProcessingUnit::PipelineExecutor();
-  auto apu = ProcessingUnit::AsynchronousProcessingUnit("");
-  // PipelineExecutor exe;
-  if (!apu.init(settings)) {
-    SPDLOG_ERROR("root apu NOT starting...");
-    return;
+bool VideoFeedManager::init() {
+  if (!m_apu.init(settings)) {
+    return false;
   }
-  apu.start();
+  m_apu.start();
+  return true;
+}
+
+void VideoFeedManager::feed_capture_ev() {
+
+
   cv::cuda::GpuMat frame;
 
   ProcessingUnit::PipelineContext ctx;
@@ -47,14 +47,14 @@ void DeviceManager::InternalThreadEntry() {
   while (ev_flag == 0) {
     always_fill_in_frame(frame, ctx);
     handle_video_capture(ctx);
-    apu.enqueue(frame, ctx);
+    m_apu.enqueue(frame, ctx);
   }
 
   vr.release();
   SPDLOG_INFO("thread quits gracefully");
 }
 
-void DeviceManager::always_fill_in_frame(cv::cuda::GpuMat &frame,
+void VideoFeedManager::always_fill_in_frame(cv::cuda::GpuMat &frame,
                                          ProcessingUnit::PipelineContext &ctx) {
   auto captured_from_real_device = false;
 
@@ -104,7 +104,7 @@ void DeviceManager::always_fill_in_frame(cv::cuda::GpuMat &frame,
   ++ctx.frame_seq_num;
 }
 
-void DeviceManager::handle_video_capture(
+void VideoFeedManager::handle_video_capture(
     const ProcessingUnit::PipelineContext &ctx) {
 
   auto register_delayed_vc_open_retry = [this, ctx]() {
