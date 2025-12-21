@@ -43,7 +43,8 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
                                   [[maybe_unused]] const PipelineContext &ctx,
                                   const bool is_people_detected) {
   using namespace std::chrono;
-  if ((!is_people_detected || m_min_frame_change_rate > ctx.change_rate) &&
+  const auto is_frame_changing = ctx.change_rate >= m_min_frame_change_rate;
+  if ((!is_people_detected || !is_frame_changing) &&
       m_state == Utils::VideoRecordingState::IDLE)
     return;
 
@@ -95,6 +96,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
     // Unlinking the name won't stop the writing, but it keeps /tmp clean.
     unlink(symlink_path.c_str());
   }
+
   const auto is_max_length_reached =
       steady_clock::now() - m_current_video_start_at >= m_video_max_length;
   const auto is_max_length_without_detection_reached =
@@ -119,7 +121,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       }
 
       const auto video_duration_ms =
-          static_cast<long>(m_current_video_frame_count * 1000 /
+          static_cast<long>(m_current_video_frame_count * 1000.0 /
                             (ctx.fps > 0 ? ctx.fps : m_fallback_fps));
       SPDLOG_INFO(
           "Matrix video recording stopped (is_max_length_reached: {}, "
@@ -152,7 +154,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
 
   m_writer->write(frame);
   ++m_current_video_frame_count;
-  if (is_people_detected)
+  if (is_people_detected && is_frame_changing)
     m_current_video_without_detection_since = steady_clock::now();
 }
 
