@@ -143,8 +143,8 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       const auto send_video_start_at = steady_clock::now();
       m_sender->send_video_from_memory(
           data, fmt::format("{:%Y-%m-%dT%H:%M:%S}.mp4", system_clock::now()),
-          video_duration_ms, jpeg_data, frame.size().width,
-          frame.size().height);
+          video_duration_ms, jpeg_data,  m_max_roi_score_frame.size().width,
+          m_max_roi_score_frame.size().height);
       const auto send_video_end_at = steady_clock::now();
       SPDLOG_INFO(
           "send_video_from_memory() took {}ms",
