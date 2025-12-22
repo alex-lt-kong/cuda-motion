@@ -1,10 +1,15 @@
 #pragma once
 
-#include "../interfaces/i_asynchronous_processing_unit.h"
-
 #include "../entities/video_recording_state.h"
+#include "../interfaces/i_asynchronous_processing_unit.h"
+#include "../utils/nvjpeg_encoder.h"
+#include "../utils/ram_video_buffer.h"
+
 #include <opencv2/cudacodec.hpp>
 
+namespace MatrixPipeline::Utils {
+struct RamVideoBuffer;
+}
 namespace MatrixPipeline::ProcessingUnit {
 
 class MatrixNotifier final : public IAsynchronousProcessingUnit {
@@ -18,11 +23,13 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
   bool m_is_send_video_enabled{true};
   double m_min_frame_change_rate{0.0};
   std::chrono::seconds m_video_max_length{60};
-  std::chrono::seconds  m_video_max_length_without_detection{10};
+  std::chrono::seconds m_video_max_length_without_detection{10};
+  std::chrono::seconds m_video_precapture{3};
 
   std::chrono::time_point<std::chrono::steady_clock> m_current_video_start_at;
   size_t m_current_video_frame_count{0};
-  std::chrono::time_point<std::chrono::steady_clock>  m_current_video_without_detection_since;
+  std::chrono::time_point<std::chrono::steady_clock>
+      m_current_video_without_detection_since;
   float m_max_roi_score{0.0f};
   cv::cuda::GpuMat m_max_roi_score_frame{-1};
   const double m_fallback_fps{25.0};
@@ -32,20 +39,22 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
   cv::Ptr<cv::cudacodec::VideoWriter> m_writer{nullptr};
   std::unique_ptr<Utils::RamVideoBuffer> m_ram_buf{nullptr};
   Utils::VideoRecordingState m_state{Utils::IDLE};
+  std::queue<AsyncPayload> m_frames_queue;
 
-  static bool is_any_detection_interesting(const PipelineContext &ctx);
+  static bool look_for_interesting_detection(const PipelineContext &ctx);
 
   void handle_image(const cv::cuda::GpuMat &frame,
                     [[maybe_unused]] const PipelineContext &ctx,
                     const bool is_interesting) const;
   void handle_video(const cv::cuda::GpuMat &frame,
                     [[maybe_unused]] const PipelineContext &ctx,
-                    const bool is_people_detected);
+                    const bool is_detection_interesting);
 
   static float calculate_roi_score(const YoloContext &yolo);
 
 public:
-  explicit MatrixNotifier(const std::string &unit_path) : IAsynchronousProcessingUnit(unit_path  + "/MatrixNotifier") {}
+  explicit MatrixNotifier(const std::string &unit_path)
+      : IAsynchronousProcessingUnit(unit_path + "/MatrixNotifier") {}
   bool init(const njson &config) override;
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
 };

@@ -1,7 +1,7 @@
 #include "overlay_info.h"
+#include "../utils.h"
 
 #include <fmt/chrono.h>
-#include <fmt/core.h>
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/imgproc.hpp>
@@ -42,7 +42,8 @@ SynchronousProcessingResult OverlayInfo::process(cv::cuda::GpuMat &frame,
   if (std::chrono::steady_clock::now() - m_last_info_update_time > 1s) {
     m_last_info_update_time = std::chrono::steady_clock::now();
     // --- 1. Prepare Data & Format String ---
-    const auto now_tp = std::chrono::system_clock::time_point(std::chrono::milliseconds(ctx.capture_timestamp_ms));
+    const auto now_tp = Utils::steady_clock_to_system_time(ctx.capture_timestamp);
+    // const auto now_tp = std::chrono::clock_cast<std::chrono::system_clock>(ctx.capture_timestamp);
 
     // Convert to Local Time
     std::time_t now_c = std::chrono::system_clock::to_time_t(now_tp);

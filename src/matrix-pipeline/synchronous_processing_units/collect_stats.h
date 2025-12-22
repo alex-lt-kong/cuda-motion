@@ -9,9 +9,12 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
+using namespace std::chrono_literals;
+
 class CollectStats final : public ISynchronousProcessingUnit {
 public:
-  explicit CollectStats(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/CollectStats") {}
+  explicit CollectStats(const std::string &unit_path)
+      : ISynchronousProcessingUnit(unit_path + "/CollectStats") {}
   ~CollectStats() override;
 
   bool init(const njson &config) override;
@@ -24,14 +27,19 @@ private:
   const double m_scale_factor{0.25};
   double m_change_rate_threshold_per_pixel{25.0};
   const int m_change_rate_kernel_size{5};
-  int64_t m_change_rate_frame_compare_interval_ms{1000};
-  int64_t m_fps_sliding_window_length_ms{10000};
+  std::chrono::milliseconds m_change_rate_frame_compare_interval{1000ms};
+  std::chrono::milliseconds m_fps_sliding_window_length{10000ms};
 
   // --- State ---
-  std::deque<int64_t> m_frame_timestamps;
+  std::deque<std::chrono::time_point<std::chrono::steady_clock,
+                                     std::chrono::milliseconds>>
+      m_frame_timestamps;
 
   // History buffer storing {timestamp_ms, processed_frame}
-  std::deque<std::pair<int64_t, cv::cuda::GpuMat>> m_history_buffer;
+  std::deque<std::pair<std::chrono::time_point<std::chrono::steady_clock,
+                                               std::chrono::milliseconds>,
+                       cv::cuda::GpuMat>>
+      m_history_buffer;
 
   // --- Reusable GPU Buffers ---
   cv::cuda::GpuMat d_small;   // Resized current

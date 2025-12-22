@@ -3,19 +3,17 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
+#include <chrono>
+
 namespace MatrixPipeline::ProcessingUnit {
 
 [[nodiscard]] SynchronousProcessingResult
 DebugOutput::process([[maybe_unused]] cv::cuda::GpuMat &frame,
                      PipelineContext &ctx) {
-  const auto latency_ms =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::system_clock::now().time_since_epoch())
-          .count() -
-      ctx.capture_timestamp_ms;
-  SPDLOG_INFO("frame_seq_num: {}, capture_timestamp_ms: {}, latency: {}ms, "
+  const auto latency = std::chrono::steady_clock::now() - ctx.capture_timestamp;
+  SPDLOG_INFO("frame_seq_num: {}, latency: {}ms, "
               "ctx.yolo.indices.size(): {}, custom_text: {}",
-              ctx.frame_seq_num, ctx.capture_timestamp_ms, latency_ms,
+              ctx.frame_seq_num,latency.count(),
               ctx.yolo.indices.size(), m_custom_text);
   return success_and_continue;
 }

@@ -1,5 +1,4 @@
 #include "matrix_notifier.h"
-#include "../utils/nvjpeg_encoder.h"
 
 #include <fmt/chrono.h>
 #include <fmt/format.h>
@@ -12,7 +11,8 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-bool MatrixNotifier::is_any_detection_interesting(const PipelineContext &ctx) {
+bool MatrixNotifier::look_for_interesting_detection(
+    const PipelineContext &ctx) {
   for (const auto idx : ctx.yolo.indices) {
     if (ctx.yolo.is_detection_valid[idx]) {
       return true;
@@ -41,10 +41,20 @@ void MatrixNotifier::handle_image(const cv::cuda::GpuMat &frame,
 
 void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
                                   [[maybe_unused]] const PipelineContext &ctx,
-                                  const bool is_people_detected) {
+                                  const bool is_detection_interesting) {
   using namespace std::chrono;
+
+  m_frames_queue.push({frame, ctx});
+  // the below relies on a non-empty queue
+  while (m_frames_queue.size() > 1 &&
+         steady_clock::now() - m_frames_queue.front().ctx.capture_timestamp >
+             m_video_precapture) {
+    m_frames_queue.pop();
+  }
+
+  // is_frame_changing and is_detection_interesting rely on the current frame
   const auto is_frame_changing = ctx.change_rate >= m_min_frame_change_rate;
-  if ((!is_people_detected || !is_frame_changing) &&
+  if ((!is_detection_interesting || !is_frame_changing) &&
       m_state == Utils::VideoRecordingState::IDLE)
     return;
 
@@ -73,7 +83,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
           ctx.fps > 0 ? ctx.fps : m_fallback_fps,
           cv::cudacodec::ColorFormat::BGR, params);
 
-      m_current_video_start_at = steady_clock::now();
+      m_current_video_start_at = m_frames_queue.front().ctx.capture_timestamp;
       m_current_video_without_detection_since = steady_clock::now();
       m_current_video_frame_count = 0;
       m_max_roi_score = -1;
@@ -132,11 +142,9 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
           video_duration_ms / 1000);
       const auto send_video_start_at = steady_clock::now();
       m_sender->send_video_from_memory(
-          data,
-          fmt::format("{:%Y-%m-%dT%H:%M:%S}.mp4",
-                      std::chrono::system_clock::now()),
-          video_duration_ms, jpeg_data, m_max_roi_score_frame.size().width,
-          m_max_roi_score_frame.size().height);
+          data, fmt::format("{:%Y-%m-%dT%H:%M:%S}.mp4", system_clock::now()),
+          video_duration_ms, jpeg_data, frame.size().width,
+          frame.size().height);
       const auto send_video_end_at = steady_clock::now();
       SPDLOG_INFO(
           "send_video_from_memory() took {}ms",
@@ -146,15 +154,17 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
     m_state = Utils::VideoRecordingState::IDLE;
     return;
   }
-  if (const auto roi_value = calculate_roi_score(ctx.yolo);
+  if (const auto roi_value =
+          calculate_roi_score(m_frames_queue.front().ctx.yolo);
       roi_value > m_max_roi_score) {
-    m_max_roi_score_frame = frame;
+    m_max_roi_score_frame = m_frames_queue.front().frame;
     m_max_roi_score = roi_value;
   }
 
-  m_writer->write(frame);
+  m_writer->write(m_frames_queue.front().frame);
+  m_frames_queue.pop();
   ++m_current_video_frame_count;
-  if (is_people_detected && is_frame_changing)
+  if (is_detection_interesting && is_frame_changing)
     m_current_video_without_detection_since = steady_clock::now();
 }
 
@@ -194,6 +204,8 @@ bool MatrixNotifier::init(const njson &config) {
   m_video_max_length_without_detection = std::chrono::seconds(
       config.value("videoMaxLengthWithoutPeopleDetectedInSeconds",
                    m_video_max_length_without_detection.count()));
+  m_video_precapture = std::chrono::seconds(
+      config.value("videoPrecaptureSec", m_video_precapture.count()));
   SPDLOG_INFO("matrix_homeserver: {}, matrix_room_id: {}, matrix_access_token: "
               "{}, notification_interval_frame: {}",
               m_matrix_homeserver, m_matrix_room_id, m_matrix_access_token,
@@ -204,9 +216,11 @@ bool MatrixNotifier::init(const njson &config) {
   if (m_is_send_video_enabled)
     SPDLOG_INFO("is_send_video_enabled: {}, video_max_length(sec): {}, "
                 "video_max_length_without_detection(sec): {}, "
+                "m_video_precapture(sec): {}"
                 "target_quality: {} (0-51, lower is better)",
                 m_is_send_video_enabled, m_video_max_length,
-                m_video_max_length_without_detection.count(), m_target_quality);
+                m_video_max_length_without_detection.count(),
+                m_video_precapture.count(), m_target_quality);
   m_sender = std::make_unique<Utils::MatrixSender>(
       m_matrix_homeserver, m_matrix_access_token, m_matrix_room_id);
   m_gpu_encoder = std::make_unique<Utils::NvJpegEncoder>();
@@ -217,11 +231,11 @@ bool MatrixNotifier::init(const njson &config) {
 
 void MatrixNotifier::on_frame_ready(cv::cuda::GpuMat &frame,
                                     [[maybe_unused]] PipelineContext &ctx) {
-  const auto is_interesting = is_any_detection_interesting(ctx);
+  const auto is_detection_interesting = look_for_interesting_detection(ctx);
   if (m_is_send_image_enabled)
-    handle_image(frame, ctx, is_interesting);
+    handle_image(frame, ctx, is_detection_interesting);
   if (m_is_send_video_enabled)
-    handle_video(frame, ctx, is_interesting);
+    handle_video(frame, ctx, is_detection_interesting);
 }
 
 } // namespace MatrixPipeline::ProcessingUnit

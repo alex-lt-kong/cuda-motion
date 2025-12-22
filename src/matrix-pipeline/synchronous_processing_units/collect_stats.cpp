@@ -11,28 +11,32 @@ CollectStats::~CollectStats() = default;
 
 bool CollectStats::init(const njson &config) {
   try {
-    m_change_rate_threshold_per_pixel = config.value(
-        "/changeRate/thresholdPerPixel"_json_pointer, m_change_rate_threshold_per_pixel);
-    
-    m_change_rate_frame_compare_interval_ms = config.value(
-        "/changeRate/frameCompareIntervalMs"_json_pointer, m_change_rate_frame_compare_interval_ms);
+    m_change_rate_threshold_per_pixel =
+        config.value("/changeRate/thresholdPerPixel"_json_pointer,
+                     m_change_rate_threshold_per_pixel);
 
-    if (m_change_rate_frame_compare_interval_ms < 0)
-      m_change_rate_frame_compare_interval_ms = 0;
+    m_change_rate_frame_compare_interval = std::chrono::milliseconds(
+        config.value("/changeRate/frameCompareIntervalMs"_json_pointer,
+                     m_change_rate_frame_compare_interval.count()));
+
+    if (m_change_rate_frame_compare_interval < 0ms)
+      m_change_rate_frame_compare_interval = 0ms;
 
     // Create the filter
     m_blur_filter = cv::cuda::createGaussianFilter(
         CV_8UC1, CV_8UC1,
         cv::Size(m_change_rate_kernel_size, m_change_rate_kernel_size), 0);
 
-    m_fps_sliding_window_length_ms = config.value(
-        "/fps/slidingWindowLengthMs"_json_pointer, m_fps_sliding_window_length_ms);
+    m_fps_sliding_window_length = std::chrono::milliseconds(
+        config.value("/fps/slidingWindowLengthMs"_json_pointer,
+                     m_fps_sliding_window_length.count()));
 
-    SPDLOG_INFO("ChangeRate: threshold_per_pixel: {}, compare_interval_ms: {}",
+    SPDLOG_INFO("ChangeRate: change_rate_threshold_per_pixel: {}, "
+                "change_rate_frame_compare_interval(ms): {}",
                 m_change_rate_threshold_per_pixel,
-                m_change_rate_frame_compare_interval_ms);
-    SPDLOG_INFO("Fps: sliding_window_length_ms: {}",
-                m_fps_sliding_window_length_ms);
+                m_change_rate_frame_compare_interval.count());
+    SPDLOG_INFO("Fps: sliding_window_length(ms): {}",
+                m_fps_sliding_window_length.count());
 
     return true;
   } catch (const std::exception &e) {
@@ -50,29 +54,36 @@ SynchronousProcessingResult CollectStats::process(cv::cuda::GpuMat &frame,
   // 1. Calculate FPS
   // =========================================================
   {
-    int64_t current_time = ctx.capture_timestamp_ms;
+    const auto capture_timestamp = ctx.capture_timestamp;
 
-    m_frame_timestamps.push_back(current_time);
+    m_frame_timestamps.push_back(capture_timestamp);
 
     // Remove frames older than window
     while (!m_frame_timestamps.empty() &&
-           (current_time - m_frame_timestamps.front() >
-            m_fps_sliding_window_length_ms)) {
+           (capture_timestamp - m_frame_timestamps.front() >
+            m_fps_sliding_window_length)) {
       m_frame_timestamps.pop_front();
     }
 
-    float seconds =
-        static_cast<float>(m_fps_sliding_window_length_ms) / 1000.0f;
+    // 1. Calculate the actual time span in the window
+    // duration_cast to seconds<float> handles the / 1000.0f logic automatically
+    const auto actual_duration = capture_timestamp - m_frame_timestamps.front();
+    // 2. Determine the divisor (clamped by the max window length)
+    // We use duration<float> to keep decimal precision
+    auto window_duration_float =
+        std::chrono::duration<float>(m_fps_sliding_window_length);
 
-    // Adjust seconds if window is not full yet
-    int64_t actual_duration = current_time - m_frame_timestamps.front();
-    if (actual_duration < m_fps_sliding_window_length_ms &&
-        actual_duration > 0) {
-      seconds = static_cast<float>(actual_duration) / 1000.0f;
+    if (actual_duration < m_fps_sliding_window_length &&
+        actual_duration > std::chrono::steady_clock::duration::zero()) {
+      window_duration_float = std::chrono::duration<float>(actual_duration);
     }
 
+    // 3. Calculate FPS
+    float seconds = window_duration_float.count();
     size_t count = m_frame_timestamps.size();
-    if (count > 1 && seconds > 0) {
+
+    if (count > 1 && seconds > 0.0f) {
+      // We use count - 1 because it takes two points to define one interval
       ctx.fps = static_cast<float>(count - 1) / seconds;
     } else {
       ctx.fps = 0.0f;
@@ -82,7 +93,7 @@ SynchronousProcessingResult CollectStats::process(cv::cuda::GpuMat &frame,
   // =========================================================
   // 2. Calculate Change Rate
   // =========================================================
-  
+
   // Resize
   cv::Size small_size(static_cast<int>(frame.cols * m_scale_factor),
                       static_cast<int>(frame.rows * m_scale_factor));
@@ -106,18 +117,18 @@ SynchronousProcessingResult CollectStats::process(cv::cuda::GpuMat &frame,
 
   // Handle First Frame
   if (m_history_buffer.empty()) {
-    m_history_buffer.push_back({ctx.capture_timestamp_ms, d_current.clone()});
+    m_history_buffer.push_back({ctx.capture_timestamp, d_current.clone()});
     ctx.change_rate = 0.0f;
     return success_and_continue;
   }
 
-  int64_t current_time = ctx.capture_timestamp_ms;
+  const auto capture_timestamp = ctx.capture_timestamp;
 
   // Prune history to maintain correct interval
   while (m_history_buffer.size() > 1) {
-    int64_t next_oldest_time = m_history_buffer[1].first;
-    if (current_time - next_oldest_time >=
-        m_change_rate_frame_compare_interval_ms) {
+    const auto next_oldest_time = m_history_buffer[1].first;
+    if (capture_timestamp - next_oldest_time >=
+        m_change_rate_frame_compare_interval) {
       m_history_buffer.pop_front();
     } else {
       break;
@@ -127,12 +138,12 @@ SynchronousProcessingResult CollectStats::process(cv::cuda::GpuMat &frame,
   // Compare with oldest valid reference
   const auto &reference = m_history_buffer.front();
 
-  if (current_time - reference.first >=
-      m_change_rate_frame_compare_interval_ms) {
-    
+  if (capture_timestamp - reference.first >=
+      m_change_rate_frame_compare_interval) {
+
     cv::cuda::absdiff(d_current, reference.second, d_diff);
-    cv::cuda::threshold(d_diff, d_mask, m_change_rate_threshold_per_pixel,
-                        255, cv::THRESH_BINARY);
+    cv::cuda::threshold(d_diff, d_mask, m_change_rate_threshold_per_pixel, 255,
+                        cv::THRESH_BINARY);
 
     int non_zero = cv::cuda::countNonZero(d_mask);
     int total_pixels = d_mask.cols * d_mask.rows;
@@ -148,7 +159,7 @@ SynchronousProcessingResult CollectStats::process(cv::cuda::GpuMat &frame,
   }
 
   // Store current frame
-  m_history_buffer.push_back({current_time, d_current.clone()});
+  m_history_buffer.push_back({capture_timestamp, d_current.clone()});
 
   return success_and_continue;
 }

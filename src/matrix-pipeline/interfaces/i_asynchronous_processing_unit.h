@@ -3,7 +3,6 @@
 #include "../entities/processing_context.h"
 #include "../entities/synchronous_processing_result.h"
 #include "../utils/matrix_sender.h"
-#include "../utils/ram_video_buffer.h"
 
 #include <nlohmann/json.hpp>
 #include <opencv2/core/cuda.hpp>
@@ -70,9 +69,12 @@ public:
       if (constexpr auto warning_queue_size = 10;
           queue_size > warning_queue_size) {
         constexpr auto warning_throttle_interval = 5s;
-        if (std::chrono::steady_clock::now() - m_last_warning_time > warning_throttle_interval) {
-          SPDLOG_WARN("{}: queue_size ({}) is above warning_queue_size ({}). (This message is throttled to once per {} sec)",
-                     m_unit_path, queue_size, warning_queue_size, warning_throttle_interval.count());
+        if (std::chrono::steady_clock::now() - m_last_warning_time >
+            warning_throttle_interval) {
+          SPDLOG_WARN("{}: queue_size ({}) is above warning_queue_size ({}). "
+                      "(This message is throttled to once per {} sec)",
+                      m_unit_path, queue_size, warning_queue_size,
+                      warning_throttle_interval.count());
           m_last_warning_time = std::chrono::steady_clock::now();
         }
         if (constexpr auto critical_queue_size = 30;

@@ -1,5 +1,5 @@
-#include "global_vars.h"
 #include "video_feed_manager.h"
+#include "global_vars.h"
 
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda.hpp>
@@ -24,7 +24,6 @@ bool VideoFeedManager::init() {
 
 void VideoFeedManager::feed_capture_ev() {
 
-
   cv::cuda::GpuMat frame;
 
   ProcessingUnit::PipelineContext ctx;
@@ -40,10 +39,9 @@ void VideoFeedManager::feed_capture_ev() {
     return;
   }
 
-  ctx.capture_from_this_device_since_ms =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::system_clock::now().time_since_epoch())
-          .count();
+  ctx.capture_from_this_device_since =
+      std::chrono::time_point_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now());
   while (ev_flag == 0) {
     always_fill_in_frame(frame, ctx);
     handle_video_capture(ctx);
@@ -54,8 +52,8 @@ void VideoFeedManager::feed_capture_ev() {
   SPDLOG_INFO("thread quits gracefully");
 }
 
-void VideoFeedManager::always_fill_in_frame(cv::cuda::GpuMat &frame,
-                                         ProcessingUnit::PipelineContext &ctx) {
+void VideoFeedManager::always_fill_in_frame(
+    cv::cuda::GpuMat &frame, ProcessingUnit::PipelineContext &ctx) {
   auto captured_from_real_device = false;
 
   try {
@@ -93,12 +91,11 @@ void VideoFeedManager::always_fill_in_frame(cv::cuda::GpuMat &frame,
                  ctx.device_info.expected_frame_size.width, CV_8UC3);
     frame.setTo(cv::Scalar(128, 128, 128));
   }
-  ctx.capture_timestamp_ms =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::system_clock::now().time_since_epoch())
-          .count();
+  ctx.capture_timestamp =
+      std::chrono::time_point_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now());
   if (captured_from_real_device != ctx.captured_from_real_device) {
-    ctx.capture_from_this_device_since_ms = ctx.capture_timestamp_ms;
+    ctx.capture_from_this_device_since = ctx.capture_timestamp;
   }
   ctx.captured_from_real_device = captured_from_real_device;
   ++ctx.frame_seq_num;
@@ -114,35 +111,31 @@ void VideoFeedManager::handle_video_capture(
         return;
       delayed_vc_open_retry_registered = true;
     }
-
-    const auto device_down_for_sec =
-        (std::chrono::duration_cast<std::chrono::milliseconds>(
-             std::chrono::system_clock::now().time_since_epoch())
-             .count() -
-         ctx.capture_from_this_device_since_ms) /
-        1000;
-    const auto delay_sec_before_attempt =
-        std::min(std::max(device_down_for_sec, 2L), 60L * 10);
-    SPDLOG_WARN("captured_from_real_device: {}, device_down_for_sec: {}, "
-                "delay_sec_before_attempt: {}",
-                ctx.captured_from_real_device, device_down_for_sec,
-                delay_sec_before_attempt);
+    using namespace std::chrono_literals;
+    const auto video_feed_down_for =
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::steady_clock::now() -
+            ctx.capture_from_this_device_since);
+    const std::chrono::seconds delay_before_attempt =
+        std::min(std::max(video_feed_down_for, 2s), 60s * 10);
+    SPDLOG_WARN("captured_from_real_device: {}, device_down_for(sec): {}, "
+                "delay_before_attempt(sec): {}",
+                ctx.captured_from_real_device, video_feed_down_for.count(),
+                delay_before_attempt.count());
     std::thread t(
-        [this](const long delay_sec_before_attempt,
+        [this](const std::chrono::seconds delay_before_attempt_,
                ProcessingUnit::PipelineContext ctx) {
-          const auto delay_sec_before_attempt_ = delay_sec_before_attempt;
           SPDLOG_INFO(
-              "timer started, delay_sec_before_attempt ({}) and then invoke "
+              "timer started, delay_before_attempt(sec) ({}) and then invoke "
               "cv::cudacodec::createVideoReader({})",
-              delay_sec_before_attempt_, ctx.device_info.uri);
-          std::this_thread::sleep_for(
-              std::chrono::seconds(delay_sec_before_attempt_));
+              delay_before_attempt_.count(), ctx.device_info.uri);
+          std::this_thread::sleep_for(delay_before_attempt_);
           {
             std::lock_guard lock(mtx_vr);
             SPDLOG_INFO(
-                "delay_sec_before_attempt ({}) reached, about to invoke "
+                "delay_before_attempt(sec) ({}) reached, about to invoke "
                 "cv::cudacodec::createVideoReader({})",
-                delay_sec_before_attempt_, ctx.device_info.uri);
+                delay_before_attempt_.count(), ctx.device_info.uri);
             auto params = cv::cudacodec::VideoReaderInitParams();
             // https://docs.opencv.org/4.9.0/dd/d7d/structcv_1_1cudacodec_1_1VideoReaderInitParams.html
             params.allowFrameDrop = true;
@@ -162,7 +155,7 @@ void VideoFeedManager::handle_video_capture(
             delayed_vc_open_retry_registered = false;
           }
         },
-        delay_sec_before_attempt, ctx);
+        delay_before_attempt, ctx);
     t.detach();
   };
 

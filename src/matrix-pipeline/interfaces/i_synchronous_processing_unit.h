@@ -4,7 +4,6 @@
 #include "../entities/synchronous_processing_result.h"
 
 #include <nlohmann/json.hpp>
-#include <opencv2/cudawarping.hpp>
 #include <spdlog/spdlog.h>
 
 using njson = nlohmann::json;

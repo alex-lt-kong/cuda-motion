@@ -2,9 +2,6 @@
 
 #include <opencv2/opencv.hpp>
 
-#include <cstdint>
-#include <algorithm>
-
 namespace MatrixPipeline::ProcessingUnit {
 
 struct DeviceInfo {
@@ -27,8 +24,10 @@ struct PipelineContext {
   DeviceInfo device_info;
   // false means it is a gray image
   bool captured_from_real_device = false;
-  int64_t capture_timestamp_ms = 0;
-  int64_t capture_from_this_device_since_ms = 0;
+  std::chrono::time_point<std::chrono::steady_clock, std::chrono::milliseconds>
+      capture_timestamp;
+  std::chrono::time_point<std::chrono::steady_clock, std::chrono::milliseconds>
+      capture_from_this_device_since;
   uint32_t frame_seq_num = 0;
   size_t processing_unit_idx = 0;
   float change_rate = -1;

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../interfaces/i_asynchronous_processing_unit.h"
 #include "../entities/video_recording_state.h"
+#include "../interfaces/i_asynchronous_processing_unit.h"
 
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/cudacodec.hpp>
@@ -30,8 +30,8 @@ struct VideoWriterConfig {
 
 class VideoWriter final : public IAsynchronousProcessingUnit {
 public:
-
-  explicit VideoWriter(const std::string &unit_path) : IAsynchronousProcessingUnit(unit_path  + "/VideoWriter") {}
+  explicit VideoWriter(const std::string &unit_path)
+      : IAsynchronousProcessingUnit(unit_path + "/VideoWriter") {}
   ~VideoWriter() override {
     if (m_writer) {
       m_writer.release();
@@ -105,7 +105,6 @@ public:
   }
 
 protected:
-  // Renamed from process() to on_frame_ready()
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override {
     if (frame.empty() || m_state == Utils::VideoRecordingState::DISABLED)
       return;
@@ -129,13 +128,12 @@ protected:
       }
 
       // 2. Check Trigger
+      using namespace std::chrono_literals;
       if (change_rate >= m_config.m_change_rate_threshold &&
           ctx.captured_from_real_device &&
-          std::chrono::duration_cast<std::chrono::milliseconds>(
-              std::chrono::system_clock::now().time_since_epoch())
-                      .count() -
-                  ctx.capture_from_this_device_since_ms >
-              10000) {
+          std::chrono::steady_clock::now() -
+                  ctx.capture_from_this_device_since >
+              10000ms) {
         if (!start_recording(frame.size()))
           return;
 
@@ -190,8 +188,6 @@ protected:
   }
 
 private:
-
-
   Utils::VideoRecordingState m_state = Utils::VideoRecordingState::IDLE;
   VideoWriterConfig m_config;
   cv::Ptr<cv::cudacodec::VideoWriter> m_writer;

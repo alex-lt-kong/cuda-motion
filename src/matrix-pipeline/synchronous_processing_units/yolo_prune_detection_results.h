@@ -3,13 +3,16 @@
 #include "../interfaces/i_synchronous_processing_unit.h"
 
 #include <nlohmann/json.hpp>
+#include <opencv2/cudaimgproc.hpp>
+
 #include <unordered_set>
 
 namespace MatrixPipeline::ProcessingUnit {
 
 class YoloPruneDetectionResults final : public ISynchronousProcessingUnit {
 public:
-  explicit YoloPruneDetectionResults(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/YoloPruneDetectionResults") {}
+  explicit YoloPruneDetectionResults(const std::string &unit_path)
+      : ISynchronousProcessingUnit(unit_path + "/YoloPruneDetectionResults") {}
   bool init(const njson &config) override;
 
   SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
@@ -42,7 +45,6 @@ private:
   // Helper to parse a specific edge constraint from JSON
   static Range parse_constraint(const njson &constraints,
                                 const std::string &key);
-
 };
 
 } // namespace MatrixPipeline::ProcessingUnit
