@@ -31,6 +31,9 @@ struct AsyncPayload {
 class IAsynchronousProcessingUnit {
 protected:
   const std::string m_unit_path;
+  std::array<bool, 24> m_turned_on_hours{
+      true, true, true, true, true, true, true, true, true, true, true, true,
+      true, true, true, true, true, true, true, true, true, true, true, true};
 
 public:
   explicit IAsynchronousProcessingUnit(std::string unit_path)
@@ -54,6 +57,8 @@ public:
    */
   SynchronousProcessingResult enqueue(const cv::cuda::GpuMat &frame,
                                       const PipelineContext &ctx) {
+    if (!m_turned_on_hours[get_hours_from_local_time()])
+      return success_and_continue;
     using namespace std::chrono_literals;
     cv::cuda::GpuMat frame_clone;
     try {
@@ -179,6 +184,16 @@ private:
   std::atomic<bool> m_running{false};
   std::thread m_worker_thread;
   std::chrono::steady_clock::time_point m_last_warning_time;
+
+  static int get_hours_from_local_time() {
+    const auto local_datetime = std::chrono::zoned_time{
+        std::chrono::current_zone(), std::chrono::system_clock::now()};
+    const auto lt = local_datetime.get_local_time();
+    // remove the date part
+    const std::chrono::hh_mm_ss time_of_day{
+        lt - std::chrono::floor<std::chrono::days>(lt)};
+    return time_of_day.hours().count();
+  }
 };
 
 } // namespace MatrixPipeline::ProcessingUnit

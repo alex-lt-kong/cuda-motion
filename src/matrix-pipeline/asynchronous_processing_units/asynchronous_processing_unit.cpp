@@ -7,17 +7,17 @@
 #include "../entities/processing_units_variant.h"
 #include "../interfaces/i_synchronous_processing_unit.h"
 #include "../synchronous_processing_units/collect_stats.h"
-#include "../synchronous_processing_units/debug_output.h"
-#include "../synchronous_processing_units/rotate_frame.h"
 #include "../synchronous_processing_units/crop_frame.h"
+#include "../synchronous_processing_units/debug_output.h"
 #include "../synchronous_processing_units/measure_latency.h"
 #include "../synchronous_processing_units/overlay_info.h"
 #include "../synchronous_processing_units/resize_frame.h"
+#include "../synchronous_processing_units/rotate_frame.h"
 #include "../synchronous_processing_units/yolo_detect.h"
 #include "../synchronous_processing_units/yolo_overlay_bounding_boxes.h"
 #include "../synchronous_processing_units/yolo_prune_detection_results.h"
 
-#include <iostream>
+#include <fmt/ranges.h>
 
 namespace MatrixPipeline::ProcessingUnit {
 
@@ -27,6 +27,7 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
   using namespace ProcessingUnit;
   SPDLOG_INFO("settings.dump(): {}", config.dump());
   const auto &settings_pipeline = config["pipeline"];
+  m_turned_on_hours = config.value("turnedOnHours", m_turned_on_hours);
   for (nlohmann::basic_json<>::size_type i = 0; i < settings_pipeline.size();
        ++i) {
     ProcessingUnitVariant ptr;
@@ -86,6 +87,7 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
       SPDLOG_ERROR("NOT added {}-th processing unit", i);
     }
   }
+  SPDLOG_INFO("turned_on_hours: {}", fmt::join(m_turned_on_hours, ","));
   return true;
 }
 
