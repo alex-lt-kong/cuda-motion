@@ -6,6 +6,7 @@
     "cppzmq",
     "readerwriterqueue",
     "cxxopts",
+    "ms-gsl",
     "fmt",
     {
       "name": "spdlog",

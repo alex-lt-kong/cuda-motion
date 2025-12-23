@@ -1,7 +1,7 @@
 #pragma once
 
-#include "entities/processing_context.h"
 #include "asynchronous_processing_units/asynchronous_processing_unit.h"
+#include "entities/processing_context.h"
 
 #include <nlohmann/json.hpp>
 #include <opencv2/cudacodec.hpp>
@@ -17,7 +17,7 @@ struct videoWritingContext {
   float fps;
 };
 
-class VideoFeedManager {
+class VideoFeedManager : public std::enable_shared_from_this<VideoFeedManager> {
 
 public:
   VideoFeedManager() = default;

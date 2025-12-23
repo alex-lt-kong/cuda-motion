@@ -10,6 +10,7 @@ find_package(Protobuf REQUIRED)
 find_package(cpr CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(Drogon CONFIG REQUIRED)
+find_package(Microsoft.GSL CONFIG REQUIRED)
 
 include_directories(${Protobuf_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
@@ -50,6 +51,7 @@ target_link_libraries(video_feed_manager
         CUDA::nvjpeg
         cppzmq cppzmq-static
         protobuf::libprotoc protobuf::libprotobuf protobuf::libprotobuf-lite
+        Microsoft.GSL::GSL
 )
 
 add_executable(mp
