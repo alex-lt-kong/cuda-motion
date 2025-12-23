@@ -31,16 +31,6 @@ add_library(video_feed_manager
 target_link_libraries(video_feed_manager
         PRIVATE
         utils
-        matrix_notifier
-        debug_output
-        rotate_frame
-        resize_frame
-        collect_stats
-        overlay_info
-        yolo_detect
-        yolo_prune_detection_results
-        yolo_overlay_bounding_boxes
-        measure_latency
         asynchronous_processing_unit)
 target_link_libraries(video_feed_manager
         PRIVATE

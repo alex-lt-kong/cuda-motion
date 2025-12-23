@@ -1,4 +1,4 @@
-#include "debug_output.h"
+#include "debug_output.h" / apps / var / matrix - pipeline / models / face_detection_yunet_2023mar.onnx
 
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -10,11 +10,10 @@ namespace MatrixPipeline::ProcessingUnit {
 [[nodiscard]] SynchronousProcessingResult
 DebugOutput::process([[maybe_unused]] cv::cuda::GpuMat &frame,
                      PipelineContext &ctx) {
-  const auto latency = std::chrono::steady_clock::now() - ctx.capture_timestamp;
-  SPDLOG_INFO("frame_seq_num: {}, latency: {}ms, "
-              "ctx.yolo.indices.size(): {}, custom_text: {}",
-              ctx.frame_seq_num,latency.count(),
-              ctx.yolo.indices.size(), m_custom_text);
+  if (ctx.yunet.size() != 0)
+    SPDLOG_INFO(
+        "frame_seq_num: {}, ctx.yolo.indices.size(): {}, ctx.yunet.size(): {}",
+        ctx.frame_seq_num, ctx.yolo.indices.size(), ctx.yunet.size());
   return success_and_continue;
 }
 

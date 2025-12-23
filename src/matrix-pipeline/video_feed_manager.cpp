@@ -63,7 +63,9 @@ void VideoFeedManager::always_fill_in_frame(
   try {
     std::lock_guard lock(mtx_vr);
     if (vr == nullptr) {
-      if (steady_clock::now() - m_last_warn_time > warn_interval) {
+      if (steady_clock::now() - m_last_warn_time > warn_interval &&
+          // give the video feed a few sec to open without complaining
+          ctx.frame_seq_num > 90) {
         SPDLOG_WARN("vr == nullptr, frame_seq_num: {} (this "
                     "message is throttled to once per {} sec)",
                     ctx.frame_seq_num, warn_interval.count());
@@ -137,10 +139,12 @@ void VideoFeedManager::handle_video_capture(
             ctx.capture_from_this_device_since);
     const std::chrono::seconds delay_before_attempt =
         std::min(std::max(video_feed_down_for, 2s), 60s * 10);
-    SPDLOG_WARN("captured_from_real_device: {}, device_down_for(sec): {}, "
-                "delay_before_attempt(sec): {}",
-                ctx.captured_from_real_device, video_feed_down_for.count(),
-                delay_before_attempt.count());
+    // give the video feed a few sec to open without complaining
+    if (ctx.frame_seq_num > 90)
+      SPDLOG_WARN("captured_from_real_device: {}, device_down_for(sec): {}, "
+                  "delay_before_attempt(sec): {}",
+                  ctx.captured_from_real_device, video_feed_down_for.count(),
+                  delay_before_attempt.count());
 
     // creating a shared_ptr from this, s.t. the detach()'ed t will never access
     // this after this is deleted.

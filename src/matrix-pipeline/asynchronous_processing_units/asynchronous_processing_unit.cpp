@@ -16,6 +16,8 @@
 #include "../synchronous_processing_units/yolo_detect.h"
 #include "../synchronous_processing_units/yolo_overlay_bounding_boxes.h"
 #include "../synchronous_processing_units/yolo_prune_detection_results.h"
+#include "../synchronous_processing_units/yunet_detect.h"
+#include "../synchronous_processing_units/yunet_overlay_landmarks.h"
 
 #include <fmt/ranges.h>
 
@@ -52,11 +54,13 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
       ptr = std::make_unique<VideoWriter>(m_unit_path);
     } else if (type == "AsynchronousProcessingUnit::httpService") {
       ptr = std::make_unique<HttpService>(m_unit_path);
-    } else if (type == "SynchronousProcessingUnit::detectObjects" ||
-               type == "SynchronousProcessingUnit::yoloDetect") {
+    } else if (type == "SynchronousProcessingUnit::yoloDetect") {
       ptr = std::make_unique<YoloDetect>(m_unit_path);
-    } else if (type == "SynchronousProcessingUnit::overlayBoundingBoxes" ||
-               type == "SynchronousProcessingUnit::yoloOverlayBoundingBoxes") {
+    } else if (type == "SynchronousProcessingUnit::yuNetDetect") {
+      ptr = std::make_unique<YuNetDetect>(m_unit_path);
+    } else if (type == "SynchronousProcessingUnit::yuNetOverlayLandmarks") {
+      ptr = std::make_unique<YuNetOverlayLandmarks>(m_unit_path);
+    } else if (type == "SynchronousProcessingUnit::yoloOverlayBoundingBoxes") {
       ptr = std::make_unique<YoloOverlayBoundingBoxes>(m_unit_path);
     } else if (type ==
                "AsynchronousProcessingUnit::asynchronousProcessingUnit") {

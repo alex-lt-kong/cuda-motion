@@ -27,4 +27,4 @@ message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
 # set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 
 add_subdirectory(src/matrix-pipeline)
-#add_subdirectory(src/tools)
+add_subdirectory(src/tools/yunet)

@@ -10,6 +10,13 @@ struct DeviceInfo {
   cv::Size expected_frame_size;
 };
 
+struct FaceDetection {
+  cv::Rect2f bbox;
+  std::array<cv::Point2f, 5> landmarks; // 5 points: eyes, nose, mouth corners
+  float confidence;
+};
+using YuNetContext = std::vector<FaceDetection>;
+
 struct YoloContext {
   std::vector<cv::Mat> inference_outputs;
   cv::Size inference_input_size;
@@ -35,5 +42,6 @@ struct PipelineContext {
   std::chrono::steady_clock::time_point latency_start_time;
 
   YoloContext yolo;
+  YuNetContext yunet;
 };
 } // namespace MatrixPipeline::ProcessingUnit

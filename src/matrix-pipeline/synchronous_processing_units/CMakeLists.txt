@@ -52,3 +52,15 @@ add_library(overlay_info
         overlay_info.cpp overlay_info.h
         ../interfaces/i_synchronous_processing_unit.h
 )
+
+add_library(yunet_detect
+        yunet_detect.cpp yunet_detect.h
+        ../interfaces/i_synchronous_processing_unit.h
+)
+target_link_libraries(yunet_detect spdlog::spdlog ${OpenCV_LIBS})
+
+add_library(yunet_overlay_landmarks
+        yunet_overlay_landmarks.cpp yunet_overlay_landmarks.h
+        ../interfaces/i_synchronous_processing_unit.h
+)
+target_link_libraries(yunet_overlay_landmarks spdlog::spdlog ${OpenCV_LIBS})

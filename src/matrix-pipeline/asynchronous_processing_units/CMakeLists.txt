@@ -20,4 +20,6 @@ target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         yolo_detect
         yolo_prune_detection_results
         yolo_overlay_bounding_boxes
+        yunet_detect
+        yunet_overlay_landmarks
 )
