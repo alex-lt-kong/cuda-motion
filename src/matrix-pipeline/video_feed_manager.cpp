@@ -55,34 +55,52 @@ void VideoFeedManager::feed_capture_ev() {
 
 void VideoFeedManager::always_fill_in_frame(
     cv::cuda::GpuMat &frame, ProcessingUnit::PipelineContext &ctx) {
+  using namespace std::chrono_literals;
+  using namespace std::chrono;
   auto captured_from_real_device = false;
 
+  constexpr auto warn_interval = 10s;
   try {
     std::lock_guard lock(mtx_vr);
-    constexpr auto interval_by_frames = 90;
     if (vr == nullptr) {
-      if (ctx.frame_seq_num % interval_by_frames == 0)
+      if (steady_clock::now() - m_last_warn_time > warn_interval) {
         SPDLOG_WARN("vr == nullptr, frame_seq_num: {} (this "
-                    "message is throttled to once per {} frames)",
-                    ctx.frame_seq_num, interval_by_frames);
+                    "message is throttled to once per {} sec)",
+                    ctx.frame_seq_num, warn_interval.count());
+        m_last_warn_time = steady_clock::now();
+      }
     } else if (!vr->nextFrame(frame)) {
-      if (ctx.frame_seq_num % interval_by_frames == 0)
+      if (steady_clock::now() - m_last_warn_time > warn_interval) {
         SPDLOG_ERROR("VideoReader->nextFrame(frame) returns false, "
                      "frame_seq_num: {} (this "
-                     "message is throttled to once per {} frames)",
-                     ctx.frame_seq_num, interval_by_frames);
+                     "message is throttled to once per {} sec)",
+                     ctx.frame_seq_num, warn_interval.count());
+        m_last_warn_time = steady_clock::now();
+      }
     } else if (frame.empty() ||
                frame.size() != ctx.device_info.expected_frame_size) {
-      SPDLOG_ERROR("VideoReader->nextFrame((frame) returns frame with "
-                   "unexpected size. expect ({}x{}) vs actual ({}x{})",
-                   ctx.device_info.expected_frame_size.width,
-                   ctx.device_info.expected_frame_size.height,
-                   frame.size().width, frame.size().height);
+
+      if (steady_clock::now() - m_last_warn_time > warn_interval) {
+        SPDLOG_ERROR("VideoReader->nextFrame((frame) returns frame with "
+                     "unexpected size. expect ({}x{}) vs actual ({}x{}) (this "
+                     "message is throttled to once per {} sec)",
+                     ctx.device_info.expected_frame_size.width,
+                     ctx.device_info.expected_frame_size.height,
+                     frame.empty() ? -1 : frame.size().width,
+                     frame.empty() ? -1 : frame.size().height,
+                     warn_interval.count());
+        m_last_warn_time = steady_clock::now();
+      }
     } else {
       captured_from_real_device = true;
     }
   } catch (const cv::Exception &e) {
-    spdlog::error("VideoReader->nextFrame() failed: {}", e.what());
+    if (steady_clock::now() - m_last_warn_time > warn_interval) {
+      SPDLOG_ERROR("VideoReader->nextFrame() failed: {} (this "
+                   "message is throttled to once per {} sec)",
+                   e.what(), warn_interval.count());
+      m_last_warn_time = steady_clock::now();
+    }
   }
 
   if (!ctx.captured_from_real_device) {
@@ -126,7 +144,7 @@ void VideoFeedManager::handle_video_capture(
 
     // creating a shared_ptr from this, s.t. the detach()'ed t will never access
     // this after this is deleted.
-    auto self_ptr = this; // shared_from_this();
+    auto self_ptr = shared_from_this();
     std::thread t(
         [self_ptr](const std::chrono::seconds delay_before_attempt_,
                    ProcessingUnit::PipelineContext ctx) {
@@ -151,9 +169,11 @@ void VideoFeedManager::handle_video_capture(
               SPDLOG_INFO("cv::cudacodec::createVideoReader({}) succeeded",
                           ctx.device_info.uri);
             } catch (const cv::Exception &e) {
-              spdlog::error("cudacodec::createVideoReader({}) failed: {}",
-                            ctx.device_info.uri, e.what());
+              SPDLOG_ERROR("cudacodec::createVideoReader({}) failed: {}",
+                           ctx.device_info.uri, e.what());
             }
+            std::this_thread::sleep_for(
+                100ms); // i.e., at least to skip one frame
             auto reset_flag = gsl::finally([self_ptr] {
               // Use 'release' to ensure all work done in this thread is
               // "committed" and visible to other threads before the flag is

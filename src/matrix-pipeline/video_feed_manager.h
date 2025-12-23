@@ -35,5 +35,6 @@ private:
   void always_fill_in_frame(cv::cuda::GpuMat &frame,
                             ProcessingUnit::PipelineContext &ctx);
   void handle_video_capture(const ProcessingUnit::PipelineContext &ctx);
+  std::chrono::time_point<std::chrono::steady_clock> m_last_warn_time;
 };
 } // namespace MatrixPipeline

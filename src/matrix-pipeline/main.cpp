@@ -95,8 +95,8 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  auto mgr = MatrixPipeline::VideoFeedManager();
-  if (!mgr.init()) {
+  auto mgr = std::make_shared<MatrixPipeline::VideoFeedManager>();
+  if (!mgr->init()) {
     SPDLOG_ERROR("Failed to initialize video feed manager");
     return EXIT_FAILURE;
   }
@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
   });
 
   SPDLOG_INFO("Starting video feed manager's event loop thread");
-  mgr.feed_capture_ev();
+  mgr->feed_capture_ev();
   SPDLOG_INFO("video feed manager's event loop exited gracefully");
 
   th_drogon.join();
