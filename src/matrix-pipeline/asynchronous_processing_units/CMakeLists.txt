@@ -11,6 +11,7 @@ add_library(asynchronous_processing_unit
 )
 target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         utils
+        overlay_info
         matrix_notifier
         debug_output
         rotate_frame

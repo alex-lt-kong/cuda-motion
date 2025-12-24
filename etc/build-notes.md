@@ -57,10 +57,10 @@
    `./configure --enable-pic --enable-shared --enable-nonfree --enable-cuda-nvcc --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec --extra-cflags="-I/usr/local/cuda/include" --extra-cflags="-fPIC" --extra-ldflags=-L/usr/local/cuda/lib64  --nvccflags="-gencode arch=compute_75,code=sm_75 -O2"`
 
     -
-    `--enable-cuda-llvm --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec`:
-    enable Nvidia Video Codec
-    SDK
-    ([source](https://trac.ffmpeg.org/wiki/HWAccelIntro))
+   `--enable-cuda-llvm --enable-ffnvcodec --enable-cuvid --enable-nvenc --enable-nvdec`:
+   enable Nvidia Video Codec
+   SDK
+   ([source](https://trac.ffmpeg.org/wiki/HWAccelIntro))
     - `--enable-pic --enable-shared --extra-cflags="-fPIC"`, used to solve
       the issue during OpenCV build in a later stage: "/usr/bin/ld:
       /usr/local/lib/libavcodec.a(vc1dsp_mmx.o):
@@ -222,64 +222,56 @@ export OPENCV_FFMPEG_WRITER_OPTIONS="hw_encoders_any;cuda"
 
 - The final `cmake` command should look like below:
 
-  ```bash    
-    # export INSTALL_PATH="$HOME/opt/opencv-$OPENCV_VERSION"
-    export INSTALL_PATH=/usr/local 
-    mkdir -p "$INSTALL_PATH"
-    # reveal the CUDA architecture and we build for it only
-    export CUDA_ARCH_BIN=$(nvidia-smi --query-gpu=compute_cap --format=noheader,csv | tail -n1)
-    # Find my own FFmpeg
-    export PKG_Ccmake \
+```bash    
+  # export INSTALL_PATH="$HOME/opt/opencv-$OPENCV_VERSION"  # export INSTALL_PATH="$HOME/opt/opencv-$OPENCV_VERSION"
+  export INSTALL_PATH=/usr/local 
+  mkdir -p "$INSTALL_PATH"
+  # reveal the CUDA architecture and we build for it only
+  export CUDA_ARCH_BIN=$(nvidia-smi --query-gpu=compute_cap --format=noheader,csv | tail -n1)
+  # Find my own FFmpeg
+  export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+  # ts: test support
+  # cudafilters: a test dependency for cudaimgproc
+  # dnn: deep neural network support
+  # objdetect: for facial detection and recognition
+  # cudaarithm: for cv::cuda::addWeighted call
+  export BUILD_LIST="core,imgproc,videoio,imgcodecs,cudev,cudacodec,ts,cudaarithm,cudaimgproc,cudawarping,cudafilters,dnn,objdetect,cudaarithm"
 
--D CMAKE_BUILD_TYPE=Release \
--D BUILD_LIST="${BUILD_LIST}" \ONFIG_PATH=/usr/local/lib/pkgconfig:$
-PKG_CONFIG_PATH
-# ts: test support
-# cudafilters: a test dependency for cudaimgproc
-# dnn: deep neural network support
-# objdetect: for facial detection and recognition
-# cudaarithm: for cv::cuda::addWeighted call
-export BUILD_LIST="
-core,imgproc,videoio,imgcodecs,cudev,cudacodec,ts,cudaarithm,cudaimgproc,cudawarping,cudafilters,dnn,objdetect,cudaarithm"
+  cmake \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D BUILD_LIST="${BUILD_LIST}" \
+    -D CMAKE_INSTALL_PREFIX="$INSTALL_PATH" \
+    -D WITH_CUDA=ON \
+    -D WITH_NVCUVID=ON \
+    -D WITH_NVCUVENC=ON \
+    -D OPENCV_EXTRA_MODULES_PATH=~/repos/opencv_contrib/modules/ \
+    -D OPENCV_GENERATE_PKGCONFIG=ON \
+    -D OPENCV_PC_FILE_NAME="opencv.pc" \
+    -D BUILD_EXAMPLES=OFF \
+    -D BUILD_PERF_TESTS=OFF \
+    -D BUILD_TESTS=ON \
+    -D OPENCV_DNN_CUDA=ON \
+    -D WITH_GSTREAMER=ON \
+    -D CUDA_ARCH_BIN="${CUDA_ARCH_BIN}" \
+    -D OPENCV_TEST_DATA_PATH=~/repos/opencv_extra/testdata \
+    ..
+```
 
-cmake \
--D CMAKE_BUILD_TYPE=Release \
--D BUILD_LIST="${BUILD_LIST}" \
--D CMAKE_INSTALL_PREFIX="$INSTALL_PATH" \
--D WITH_CUDA=ON \
--D WITH_NVCUVID=ON \
--D WITH_NVCUVENC=ON \
--D OPENCV_EXTRA_MODULES_PATH=~/repos/opencv_contrib/modules/ \
--D OPENCV_GENERATE_PKGCONFIG=ON \
--D OPENCV_PC_FILE_NAME="opencv.pc" \
--D BUILD_EXAMPLES=OFF \
--D BUILD_PERF_TESTS=OFF \
--D BUILD_TESTS=ON \
--D OPENCV_DNN_CUDA=ON \
--D WITH_GSTREAMER=ON \
--D CUDA_ARCH_BIN="${CUDA_ARCH_BIN}" \
--D OPENCV_TEST_DATA_PATH=~/repos/opencv_extra/testdata \
-..
+and the `cmake` output should show lines that indicate the inclusion of
+NVCUVID / NVCUVENC:
 
-  ```
-
-  and the `cmake` output should show lines that indicate the inclusion of
-  NVCUVID / NVCUVENC:
-
-  ```
-
+```
 -- Found NVCUVID: /usr/lib/x86_64-linux-gnu/libnvcuvid.so
 -- Found NVCUVENC:  /usr/lib/x86_64-linux-gnu/nvidia/current/libnvidia-encode.so
 ...
 -- NVIDIA CUDA:                   YES (ver 11.8, CUFFT CUBLAS NVCUVID NVCUVENC)
 -- NVIDIA GPU arch:             86
 -- NVIDIA PTX archs:
+```
 
-  ```
-  
 as well as FFmpeg:
-  ```
 
+```
 -- Video I/O:
 -- FFMPEG:                      YES
 -- avcodec:                   YES (61.19.101)
@@ -287,13 +279,12 @@ as well as FFmpeg:
 -- avutil:                    YES (59.39.100)
 -- swscale:                   YES (8.3.100)
 -- avresample:                NO
+```
 
-  ```
-
-  The same information should be printed when `cv::getBuildInformation()` is called.
+The same information should be printed when `cv::getBuildInformation()` is called.
 
 - Build step: `cmake --build . --parallel $(nproc) --config Release`
-  - `--config Release` should only be needed on Windows  
+    - `--config Release` should only be needed on Windows
 
 - `ctest`:
 

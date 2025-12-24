@@ -38,7 +38,6 @@ target_link_libraries(yolo_prune_detection_results spdlog::spdlog ${OpenCV_LIBS}
 add_library(collect_stats
         collect_stats.cpp collect_stats.h
         ../interfaces/i_synchronous_processing_unit.h
-        overlay_info.cpp
 )
 target_link_libraries(collect_stats spdlog::spdlog ${OpenCV_LIBS})
 
@@ -46,12 +45,13 @@ add_library(yolo_overlay_bounding_boxes
         yolo_overlay_bounding_boxes.cpp yolo_overlay_bounding_boxes.h
         ../interfaces/i_synchronous_processing_unit.h
 )
-target_link_libraries(yolo_overlay_bounding_boxes spdlog::spdlog)
+target_link_libraries(yolo_overlay_bounding_boxes spdlog::spdlog ${OpenCV_LIBS})
 
 add_library(overlay_info
         overlay_info.cpp overlay_info.h
         ../interfaces/i_synchronous_processing_unit.h
 )
+target_link_libraries(overlay_info spdlog::spdlog nlohmann_json::nlohmann_json)
 
 add_library(yunet_detect
         yunet_detect.cpp yunet_detect.h

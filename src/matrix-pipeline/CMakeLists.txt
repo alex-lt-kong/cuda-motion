@@ -31,7 +31,8 @@ add_library(video_feed_manager
 target_link_libraries(video_feed_manager
         PRIVATE
         utils
-        asynchronous_processing_unit)
+        asynchronous_processing_unit
+        ${OpenCV_LIBS})
 target_link_libraries(video_feed_manager
         PRIVATE
         ${OpenCV_LIBS} rt ssl crypto fmt::fmt

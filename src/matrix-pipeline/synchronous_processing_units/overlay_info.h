@@ -5,14 +5,16 @@
 #include <nlohmann/json.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/core/cuda.hpp>
+
 #include <string>
 
 namespace MatrixPipeline::ProcessingUnit {
 
 class OverlayInfo final : public ISynchronousProcessingUnit {
 public:
-  explicit OverlayInfo(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/OverlayInfo") {}
-  ~OverlayInfo() override;
+  explicit OverlayInfo(const std::string &unit_path)
+      : ISynchronousProcessingUnit(unit_path + "/OverlayInfo") {}
+  ~OverlayInfo() override = default;
 
   bool init(const nlohmann::json &config) override;
 
@@ -22,7 +24,6 @@ public:
 private:
   void update_font_metrics(int frameRows);
   void uploadAndOverlay(cv::cuda::GpuMat &frame, cv::Rect roiRect);
-
 
   std::chrono::time_point<std::chrono::steady_clock> m_last_info_update_time;
 

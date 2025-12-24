@@ -14,8 +14,6 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-OverlayInfo::~OverlayInfo() = default;
-
 bool OverlayInfo::init(const nlohmann::json &config) {
   try {
     m_text_height_ratio = config.value("textHeightRatio", m_text_height_ratio);
@@ -25,8 +23,9 @@ bool OverlayInfo::init(const nlohmann::json &config) {
         config.value("text", "{deviceName},\nChg: {changeRate:.2f}, FPS: "
                              "{fps:.1f}\n{frameCaptureTime:%Y-%m-%d %H:%M:%S}");
 
-    SPDLOG_INFO("outline_ratio: {}, text_height_ratio: {}, format_template: {:?}",
-                m_outline_ratio, m_text_height_ratio, m_format_template);
+    SPDLOG_INFO(
+        "outline_ratio: {}, text_height_ratio: {}, format_template: {:?}",
+        m_outline_ratio, m_text_height_ratio, m_format_template);
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("OverlayInfo init error: {}", e.what());
@@ -42,8 +41,10 @@ SynchronousProcessingResult OverlayInfo::process(cv::cuda::GpuMat &frame,
   if (std::chrono::steady_clock::now() - m_last_info_update_time > 1s) {
     m_last_info_update_time = std::chrono::steady_clock::now();
     // --- 1. Prepare Data & Format String ---
-    const auto now_tp = Utils::steady_clock_to_system_time(ctx.capture_timestamp);
-    // const auto now_tp = std::chrono::clock_cast<std::chrono::system_clock>(ctx.capture_timestamp);
+    const auto now_tp =
+        Utils::steady_clock_to_system_time(ctx.capture_timestamp);
+    // const auto now_tp =
+    // std::chrono::clock_cast<std::chrono::system_clock>(ctx.capture_timestamp);
 
     // Convert to Local Time
     std::time_t now_c = std::chrono::system_clock::to_time_t(now_tp);
@@ -85,7 +86,8 @@ SynchronousProcessingResult OverlayInfo::process(cv::cuda::GpuMat &frame,
     if (m_stripHeight > frame.rows)
       m_stripHeight = frame.rows;
 
-    if (m_h_text_strip.cols != frame.cols || m_h_text_strip.rows != m_stripHeight ||
+    if (m_h_text_strip.cols != frame.cols ||
+        m_h_text_strip.rows != m_stripHeight ||
         m_h_text_strip.type() != CV_8UC3) {
       m_h_text_strip.create(m_stripHeight, frame.cols, CV_8UC3);
     }
