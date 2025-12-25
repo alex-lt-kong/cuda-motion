@@ -16,6 +16,8 @@ private:
   float m_nms_threshold = 0.3f;
   int m_top_k = 5000;
   bool m_disabled{false};
+  std::chrono::microseconds m_inference_interval{100};
+  std::chrono::time_point<std::chrono::steady_clock> m_last_inference_at;
 
 public:
   using ISynchronousProcessingUnit::ISynchronousProcessingUnit;

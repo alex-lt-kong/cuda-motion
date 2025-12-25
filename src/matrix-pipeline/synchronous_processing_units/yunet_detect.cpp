@@ -7,8 +7,10 @@ namespace MatrixPipeline::ProcessingUnit {
 bool YuNetDetect::init(const njson &config) {
   try {
     // --- Translation Layer: camelCase JSON -> snake_case C++ ---
-    std::string model_path = config.value("modelPath", "");
+    const auto model_path = config.value("modelPath", "");
     m_score_threshold = config.value("scoreThreshold", m_score_threshold);
+    m_inference_interval = std::chrono::microseconds(
+        config.value("inferenceIntervalMs", m_inference_interval.count()));
     m_nms_threshold = config.value("nmsThreshold", m_nms_threshold);
     m_top_k = config.value("topK", m_top_k);
 
@@ -22,7 +24,8 @@ bool YuNetDetect::init(const njson &config) {
         model_path, "", cv::Size(1, 1), m_score_threshold, m_nms_threshold,
         m_top_k, cv::dnn::DNN_BACKEND_CUDA, cv::dnn::DNN_TARGET_CUDA);
 
-    SPDLOG_INFO("initialized successfully from {}", m_unit_path, model_path);
+    SPDLOG_INFO("model_path: {}, inference_interval(ms): {}", model_path,
+                m_inference_interval.count());
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("e.what(): {}", e.what());
@@ -35,6 +38,11 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &gpu_frame,
                                                  PipelineContext &ctx) {
   if (m_disabled)
     return failure_and_continue;
+  if (std::chrono::steady_clock::now() - m_last_inference_at <
+      m_inference_interval)
+    return failure_and_continue;
+
+  m_last_inference_at = std::chrono::steady_clock::now();
   // 1. Dynamic Input Size Adjustment
   // Optimization: Only update if the resolution actually changed to avoid
   // buffer reallocation

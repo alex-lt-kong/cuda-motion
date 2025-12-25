@@ -16,7 +16,7 @@ public:
                                       PipelineContext &ctx) override;
 
 private:
-  cv::Scalar m_landmark_color{0, 255, 0}; // Default Green
+  cv::Scalar m_landmark_color_bgr{0, 255, 0}; // Default Green
   int m_radius = 2;
   int m_thickness = -1; // Filled
 };
