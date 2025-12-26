@@ -19,10 +19,11 @@ bool YoloDetect::init(const njson &config) {
       return false;
     }
     m_model_path = config["modelPath"].get<std::string>();
+    in the process() method
 
-    // Allow overriding input size via config
-    if (config.contains("inputWidth"))
-      m_model_input_size.width = config["inputWidth"].get<int>();
+        // Allow overriding input size via config
+        if (config.contains("inputWidth"))
+            m_model_input_size.width = config["inputWidth"].get<int>();
     if (config.contains("inputHeight"))
       m_model_input_size.height = config["inputHeight"].get<int>();
     m_inference_interval_ms =

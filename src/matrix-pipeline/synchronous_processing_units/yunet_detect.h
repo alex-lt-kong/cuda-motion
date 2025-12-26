@@ -17,7 +17,7 @@ private:
   int m_top_k = 5000;
   cv::cuda::HostMem m_pinned_buffer;
   bool m_disabled{false};
-  std::chrono::microseconds m_inference_interval{100};
+  std::chrono::milliseconds m_inference_interval{100};
   std::chrono::time_point<std::chrono::steady_clock> m_last_inference_at;
 
 public:
