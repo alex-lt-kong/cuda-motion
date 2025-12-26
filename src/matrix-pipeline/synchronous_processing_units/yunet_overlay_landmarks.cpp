@@ -5,15 +5,19 @@ namespace MatrixPipeline::ProcessingUnit {
 
 bool YuNetOverlayLandmarks::init(const njson &config) {
   try {
-    if (config.contains("m  ")) {
-      // Note the constructor of cv::Scalar(), the alternative way is equally
-      // awkward
-      auto color = config["landmarkColorBgr"];
-      m_landmark_color_bgr = cv::Scalar(color[0], color[1], color[2]);
+    if (const auto landmark_color_bgr_key = "landmarkColorBgr";
+        config.contains(landmark_color_bgr_key)) {
+      // Note the constructor of cv::Scalar(), the alternative way (of using
+      // njson's default value support) is equally awkward
+      m_landmark_color_bgr = cv::Scalar(config[landmark_color_bgr_key][0],
+                                        config[landmark_color_bgr_key][1],
+                                        config[landmark_color_bgr_key][2]);
     }
     m_radius = config.value("radius", 2);
     m_thickness = config.value("thickness", -1);
-    SPDLOG_INFO("radius: {}, thickness: {}", m_radius, m_thickness);
+    SPDLOG_INFO("radius: {}, thickness: {}, landmark_color_bgr: {{{}, {}, {}}}",
+                m_radius, m_thickness, m_landmark_color_bgr[0],
+                m_landmark_color_bgr[1], m_landmark_color_bgr[2]);
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("Failed to init YuNetOverlayLandmarks: {}", e.what());

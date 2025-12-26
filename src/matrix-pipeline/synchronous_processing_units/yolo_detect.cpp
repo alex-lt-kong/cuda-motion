@@ -1,10 +1,10 @@
 #include "yolo_detect.h"
 
+#include <fmt/ranges.h>
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/cudawarping.hpp>
 #include <opencv2/dnn.hpp>
-#include <fmt/ranges.h>
 #include <spdlog/spdlog.h>
 
 #include <string>
@@ -122,22 +122,27 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
   ctx.yolo.inference_input_size = m_model_input_size;
 
   try {
-    // 1. Pre-process: Resize on GPU
-    cv::cuda::GpuMat resized_frame;
-    cv::cuda::resize(frame, resized_frame, m_model_input_size);
+    // 1. Pre-process: Resize and Color Convert on GPU
+    cv::cuda::GpuMat resized_rgb;
+    cv::cuda::resize(frame, resized_rgb, m_model_input_size);
+    cv::cuda::cvtColor(resized_rgb, resized_rgb, cv::COLOR_BGR2RGB);
 
-    // YOLO expects RGB (OpenCV default is BGR)
-    cv::cuda::cvtColor(resized_frame, resized_frame, cv::COLOR_BGR2RGB);
+    // 2. GPU-Side Normalization (Replaces CPU blobFromImage math)
+    // Convert to 32-bit float and scale by 1/255.0 directly on the GPU
+    cv::cuda::GpuMat normalized_gpu;
+    resized_rgb.convertTo(normalized_gpu, CV_32F, 1.0 / 255.0);
 
-    // 2. Pre-process: Create Blob (Requires CPU transfer currently)
-    cv::Mat h_frame;
-    resized_frame.download(h_frame);
+    // 3. Optimized Download
+    // Now we only download the final, processed pixels.
+    cv::Mat h_blob_ready;
+    normalized_gpu.download(h_blob_ready);
 
-    cv::Mat blob;
-    cv::dnn::blobFromImage(h_frame, blob, 1.0 / 255.0, cv::Size(), cv::Scalar(),
-                           false, false);
+    // 4. Create Blob from already-normalized CPU data
+    // Since data is already RGB and scaled, we pass 1.0 scale and no mean
+    // subtraction.
+    cv::Mat blob = cv::dnn::blobFromImage(h_blob_ready, 1.0, cv::Size(),
+                                          cv::Scalar(), false, false);
 
-    // 3. Inference
     m_net.setInput(blob);
 
     // Populate the vector in the context directly

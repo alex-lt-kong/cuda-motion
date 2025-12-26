@@ -3,14 +3,12 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
-#include <chrono>
-
 namespace MatrixPipeline::ProcessingUnit {
 
 [[nodiscard]] SynchronousProcessingResult
 DebugOutput::process([[maybe_unused]] cv::cuda::GpuMat &frame,
                      PipelineContext &ctx) {
-  if (ctx.yunet.size() != 0)
+  if (!ctx.yunet.empty())
     SPDLOG_INFO(
         "frame_seq_num: {}, ctx.yolo.indices.size(): {}, ctx.yunet.size(): {}",
         ctx.frame_seq_num, ctx.yolo.indices.size(), ctx.yunet.size());
