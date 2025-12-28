@@ -2,7 +2,9 @@
 
 #include "../interfaces/i_synchronous_processing_unit.h"
 
-namespace MatrixPipeline::ProcessingUnit{
+namespace MatrixPipeline::ProcessingUnit {
+
+using namespace std::chrono_literals;
 
 class YoloDetect final : public ISynchronousProcessingUnit {
 private:
@@ -12,19 +14,20 @@ private:
   float m_confidence_threshold = 0.5f;
   float m_nms_thres = 0.45f;
   int m_frame_interval = 10;
-  int64_t m_inference_interval_ms = 100;
-  int64_t m_last_inference_time_ms = 0;
+  std::chrono::milliseconds m_inference_interval = 100ms;
+  std::chrono::time_point<std::chrono::steady_clock> m_last_inference_time;
   YoloContext m_prev_yolo_ctx;
 
   void post_process_yolo(const cv::cuda::GpuMat &frame,
                          PipelineContext &ctx) const;
 
 public:
-  explicit YoloDetect(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/YoloDetect") {}
+  explicit YoloDetect(const std::string &unit_path)
+      : ISynchronousProcessingUnit(unit_path + "/YoloDetect") {}
   bool init(const njson &config) override;
 
   SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
                                       PipelineContext &ctx) override;
 };
 
-}
+} // namespace MatrixPipeline::ProcessingUnit

@@ -39,8 +39,10 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &gpu_frame,
   if (m_disabled)
     return failure_and_continue;
   if (std::chrono::steady_clock::now() - m_last_inference_at <
-      m_inference_interval)
-    return failure_and_continue;
+      m_inference_interval) {
+    ctx.yunet = m_prev_yunet_ctx;
+    return success_and_continue;
+  }
 
   m_last_inference_at = std::chrono::steady_clock::now();
   // 1. Dynamic Input Size Adjustment
@@ -90,7 +92,7 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &gpu_frame,
 
   // 4. Save to context
   ctx.yunet = std::move(detections);
-
+  m_prev_yunet_ctx = ctx.yunet;
   return success_and_continue;
 }
 

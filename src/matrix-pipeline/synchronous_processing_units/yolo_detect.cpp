@@ -19,15 +19,14 @@ bool YoloDetect::init(const njson &config) {
       return false;
     }
     m_model_path = config["modelPath"].get<std::string>();
-    in the process() method
 
-        // Allow overriding input size via config
-        if (config.contains("inputWidth"))
-            m_model_input_size.width = config["inputWidth"].get<int>();
+    // Allow overriding input size via config
+    if (config.contains("inputWidth"))
+      m_model_input_size.width = config["inputWidth"].get<int>();
     if (config.contains("inputHeight"))
       m_model_input_size.height = config["inputHeight"].get<int>();
-    m_inference_interval_ms =
-        config.value("inferenceIntervalMs", m_inference_interval_ms);
+    m_inference_interval = std::chrono::milliseconds(
+        config.value("inferenceIntervalMs", m_inference_interval.count()));
     m_confidence_threshold =
         config.value("confidenceThreshold", m_confidence_threshold);
     SPDLOG_INFO("Loading ONNX model: {}", m_model_path);
@@ -39,10 +38,11 @@ bool YoloDetect::init(const njson &config) {
       SPDLOG_ERROR("Failed to load ONNX model: {}", m_model_path);
       return false;
     }
-    SPDLOG_INFO("model_path: {}, inference_interval_ms: {}, "
+    SPDLOG_INFO("model_path: {}, inference_interval(ms): {}, "
                 "confidence_threshold: {}, model_input_size: {}x{}",
-                m_model_path, m_inference_interval_ms, m_confidence_threshold,
-                m_model_input_size.width, m_model_input_size.height);
+                m_model_path, m_inference_interval.count(),
+                m_confidence_threshold, m_model_input_size.width,
+                m_model_input_size.height);
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("Init failed: {}", e.what());
@@ -107,15 +107,13 @@ void YoloDetect::post_process_yolo(const cv::cuda::GpuMat &frame,
 SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
                                                 PipelineContext &ctx) {
   using namespace std::chrono;
-  const auto now_ms =
-      duration_cast<milliseconds>(system_clock::now().time_since_epoch())
-          .count();
-  if (now_ms - m_last_inference_time_ms < m_inference_interval_ms) {
+  const auto steady_now = std::chrono::steady_clock::now();
+  if (steady_now - m_last_inference_time < m_inference_interval) {
     ctx.yolo = m_prev_yolo_ctx;
     return success_and_continue;
   }
 
-  m_last_inference_time_ms = now_ms;
+  m_last_inference_time = steady_now;
   if (frame.empty() || m_net.empty())
     return failure_and_continue;
 
@@ -159,7 +157,7 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
 
   } catch (const cv::Exception &e) {
     SPDLOG_ERROR("Inference Error: {}", e.what());
-    m_inference_interval_ms = INT64_MAX;
+    m_inference_interval = std::chrono::milliseconds::max();
     SPDLOG_WARN("Inference is disabled to prevent flooding of log");
     return failure_and_continue;
   }

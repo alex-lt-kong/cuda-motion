@@ -224,7 +224,7 @@ export OPENCV_FFMPEG_WRITER_OPTIONS="hw_encoders_any;cuda"
 
 ```bash    
   # export INSTALL_PATH="$HOME/opt/opencv-$OPENCV_VERSION"  # export INSTALL_PATH="$HOME/opt/opencv-$OPENCV_VERSION"
-  export INSTALL_PATH=/usr/local 
+  export INSTALL_PATH=/apps/opt/opencv-4.12/
   mkdir -p "$INSTALL_PATH"
   # reveal the CUDA architecture and we build for it only
   export CUDA_ARCH_BIN=$(nvidia-smi --query-gpu=compute_cap --format=noheader,csv | tail -n1)
@@ -244,7 +244,7 @@ export OPENCV_FFMPEG_WRITER_OPTIONS="hw_encoders_any;cuda"
     -D WITH_CUDA=ON \
     -D WITH_NVCUVID=ON \
     -D WITH_NVCUVENC=ON \
-    -D OPENCV_EXTRA_MODULES_PATH=~/repos/opencv_contrib/modules/ \
+    -D OPENCV_EXTRA_MODULES_PATH=/apps/repos/opencv_contrib/modules/ \
     -D OPENCV_GENERATE_PKGCONFIG=ON \
     -D OPENCV_PC_FILE_NAME="opencv.pc" \
     -D BUILD_EXAMPLES=OFF \
@@ -253,7 +253,7 @@ export OPENCV_FFMPEG_WRITER_OPTIONS="hw_encoders_any;cuda"
     -D OPENCV_DNN_CUDA=ON \
     -D WITH_GSTREAMER=ON \
     -D CUDA_ARCH_BIN="${CUDA_ARCH_BIN}" \
-    -D OPENCV_TEST_DATA_PATH=~/repos/opencv_extra/testdata \
+    -D OPENCV_TEST_DATA_PATH=/apps/repos/opencv_extra/testdata \
     ..
 ```
 
@@ -281,7 +281,8 @@ as well as FFmpeg:
 -- avresample:                NO
 ```
 
-The same information should be printed when `cv::getBuildInformation()` is called.
+The same information should be printed when `cv::getBuildInformation()` is
+called.
 
 - Build step: `cmake --build . --parallel $(nproc) --config Release`
     - `--config Release` should only be needed on Windows

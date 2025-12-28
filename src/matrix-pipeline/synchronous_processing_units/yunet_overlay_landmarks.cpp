@@ -13,7 +13,7 @@ bool YuNetOverlayLandmarks::init(const njson &config) {
                                         config[landmark_color_bgr_key][1],
                                         config[landmark_color_bgr_key][2]);
     }
-    m_radius = config.value("radius", 2);
+    m_radius = config.value("radius", m_radius);
     m_thickness = config.value("thickness", -1);
     SPDLOG_INFO("radius: {}, thickness: {}, landmark_color_bgr: {{{}, {}, {}}}",
                 m_radius, m_thickness, m_landmark_color_bgr[0],

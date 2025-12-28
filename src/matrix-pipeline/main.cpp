@@ -37,7 +37,8 @@ void configure_spdlog() {
   spdlog::init_thread_pool(queue_size, thread_count);
   try {
     // 1. Define the sinks (destinations)
-    const auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    const auto console_sink =
+        std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 
     std::vector<spdlog::sink_ptr> sinks{console_sink};
 
