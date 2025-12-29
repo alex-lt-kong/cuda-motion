@@ -215,9 +215,11 @@ void MatrixSender::send_video_from_memory(const std::string &video_data,
     }
   }
 
-  content["info"] = info;
-  if (!body.empty())
-    content["body"] = body;
+  content["info"] = info; /*
+   if (!body.empty()) {
+     content["filename"] = body;
+     content["body"] = body;
+   }*/
   constexpr size_t max_retry_count = 5;
   for (size_t i = 0; i < max_retry_count; ++i) {
     if (send_event(content, "m.video"))

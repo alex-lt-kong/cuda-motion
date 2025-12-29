@@ -18,7 +18,7 @@ struct FaceDetection {
 using YuNetContext = std::vector<FaceDetection>;
 
 struct YoloContext {
-  std::vector<cv::Mat> inference_outputs;
+  // std::vector<cv::Mat> inference_outputs;
   cv::Size inference_input_size;
   std::vector<cv::Rect> boxes;
   std::vector<size_t> class_ids;

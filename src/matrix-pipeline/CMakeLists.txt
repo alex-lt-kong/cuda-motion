@@ -14,16 +14,16 @@ find_package(Drogon CONFIG REQUIRED)
 find_package(Microsoft.GSL CONFIG REQUIRED)
 # --- Find TensorRT ---
 find_path(TENSORRT_INCLUDE_DIR NvInfer.h
-        HINTS /usr/include /usr/local/cuda/include)
+        HINTS $ENV{TRT_HOME}/include /usr/include /usr/local/cuda/include)
 find_library(NVINFER_LIB nvinfer
-        HINTS /usr/lib64 /usr/local/cuda/lib64)
+        HINTS $ENV{TRT_HOME}/lib /usr/lib64 /usr/local/cuda/lib64)
 find_library(NVONNX_LIB nvonnxparser
-        HINTS /usr/lib64 /usr/local/cuda/lib64)
+        HINTS $ENV{TRT_HOME}/lib /usr/lib64 /usr/local/cuda/lib64)
 
 if (TENSORRT_INCLUDE_DIR AND NVINFER_LIB AND NVONNX_LIB)
     message(STATUS "Found TensorRT. NVINFER_LIB: ${NVINFER_LIB}, CUDAToolkit_INCLUDE_DIRS: ${CUDAToolkit_INCLUDE_DIRS}")
 else ()
-    message(FATAL_ERROR "TensorRT NOT found. Install tensorrt-devel on RHEL 9.")
+    message(FATAL_ERROR "TensorRT NOT found. $TRT_HOME: $ENV{TRT_HOME}")
 endif ()
 
 include_directories(${Protobuf_INCLUDE_DIRS})

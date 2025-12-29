@@ -1,4 +1,4 @@
-#include "trt_logger.h"
+#include "cuda_helper.h"
 
 #include <spdlog/spdlog.h>
 namespace MatrixPipeline::Utils {

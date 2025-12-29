@@ -1,8 +1,9 @@
 #include "yolo_detect.h"
-#include "../utils/trt_logger.h"
+#include "../utils/cuda_helper.h"
 
 #include <fmt/ranges.h>
 #include <opencv2/core/cuda_stream_accessor.hpp>
+#include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/cudawarping.hpp>
 #include <opencv2/dnn.hpp>
@@ -32,17 +33,16 @@ bool YoloDetect::init(const njson &config) {
         config.value("confidenceThreshold", m_confidence_threshold);
 
     // 1. Initialize TensorRT Builder and Network
-    auto builder = std::unique_ptr<nvinfer1::IBuilder>(
+    const auto builder = std::unique_ptr<nvinfer1::IBuilder>(
         nvinfer1::createInferBuilder(Utils::g_logger));
-    uint32_t flags =
+    constexpr auto flags =
         1U << static_cast<uint32_t>(
             nvinfer1::NetworkDefinitionCreationFlag::kSTRONGLY_TYPED);
-
-    auto network = std::unique_ptr<nvinfer1::INetworkDefinition>(
+    const auto network = std::unique_ptr<nvinfer1::INetworkDefinition>(
         builder->createNetworkV2(flags));
 
     // 2. Parse ONNX
-    auto parser = std::unique_ptr<nvonnxparser::IParser>(
+    const auto parser = std::unique_ptr<nvonnxparser::IParser>(
         nvonnxparser::createParser(*network, Utils::g_logger));
     if (!parser->parseFromFile(
             m_model_path.c_str(),
@@ -75,6 +75,8 @@ bool YoloDetect::init(const njson &config) {
             .count());
     const auto runtime = std::unique_ptr<nvinfer1::IRuntime>(
         nvinfer1::createInferRuntime(Utils::g_logger));
+    // Much of the above boilerplate code is using local variables only, the
+    // real things we need for inference are just m_engine and m_context
     m_engine = std::shared_ptr<nvinfer1::ICudaEngine>(
         runtime->deserializeCudaEngine(plan->data(), plan->size()));
     m_context = std::unique_ptr<nvinfer1::IExecutionContext>(
@@ -82,18 +84,62 @@ bool YoloDetect::init(const njson &config) {
 
     // 4. Prepare Device Buffers
     // We assume index 0 is input, index 1 is output (standard for YOLO ONNX)
-    nvinfer1::Dims output_dims =
+    const auto output_dims =
         m_engine->getTensorShape(m_engine->getIOTensorName(1));
     // For YOLOv11, dims.d[1] is usually 84, dims.d[2] is 8400
     m_output_dimensions = output_dims.d[1];
     m_output_rows = output_dims.d[2];
-    m_output_count = 1;
-    for (int i = 0; i < output_dims.nbDims; ++i)
-      m_output_count *= output_dims.d[i];
-    cudaMalloc(&m_output_buffer_gpu, m_output_count * sizeof(float));
-    m_output_cpu.resize(m_output_count);
+    {
+      // m_output_count is total number of scalar elements (floats) in the
+      // tensor if you were to lay them all out in a single straight line. Say
+      // your tensor's dimensions are [1, 84, 8400], m_output_count will be 1
+      // * 84 * 8400 = 705600
+      m_output_count = 1;
+      for (int i = 0; i < output_dims.nbDims; ++i)
+        m_output_count *= output_dims.d[i];
+      m_output_buffer_gpu =
+          Utils::make_device_unique<float>(m_output_count * sizeof(float));
+      m_output_cpu.resize(m_output_count);
+    }
 
-    cudaStreamCreate(&m_cuda_stream);
+    m_input_buffer_gpu = Utils::make_device_unique<float>(
+        3 * m_model_input_size.width * m_model_input_size.height *
+        sizeof(float));
+
+    {
+      if (cudaStreamCreate(&m_cuda_stream) != cudaSuccess) {
+        SPDLOG_ERROR("cudaStreamCreate() failed");
+        return false;
+      }
+      m_cv_stream = cv::cuda::StreamAccessor::wrapStream(m_cuda_stream);
+    }
+
+    {
+      // 1. Verify Count (Must be SISO)
+      if (m_engine->getNbIOTensors() != 2) {
+        throw std::runtime_error(
+            "Error: Model must have exactly 1 Input and 1 Output.");
+      }
+
+      // 2. Verify Index 0 is INPUT
+      const char *input_name = m_engine->getIOTensorName(0);
+      if (m_engine->getTensorIOMode(input_name) !=
+          nvinfer1::TensorIOMode::kINPUT) {
+        throw std::runtime_error(
+            "Error: Tensor at Index 0 must be INPUT (images).");
+      }
+
+      // 3. Verify Index 1 is OUTPUT
+      const char *output_name = m_engine->getIOTensorName(1);
+      if (m_engine->getTensorIOMode(output_name) !=
+          nvinfer1::TensorIOMode::kOUTPUT) {
+        throw std::runtime_error("Error: Tensor at Index 1 must be OUTPUT.");
+      }
+
+      // 4. If we survived, bind them strictly
+      m_context->setTensorAddress(input_name, m_input_buffer_gpu.get());
+      m_context->setTensorAddress(output_name, m_output_buffer_gpu.get());
+    }
 
     SPDLOG_INFO("TensorRT Engine initialized from ONNX. Output size: {}",
                 m_output_count);
@@ -181,33 +227,39 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
   }
 
   // Clear previous results
-  ctx.yolo.inference_outputs.clear(); // Not used by TRT but good to clean
+  // ctx.yolo.inference_outputs.clear(); // Not used by TRT but good to clean
   ctx.yolo.inference_input_size = m_model_input_size;
 
   try {
-    // 2. Wrap the CUDA Stream
-    cv::cuda::Stream cv_stream =
-        cv::cuda::StreamAccessor::wrapStream(m_cuda_stream);
 
-    // 3. Pre-processing (Thread-Safe with Local Buffers)
-    // CRITICAL FIX: We use local variables instead of class members (like
-    // m_gpu_resized) to prevent race conditions if multiple threads call
-    // process() simultaneously.
-    cv::cuda::GpuMat local_resized;
-    cv::cuda::GpuMat local_input;
-
-    cv::cuda::resize(frame, local_resized, m_model_input_size, 0, 0,
-                     cv::INTER_LINEAR, cv_stream);
+    cv::cuda::resize(frame, m_resized_gpu, m_model_input_size, 0, 0,
+                     cv::INTER_LINEAR, m_cv_stream);
+    // 2. Color Convert: BGR -> RGB
+    cv::cuda::cvtColor(m_resized_gpu, m_rgb, cv::COLOR_BGR2RGB, 0, m_cv_stream);
     // Convert to Float32 and Normalize (0-1 range) for YOLOv11
     // This creates the exact memory layout TensorRT expects.
-    local_resized.convertTo(local_input, CV_32FC3, 1.0 / 255.0, cv_stream);
+    m_rgb.convertTo(m_normalized_gpu, CV_32FC3, 1.0 / 255.0, m_cv_stream);
 
-    // 4. Set TensorRT Bindings
-    // We pass the pointer to our LOCAL buffer. This is safe only because we
-    // synchronize before this function returns (and destroys local_input).
-    m_context->setTensorAddress(m_engine->getIOTensorName(0), local_input.data);
-    m_context->setTensorAddress(m_engine->getIOTensorName(1),
-                                m_output_buffer_gpu);
+    // 4. HWC -> NCHW Conversion (The Missing Link)
+    // We split the interleaved Mat into 3 separate planes (R, G, B)
+    std::vector<cv::cuda::GpuMat> channels;
+    cv::cuda::split(m_normalized_gpu, channels, m_cv_stream);
+
+    for (int i = 0; i < 3; ++i) {
+      // We use cudaMemcpy2DAsync because GpuMat rows might be padded (step !=
+      // width)
+      cudaMemcpy2DAsync(
+          m_input_buffer_gpu.get() +
+              (i *
+               m_model_input_size.area()), // Dest: Offset for R, G, or B plane
+          m_model_input_size.width *
+              sizeof(float), // Dest Pitch (Linear, so equal to width)
+          channels[i].data,  // Src: Ptr to GpuMat data
+          channels[i].step,  // Src Pitch: GpuMat step (padding)
+          m_model_input_size.width * sizeof(float), // Width in bytes to copy
+          m_model_input_size.height,                // Height (rows)
+          cudaMemcpyDeviceToDevice, m_cuda_stream);
+    }
 
     // 5. Enqueue Inference
     if (!m_context->enqueueV3(m_cuda_stream)) {
@@ -217,7 +269,7 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
 
     // 6. Copy Output (GPU -> CPU)
     // Moves data from m_output_buffer_gpu to m_output_cpu
-    cudaMemcpyAsync(m_output_cpu.data(), m_output_buffer_gpu,
+    cudaMemcpyAsync(m_output_cpu.data(), m_output_buffer_gpu.get(),
                     m_output_count * sizeof(float), cudaMemcpyDeviceToHost,
                     m_cuda_stream);
 
@@ -242,18 +294,10 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
 }
 
 YoloDetect::~YoloDetect() {
-  // 1. Raw GPU memory allocated via cudaMalloc
-  if (m_output_buffer_gpu) {
-    cudaFree(m_output_buffer_gpu);
-  }
 
-  // 2. CUDA Streams
   if (m_cuda_stream) {
     cudaStreamDestroy(m_cuda_stream);
   }
-
-  // Note: m_engine and m_context are unique_ptrs,
-  // so they clean themselves up automatically here!
 }
 
 } // namespace MatrixPipeline::ProcessingUnit

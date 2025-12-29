@@ -40,7 +40,7 @@ add_library(yolo_detect
 )
 target_link_libraries(yolo_detect
         PUBLIC ${NVINFER_LIB} ${NVONNX_LIB} CUDA::cudart
-        PRIVATE spdlog::spdlog trt_logger
+        PRIVATE spdlog::spdlog cuda_helper
 )
 
 

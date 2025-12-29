@@ -1,11 +1,15 @@
 # Matrix Pipeline
 
-MatrixPipeline is a modular, high-performance C++ computer vision application. It utilizes a configurable Pipeline
+MatrixPipeline is a modular, high-performance C++ computer vision application.
+It utilizes a configurable Pipeline
 Pattern that allows video frames (a.k.a. "matrix") flow through it.
 
-This architecture creates a "T-junction" flow: lightweight tasks like rotation and cropping run in real-time, while
-heavy operations—such as YOLOv11 object detection, MP4 encoding, and network I/O—are offloaded to isolated threads to
-prevent frame drops. Key capabilities include multi-resolution MJPEG streaming, motion-triggered recording, Matrix chat
+This architecture creates a "T-junction" flow: lightweight tasks like rotation
+and cropping run in real-time, while
+heavy operations—such as YOLOv11 object detection, MP4 encoding, and network
+I/O—are offloaded to isolated threads to
+prevent frame drops. Key capabilities include multi-resolution MJPEG streaming,
+motion-triggered recording, Matrix chat
 alerts, and ZeroMQ broadcasting, all defined via a flexible JSON configuration.
 
 ```mermaid
@@ -104,10 +108,9 @@ graph TD
 
 - [vcpkg.json](./vcpkg.json)
 - `v4l-utils`: for manually examining and manipulating local video devices.
-- `OpenCV`: image/video manipulation libraries that do all the
-  heavy lifting.
-    - Check build notes [here](etc/build-notes.md) and
-      [here](https://github.com/alex-lt-kong/the-nitty-gritty/tree/main/c-cpp/cpp-only/06_poc/05_cuda-vs-ffmpeg).
+- `OpenCV`: Check build notes [here](etc/build-notes.md)
+  and [here](https://github.com/alex-lt-kong/the-nitty-gritty/tree/main/c-cpp/cpp-only/06_poc/05_cuda-vs-ffmpeg).
+- [TensorRT](https://developer.nvidia.com/tensorrt/download)
 
 ## Build and deployment
 

@@ -1,13 +1,11 @@
 #pragma once
 
 #include "../interfaces/i_synchronous_processing_unit.h"
+#include "../utils/cuda_helper.h"
 
-// TensorRT Core Header
-#include <NvInfer.h>
-// ONNX Parser Header (Required to build the engine from .onnx at runtime)
-#include <NvOnnxParser.h>
-// CUDA Runtime Header (For cudaMalloc, cudaFree, cudaStream, etc.)
-#include <cuda_runtime_api.h>
+#include <NvInfer.h> // TensorRT Core Header
+#include <NvOnnxParser.h> // ONNX Parser Header (Required to build the engine from .onnx at runtime)
+#include <cuda_runtime_api.h> // CUDA Runtime Header (For cudaMalloc, cudaFree, cudaStream, etc.)
 #include <opencv2/core/cuda.hpp>
 
 namespace MatrixPipeline::ProcessingUnit {
@@ -22,21 +20,24 @@ private:
   std::unique_ptr<nvinfer1::IExecutionContext> m_context;
 
   // --- GPU Memory Management ---
-  void *m_output_buffer_gpu = nullptr; // Raw pointer for TRT binding
-  std::vector<float> m_output_cpu;     // For downloading inference results
-  size_t m_output_count = 0;           // Total floats in the output tensor
+  // Raw pointer for TRT binding
+  std::unique_ptr<float, Utils::CudaDeleter> m_output_buffer_gpu = nullptr;
+  std::unique_ptr<float, Utils::CudaDeleter> m_input_buffer_gpu = nullptr;
+  std::vector<float> m_output_cpu; // For downloading inference results
+  size_t m_output_count = 0;       // Total floats in the output tensor
 
   cudaStream_t m_cuda_stream = nullptr; // Async execution stream
+  cv::cuda::Stream m_cv_stream;
   int m_output_dimensions;
   int m_output_rows;
   // --- OpenCV GpuMat Buffers (Reuse these to avoid re-allocation) ---
   cv::cuda::GpuMat m_resized_gpu;
   cv::cuda::GpuMat m_normalized_gpu;
+  cv::cuda::GpuMat m_rgb;
 
   // Non-TRT-related
   std::string m_model_path;
   cv::Size m_model_input_size = {640, 640}; // Default YOLO size
-  cv::dnn::Net m_net;
   float m_confidence_threshold = 0.5f;
   float m_nms_thres = 0.45f;
   int m_frame_interval = 10;

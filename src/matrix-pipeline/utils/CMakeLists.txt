@@ -23,10 +23,13 @@ add_library(matrix_sender
 target_link_libraries(matrix_sender cpr::cpr spdlog::spdlog)
 
 
-add_library(trt_logger
-        trt_logger.cpp
-        trt_logger.h
+add_library(cuda_helper
+        cuda_helper.cpp
+        cuda_helper.h
 )
-target_link_libraries(trt_logger
+target_include_directories(cuda_helper PUBLIC
+        "$ENV{TRT_HOME}/include"
+)
+target_link_libraries(cuda_helper
         PUBLIC ${NVINFER_LIB} ${NVONNX_LIB} CUDA::cudart
         PRIVATE spdlog::spdlog)
