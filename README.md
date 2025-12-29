@@ -129,21 +129,3 @@ make -j2
 
 - The repo is also tested with `Valgrind` from time to time:
   `valgrind --leak-check=yes --log-file=valgrind.rpt ./build/cs`.
-
-## Profiling
-
-- gprof:
-
-```bash
-cmake -DCMAKE_CXX_FLAGS=-pg -DCMAKE_EXE_LINKER_FLAGS=-pg -DCMAKE_SHARED_LINKER_FLAGS=-pg  ../
-make -j4
-./build/cm
-gprof ./build/cm gmon.out
-```
-
-- callgrind
-
-```
-valgrind --tool=callgrind ./cm
-kcachegrind `ls -tr callgrind.out.* | tail -1`
-```
