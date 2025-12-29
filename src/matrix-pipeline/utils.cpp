@@ -15,7 +15,6 @@ signal_handler_callback sh_callback;
 
 atomic<ssize_t> executionCounter = -1;
 
-
 static void signal_handler(int signum) noexcept {
   if (signum == SIGCHLD) {
     // When a child process stops or terminates, SIGCHLD is sent to the parent
@@ -66,4 +65,5 @@ void install_signal_handler(signal_handler_callback cb) {
                         strerror(errno) + ")");
   }
 }
+
 } // namespace MatrixPipeline::Utils

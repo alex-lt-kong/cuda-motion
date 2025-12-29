@@ -19,12 +19,15 @@ public:
       : m_unit_path(std::move(unit_path)) {
     SPDLOG_INFO("Initializing synchronous_processing_unit: {}", m_unit_path);
   };
-  virtual ~ISynchronousProcessingUnit() = default;
+  virtual ~ISynchronousProcessingUnit() {
+    SPDLOG_INFO("synchronous_processing_unit {} destructed", m_unit_path);
+  }
 
   virtual bool init(const njson &config) = 0;
 
   ///
   /// @param frame the frame to be processed
+  /// @param ctx context
   /// @return
   virtual SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
                                               PipelineContext &ctx) = 0;

@@ -126,7 +126,7 @@ MatrixSender::MatrixSender(std::string url, std::string token,
   roomId = room;
 }
 
-void MatrixSender::sendText(const std::string &message) {
+void MatrixSender::sendText(const std::string &message) const {
   if (message.empty())
     return;
   njson content;
@@ -172,6 +172,7 @@ void MatrixSender::send_video(const std::string &filepath,
 void MatrixSender::send_video_from_memory(const std::string &video_data,
                                           const std::string &caption,
                                           size_t duration_ms,
+                                          const std::string &body,
                                           const std::string &thumbnail_data,
                                           int width, int height,
                                           const std::string &thumb_mime) const {
@@ -215,6 +216,8 @@ void MatrixSender::send_video_from_memory(const std::string &video_data,
   }
 
   content["info"] = info;
+  if (!body.empty())
+    content["body"] = body;
   constexpr size_t max_retry_count = 5;
   for (size_t i = 0; i < max_retry_count; ++i) {
     if (send_event(content, "m.video"))

@@ -111,9 +111,9 @@ int main(int argc, char *argv[]) {
         .run();
   });
 
-  SPDLOG_INFO("Starting video feed manager's event loop thread");
+  SPDLOG_INFO("Starting VideoFeedManager's event loop thread");
   mgr->feed_capture_ev();
-  SPDLOG_INFO("video feed manager's event loop exited gracefully");
+  SPDLOG_INFO("VideoFeedManager's event loop exited gracefully");
 
   th_drogon.join();
   SPDLOG_INFO("Drogon exited");

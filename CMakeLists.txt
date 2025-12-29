@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(matrix-pipeline)
+# Supports RTX 30-series (86), RTX 40-series (89), and A100 (80)
+set(CMAKE_CUDA_ARCHITECTURES 80 86 89)
+project(matrix-pipeline LANGUAGES CXX CUDA)
 add_definitions(-DPROJECT_NAME="${PROJECT_NAME}")
 
 set(CMAKE_C_STANDARD 17)

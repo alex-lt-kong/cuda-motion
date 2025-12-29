@@ -4,6 +4,8 @@
 #include "../entities/synchronous_processing_result.h"
 #include "../utils/matrix_sender.h"
 
+#include <boost/stacktrace.hpp>
+#include <fmt/ranges.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/core/cuda.hpp>
 #include <spdlog/spdlog.h>
@@ -64,7 +66,9 @@ public:
     try {
       frame_clone = frame.clone();
     } catch (const cv::Exception &e) {
-      SPDLOG_WARN("cv::Exception at frame clone(): {}", e.what());
+      SPDLOG_WARN(
+          "e.what(): {}\n{}", e.what(),
+          boost::stacktrace::to_string(boost::stacktrace::stacktrace()));
       return failure_and_continue;
     }
     {
@@ -169,7 +173,14 @@ private:
         payload = m_processing_queue.front();
         m_processing_queue.pop();
       }
-      on_frame_ready(payload.frame, payload.ctx);
+      try {
+        on_frame_ready(payload.frame, payload.ctx);
+      } catch (const std::exception &e) {
+        // TODO: we should consider disable the async unit if thrown exception
+        SPDLOG_ERROR(
+            "e.what(): {}\n{}", e.what(),
+            boost::stacktrace::to_string(boost::stacktrace::stacktrace()));
+      }
     }
   }
 
