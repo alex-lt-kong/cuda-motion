@@ -20,7 +20,7 @@ bool YoloDetect::init(const njson &config) {
       SPDLOG_ERROR("modelPath not defined");
       return false;
     }
-    m_model_path = config["modelPath"].get<std::string>();
+    const auto model_path = config["modelPath"].get<std::string>();
 
     // Allow overriding input size via config
     if (config.contains("inputWidth"))
@@ -45,9 +45,9 @@ bool YoloDetect::init(const njson &config) {
     const auto parser = std::unique_ptr<nvonnxparser::IParser>(
         nvonnxparser::createParser(*network, Utils::g_logger));
     if (!parser->parseFromFile(
-            m_model_path.c_str(),
+            model_path.c_str(),
             static_cast<int>(nvinfer1::ILogger::Severity::kWARNING))) {
-      SPDLOG_ERROR("Failed to parse ONNX file: {}", m_model_path);
+      SPDLOG_ERROR("Failed to parse ONNX file: {}", model_path);
       return false;
     }
 
@@ -57,15 +57,14 @@ bool YoloDetect::init(const njson &config) {
     trt_config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE,
                                    1ULL << 30); // 1GB
 
-    SPDLOG_INFO("Building TensorRT Plan for model: {}...", m_model_path);
+    SPDLOG_INFO("Building TensorRT Plan for model: {}...", model_path);
     SPDLOG_INFO("Note: Optimization trials may take several minutes depending "
                 "on your GPU.");
     const auto start_time = std::chrono::steady_clock::now();
     const auto plan = std::unique_ptr<nvinfer1::IHostMemory>(
         builder->buildSerializedNetwork(*network, *trt_config));
     if (!plan) {
-      SPDLOG_ERROR("builder->buildSerializedNetwork failed! Check your "
-                   "TRTLogger for details.");
+      SPDLOG_ERROR("builder->buildSerializedNetwork failed");
       return false;
     }
     const auto end_time = std::chrono::steady_clock::now();
@@ -236,6 +235,7 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
                      cv::INTER_LINEAR, m_cv_stream);
     // 2. Color Convert: BGR -> RGB
     cv::cuda::cvtColor(m_resized_gpu, m_rgb, cv::COLOR_BGR2RGB, 0, m_cv_stream);
+    // alpha is  1.0/255.0, while in yunet_detect.cpp it is 1.0
     // Convert to Float32 and Normalize (0-1 range) for YOLOv11
     // This creates the exact memory layout TensorRT expects.
     m_rgb.convertTo(m_normalized_gpu, CV_32FC3, 1.0 / 255.0, m_cv_stream);

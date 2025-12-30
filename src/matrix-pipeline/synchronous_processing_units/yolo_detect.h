@@ -5,7 +5,6 @@
 
 #include <NvInfer.h> // TensorRT Core Header
 #include <NvOnnxParser.h> // ONNX Parser Header (Required to build the engine from .onnx at runtime)
-#include <cuda_runtime_api.h> // CUDA Runtime Header (For cudaMalloc, cudaFree, cudaStream, etc.)
 #include <opencv2/core/cuda.hpp>
 
 namespace MatrixPipeline::ProcessingUnit {
@@ -28,15 +27,14 @@ private:
 
   cudaStream_t m_cuda_stream = nullptr; // Async execution stream
   cv::cuda::Stream m_cv_stream;
-  int m_output_dimensions;
-  int m_output_rows;
+  int m_output_dimensions{-1};
+  int m_output_rows{-1};
   // --- OpenCV GpuMat Buffers (Reuse these to avoid re-allocation) ---
   cv::cuda::GpuMat m_resized_gpu;
   cv::cuda::GpuMat m_normalized_gpu;
   cv::cuda::GpuMat m_rgb;
 
   // Non-TRT-related
-  std::string m_model_path;
   cv::Size m_model_input_size = {640, 640}; // Default YOLO size
   float m_confidence_threshold = 0.5f;
   float m_nms_thres = 0.45f;
@@ -51,6 +49,7 @@ private:
 public:
   explicit YoloDetect(const std::string &unit_path)
       : ISynchronousProcessingUnit(unit_path + "/YoloDetect") {}
+
   bool init(const njson &config) override;
 
   ~YoloDetect() override;

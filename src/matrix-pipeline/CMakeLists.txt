@@ -21,7 +21,7 @@ find_library(NVONNX_LIB nvonnxparser
         HINTS $ENV{TRT_HOME}/lib /usr/lib64 /usr/local/cuda/lib64)
 
 if (TENSORRT_INCLUDE_DIR AND NVINFER_LIB AND NVONNX_LIB)
-    message(STATUS "Found TensorRT. NVINFER_LIB: ${NVINFER_LIB}, CUDAToolkit_INCLUDE_DIRS: ${CUDAToolkit_INCLUDE_DIRS}")
+    message(STATUS "Found TensorRT. TRT_HOME: $ENV{TRT_HOME}, NVINFER_LIB: ${NVINFER_LIB}, CUDAToolkit_INCLUDE_DIRS: ${CUDAToolkit_INCLUDE_DIRS}")
 else ()
     message(FATAL_ERROR "TensorRT NOT found. $TRT_HOME: $ENV{TRT_HOME}")
 endif ()
@@ -43,10 +43,8 @@ add_library(video_feed_manager
         video_feed_manager.cpp video_feed_manager.h
 )
 target_link_libraries(video_feed_manager
-        PRIVATE
-        utils
-        asynchronous_processing_unit
-        ${OpenCV_LIBS})
+        PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
+        PRIVATE utils asynchronous_processing_unit)
 target_link_libraries(video_feed_manager
         PRIVATE
         ${OpenCV_LIBS} rt ssl crypto fmt::fmt

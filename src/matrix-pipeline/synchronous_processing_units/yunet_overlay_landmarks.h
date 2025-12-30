@@ -8,7 +8,8 @@ namespace MatrixPipeline::ProcessingUnit {
 
 class YuNetOverlayLandmarks : public ISynchronousProcessingUnit {
 public:
-  using ISynchronousProcessingUnit::ISynchronousProcessingUnit;
+  explicit YuNetOverlayLandmarks(const std::string &unit_path)
+      : ISynchronousProcessingUnit(unit_path + "/YuNetOverlayLandmarks") {}
 
   bool init(const njson &config) override;
 

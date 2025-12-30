@@ -39,8 +39,10 @@ add_library(yolo_detect
         ../interfaces/i_synchronous_processing_unit.h
 )
 target_link_libraries(yolo_detect
-        PUBLIC ${NVINFER_LIB} ${NVONNX_LIB} CUDA::cudart
-        PRIVATE spdlog::spdlog cuda_helper
+        PUBLIC
+        cuda_helper
+        ${NVINFER_LIB} ${NVONNX_LIB} CUDA::cudart
+        PRIVATE spdlog::spdlog
 )
 
 
@@ -84,7 +86,9 @@ add_library(yunet_detect
         ../interfaces/i_synchronous_processing_unit.h
 )
 target_link_libraries(yunet_detect
-        PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
+        PUBLIC
+        cuda_helper
+        ${OpenCV_LIBS} nlohmann_json::nlohmann_json ${NVINFER_LIB} ${NVONNX_LIB} CUDA::cudart
         PRIVATE spdlog::spdlog)
 
 
