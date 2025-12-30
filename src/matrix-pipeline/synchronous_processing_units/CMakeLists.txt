@@ -91,7 +91,6 @@ target_link_libraries(yunet_detect
         ${OpenCV_LIBS} nlohmann_json::nlohmann_json ${NVINFER_LIB} ${NVONNX_LIB} CUDA::cudart
         PRIVATE spdlog::spdlog)
 
-
 add_library(yunet_overlay_landmarks
         yunet_overlay_landmarks.cpp yunet_overlay_landmarks.h
         ../interfaces/i_synchronous_processing_unit.h

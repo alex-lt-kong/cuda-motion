@@ -107,15 +107,18 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
 
 void AsynchronousProcessingUnit::on_frame_ready(cv::cuda::GpuMat &frame,
                                                 PipelineContext &ctx) {
-  // std::lock_guard g(m_mutex);
   for (size_t i = 0; i < m_processing_units.size(); ++i) {
     ctx.processing_unit_idx = i;
     const auto retval = std::visit(
         overload{
             [&](const std::unique_ptr<ISynchronousProcessingUnit> &ptr) {
+              if (ptr->is_disabled())
+                return failure_and_continue;
               return ptr->process(frame, ctx);
             },
             [&](const std::unique_ptr<IAsynchronousProcessingUnit> &ptr) {
+              if (ptr->is_disabled())
+                return failure_and_continue;
               return ptr->enqueue(frame, ctx);
             },
         },

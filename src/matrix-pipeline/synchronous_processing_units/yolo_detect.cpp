@@ -287,8 +287,7 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
 
   } catch (const std::exception &e) {
     SPDLOG_ERROR("Inference Error: {}", e.what());
-    // Disable inference temporarily on error to avoid log flooding
-    m_inference_interval = std::chrono::milliseconds::max();
+    disable();
     return failure_and_continue;
   }
 }

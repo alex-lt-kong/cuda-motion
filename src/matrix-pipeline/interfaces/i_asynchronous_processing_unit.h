@@ -3,6 +3,7 @@
 #include "../entities/processing_context.h"
 #include "../entities/synchronous_processing_result.h"
 #include "../utils/matrix_sender.h"
+#include "i_processing_unit.h"
 
 #include <boost/stacktrace.hpp>
 #include <fmt/ranges.h>
@@ -30,7 +31,7 @@ struct AsyncPayload {
   PipelineContext ctx;
 };
 
-class IAsynchronousProcessingUnit {
+class IAsynchronousProcessingUnit : public IProcessingUnit {
 protected:
   const std::string m_unit_path;
   std::array<bool, 24> m_turned_on_hours{
@@ -38,17 +39,8 @@ protected:
       true, true, true, true, true, true, true, true, true, true, true, true};
 
 public:
-  explicit IAsynchronousProcessingUnit(std::string unit_path)
-      : m_unit_path(std::move(unit_path)) {
-    SPDLOG_INFO("Initializing asynchronous_processing_unit: {}", m_unit_path);
-  };
-  virtual ~IAsynchronousProcessingUnit() {
-    stop();
-    SPDLOG_INFO("asynchronous_processing_unit {} destructed", m_unit_path);
-  }
-
-  virtual bool init(const njson &config) = 0;
-
+  explicit IAsynchronousProcessingUnit(const std::string &unit_path)
+      : IProcessingUnit(unit_path) {};
   /**
    * @brief Pushes a frame into the processing queue.
    * * IMPORTANT: This performs a DEEP COPY (clone) of the GPU frame.
