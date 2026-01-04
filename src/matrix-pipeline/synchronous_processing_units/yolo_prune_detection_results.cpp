@@ -41,8 +41,12 @@ bool YoloPruneDetectionResults::init(const njson &config) {
 
   const auto class_ids_of_interest_vector =
       config.value("classIdsOfInterest", std::vector<int>{});
-  for (const auto &idx : class_ids_of_interest_vector)
-    m_class_ids_of_interest.insert(idx);
+  if (!class_ids_of_interest_vector.empty())
+    for (const auto &idx : class_ids_of_interest_vector)
+      m_class_ids_of_interest.insert(idx);
+  else
+    for (int i = 0; i < 80; ++i)
+      m_class_ids_of_interest.insert(i);
 
   SPDLOG_INFO("region_constraint: L:[{:.2f}, {:.2f}], R:[{:.2f}, "
               "{:.2f}], T:[{:.2f}, {:.2f}], B:[{:.2f}, {:.2f}], "
@@ -205,8 +209,12 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame,
         (valid_left && valid_right && valid_top && valid_bottom && valid_size &&
          m_class_ids_of_interest.contains(ctx.yolo.class_ids[idx]));
     /*
-    SPDLOG_INFO("frame_seq_num: {}, idx: {}, ctx.yolo.class_ids[idx]: {}, m_class_ids_of_interest: [{}], m_class_ids_of_interest.contains(): {}, ctx.yolo.is_detection_valid[idx]: {}",
-      ctx.frame_seq_num, idx, ctx.yolo.class_ids[idx], fmt::join(m_class_ids_of_interest, ", "), m_class_ids_of_interest.contains(ctx.yolo.class_ids[idx]), ctx.yolo.is_detection_valid[idx] );
+    SPDLOG_INFO("frame_seq_num: {}, idx: {}, ctx.yolo.class_ids[idx]: {},
+    m_class_ids_of_interest: [{}], m_class_ids_of_interest.contains(): {},
+    ctx.yolo.is_detection_valid[idx]: {}", ctx.frame_seq_num, idx,
+    ctx.yolo.class_ids[idx], fmt::join(m_class_ids_of_interest, ", "),
+    m_class_ids_of_interest.contains(ctx.yolo.class_ids[idx]),
+    ctx.yolo.is_detection_valid[idx] );
       */
   }
 

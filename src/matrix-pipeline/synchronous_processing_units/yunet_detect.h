@@ -22,7 +22,8 @@ private:
   YuNetContext m_prev_yunet_ctx;
 
 public:
-  using ISynchronousProcessingUnit::ISynchronousProcessingUnit;
+  explicit YuNetDetect(const std::string &unit_path)
+      : ISynchronousProcessingUnit(unit_path + "/YuNetDetect") {}
 
   bool init(const njson &config) override;
 

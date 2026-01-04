@@ -1,4 +1,5 @@
 #include "asynchronous_processing_unit.h"
+
 #include "../asynchronous_processing_units/http_service.h"
 #include "../asynchronous_processing_units/matrix_notifier.h"
 #include "../asynchronous_processing_units/video_writer.h"
@@ -18,6 +19,7 @@
 #include "../synchronous_processing_units/yolo_prune_detection_results.h"
 #include "../synchronous_processing_units/yunet_detect.h"
 #include "../synchronous_processing_units/yunet_overlay_landmarks.h"
+#include "ffmpeg_streamer.h"
 
 #include <fmt/ranges.h>
 
@@ -70,6 +72,8 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
         ptr = std::make_unique<AsynchronousProcessingUnit>(m_unit_path);
       } else if (type == "AsynchronousProcessingUnit::matrixNotifier") {
         ptr = std::make_unique<MatrixNotifier>(m_unit_path);
+      } else if (type == "AsynchronousProcessingUnit::ffmpegStreamerUnit") {
+        ptr = std::make_unique<FFmpegStreamerUnit>(m_unit_path);
       } else {
         SPDLOG_WARN("Unrecognized pipeline unit, type: {}, idx: {}", type, i);
         continue;

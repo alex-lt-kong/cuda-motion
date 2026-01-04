@@ -5,6 +5,14 @@ add_library(matrix_notifier
 target_link_libraries(matrix_notifier nvjpeg_encoder ram_video_buffer matrix_sender)
 target_link_libraries(matrix_notifier ${OpenCV_LIBS} CUDA::nvjpeg spdlog::spdlog cpr::cpr nlohmann_json::nlohmann_json)
 
+
+add_library(ffmpeg_streamer
+        ffmpeg_streamer.cpp ffmpeg_streamer.h
+        ../interfaces/i_asynchronous_processing_unit.h
+)
+target_link_libraries(ffmpeg_streamer ${OpenCV_LIBS} CUDA::nvjpeg spdlog::spdlog cpr::cpr nlohmann_json::nlohmann_json)
+
+
 add_library(asynchronous_processing_unit
         asynchronous_processing_unit.cpp asynchronous_processing_unit.h
         ../interfaces/i_asynchronous_processing_unit.h
@@ -24,4 +32,5 @@ target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         yunet_detect
         yunet_overlay_landmarks
         cuda_helper
+        ffmpeg_streamer
 )

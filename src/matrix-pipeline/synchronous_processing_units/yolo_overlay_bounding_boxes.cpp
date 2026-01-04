@@ -13,13 +13,15 @@ namespace MatrixPipeline::ProcessingUnit {
 
 bool YoloOverlayBoundingBoxes::init([[maybe_unused]] const njson &config) {
   m_class_names = config.value("classNames", m_class_names);
+  m_label_font_scale = config.value("labelFontScale", m_label_font_scale);
   std::srand(4); // we want deterministic coloring
   // m_colors.clear();
   /*
   for (size_t i = 0; i < m_class_names.size(); ++i) {
     ;
   }*/
-  SPDLOG_INFO("class_names: {}", fmt::join(m_class_names, ", "));
+  SPDLOG_INFO("label_font_scale: {}, class_names: {}", m_label_font_scale,
+              fmt::join(m_class_names, ", "));
   return true;
 }
 
@@ -62,7 +64,8 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
                                label, conf);
 
       cv::Scalar color;
-      // SPDLOG_INFO("frame_seq_num: {}, idx: {}, is_detection_valid: {}", ctx.frame_seq_num, idx, (int)ctx.yolo.is_detection_valid[idx]);
+      // SPDLOG_INFO("frame_seq_num: {}, idx: {}, is_detection_valid: {}",
+      // ctx.frame_seq_num, idx, (int)ctx.yolo.is_detection_valid[idx]);
       if (!ctx.yolo.is_detection_valid[idx])
         color = cv::Scalar(127, 127, 127);
       else {
@@ -79,7 +82,7 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
       // Draw Label Background
       int baseLine;
       cv::Size labelSize = cv::getTextSize(label_text, cv::FONT_HERSHEY_SIMPLEX,
-                                           0.5, 1, &baseLine);
+                                           m_label_font_scale, 1, &baseLine);
       int top = std::max(box.y, labelSize.height);
 
       cv::rectangle(h_overlay_canvas, cv::Point(box.x, top - labelSize.height),
@@ -88,7 +91,8 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
 
       // Draw Label Text (White)
       cv::putText(h_overlay_canvas, label_text, cv::Point(box.x, top),
-                  cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
+                  cv::FONT_HERSHEY_SIMPLEX, m_label_font_scale,
+                  cv::Scalar(255, 255, 255), 1);
     }
 
     // 3. Upload Canvas to GPU

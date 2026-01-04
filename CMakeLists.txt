@@ -30,3 +30,4 @@ message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
 
 add_subdirectory(src/matrix-pipeline)
 add_subdirectory(src/tools/yunet)
+add_subdirectory(src/tools/rtsp)

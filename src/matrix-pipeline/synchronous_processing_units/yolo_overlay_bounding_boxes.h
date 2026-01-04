@@ -19,6 +19,7 @@ public:
 
 private:
   // --- State ---;
+  float m_label_font_scale{0.5};
   std::vector<cv::Scalar> m_colors;
   std::vector<std::string> m_class_names = {
       "person",        "bicycle",      "car",
