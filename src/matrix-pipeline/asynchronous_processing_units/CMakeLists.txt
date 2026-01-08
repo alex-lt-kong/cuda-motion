@@ -34,4 +34,5 @@ target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         cuda_helper
         pipe_writer
         sface_detect
+        sface_overlay_bounding_boxes
 )

@@ -33,12 +33,17 @@ struct AsyncPayload {
 
 class IAsynchronousProcessingUnit : public IProcessingUnit {
 protected:
-  const std::string m_unit_path;
+  // const std::string m_unit_path;
   std::array<bool, 24> m_turned_on_hours{
       true, true, true, true, true, true, true, true, true, true, true, true,
       true, true, true, true, true, true, true, true, true, true, true, true};
 
 public:
+  ~IAsynchronousProcessingUnit() override {
+    stop();
+    SPDLOG_INFO("processing_unit {}::m_worker_thread stop()ed", m_unit_path);
+  }
+
   explicit IAsynchronousProcessingUnit(const std::string &unit_path)
       : IProcessingUnit(unit_path) {};
   /**

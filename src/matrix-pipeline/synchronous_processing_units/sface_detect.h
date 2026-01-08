@@ -10,7 +10,9 @@ namespace MatrixPipeline::ProcessingUnit {
 
 class SfaceDetect : public ISynchronousProcessingUnit {
 public:
-  explicit SfaceDetect(const std::string &unit_path);
+  explicit SfaceDetect(const std::string &unit_path)
+      : ISynchronousProcessingUnit(unit_path + "/SfaceDetect") {}
+
   ~SfaceDetect() override = default;
 
   bool init(const nlohmann::json &config) override;
@@ -25,7 +27,10 @@ private:
   std::string m_model_path_sface;
   std::string m_model_path_yunet;
   std::string m_gallery_directory;
-  float m_match_threshold;
+  float m_match_threshold{0.363};
+  std::chrono::milliseconds m_inference_interval{100};
+  std::chrono::time_point<std::chrono::steady_clock> m_last_inference_at;
+  SFaceContext m_prev_sface_ctx;
   // In-memory gallery: pair<Name, Embedding>
   std::vector<std::pair<std::string, cv::Mat>> m_gallery;
 

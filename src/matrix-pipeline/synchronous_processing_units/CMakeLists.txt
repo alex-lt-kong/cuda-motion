@@ -110,3 +110,11 @@ add_library(yunet_overlay_landmarks
 target_link_libraries(yunet_overlay_landmarks
         PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
         PRIVATE spdlog::spdlog)
+
+add_library(sface_overlay_bounding_boxes
+        sface_overlay_bounding_boxes.cpp sface_overlay_bounding_boxes.h
+        ../interfaces/i_synchronous_processing_unit.h
+)
+target_link_libraries(sface_overlay_bounding_boxes
+        PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
+        PRIVATE spdlog::spdlog)

@@ -27,8 +27,9 @@ public:
 
   virtual bool init(const njson &config) = 0;
 
-  bool is_disabled() const { return m_is_disabled; };
+  [[nodiscard]] bool is_disabled() const { return m_is_disabled; };
 
+  /// Disable this unit
   void disable() { m_is_disabled = true; };
 };
 

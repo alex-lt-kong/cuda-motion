@@ -15,7 +15,7 @@ using njson = nlohmann::json;
 class PipeWriter : public IAsynchronousProcessingUnit {
 public:
   explicit PipeWriter(const std::string &unit_path)
-      : IAsynchronousProcessingUnit(unit_path + "/FFmpegStreamer") {}
+      : IAsynchronousProcessingUnit(unit_path + "/PipeWriter") {}
   ~PipeWriter() override;
 
   bool init(const njson &config) override;

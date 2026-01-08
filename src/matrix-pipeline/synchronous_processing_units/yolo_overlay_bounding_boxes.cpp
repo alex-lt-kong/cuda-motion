@@ -15,11 +15,6 @@ bool YoloOverlayBoundingBoxes::init([[maybe_unused]] const njson &config) {
   m_class_names = config.value("classNames", m_class_names);
   m_label_font_scale = config.value("labelFontScale", m_label_font_scale);
   std::srand(4); // we want deterministic coloring
-  // m_colors.clear();
-  /*
-  for (size_t i = 0; i < m_class_names.size(); ++i) {
-    ;
-  }*/
   SPDLOG_INFO("label_font_scale: {}, class_names: {}", m_label_font_scale,
               fmt::join(m_class_names, ", "));
   return true;
@@ -88,7 +83,6 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
       cv::rectangle(h_overlay_canvas, cv::Point(box.x, top - labelSize.height),
                     cv::Point(box.x + labelSize.width, top + baseLine), color,
                     cv::FILLED);
-
       // Draw Label Text (White)
       cv::putText(h_overlay_canvas, label_text, cv::Point(box.x, top),
                   cv::FONT_HERSHEY_SIMPLEX, m_label_font_scale,

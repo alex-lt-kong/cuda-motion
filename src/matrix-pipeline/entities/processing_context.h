@@ -17,11 +17,9 @@ struct FaceRecognitionResult {
   int matched_idx;        // Index in your gallery (optional)
 };
 
-// Add this to your PipelineContext struct
 struct SFaceContext {
   // 1-to-1 mapping with YuNetContext: yunet[i] corresponds to results[i]
   std::vector<FaceRecognitionResult> results;
-  bool model_loaded = false;
 };
 
 struct FaceDetection {
@@ -32,7 +30,6 @@ struct FaceDetection {
 using YuNetContext = std::vector<FaceDetection>;
 
 struct YoloContext {
-  // std::vector<cv::Mat> inference_outputs;
   cv::Size inference_input_size;
   std::vector<cv::Rect> boxes;
   std::vector<size_t> class_ids;

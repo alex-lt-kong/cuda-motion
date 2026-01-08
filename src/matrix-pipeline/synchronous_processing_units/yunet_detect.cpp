@@ -36,15 +36,13 @@ bool YuNetDetect::init(const njson &config) {
 
 SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
-  if (m_disabled)
-    return failure_and_continue;
   if (std::chrono::steady_clock::now() - m_last_inference_at <
       m_inference_interval) {
     ctx.yunet = m_prev_yunet_ctx;
     return success_and_continue;
   }
-
   m_last_inference_at = std::chrono::steady_clock::now();
+
   // 1. Dynamic Input Size Adjustment
   // Optimization: Only update if the resolution actually changed to avoid
   // buffer reallocation

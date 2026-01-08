@@ -15,6 +15,7 @@
 #include "../synchronous_processing_units/resize_frame.h"
 #include "../synchronous_processing_units/rotate_frame.h"
 #include "../synchronous_processing_units/sface_detect.h"
+#include "../synchronous_processing_units/sface_overlay_bounding_boxes.h"
 #include "../synchronous_processing_units/yolo_detect.h"
 #include "../synchronous_processing_units/yolo_overlay_bounding_boxes.h"
 #include "../synchronous_processing_units/yolo_prune_detection_results.h"
@@ -70,6 +71,9 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
       } else if (type ==
                  "SynchronousProcessingUnit::yoloOverlayBoundingBoxes") {
         ptr = std::make_unique<YoloOverlayBoundingBoxes>(m_unit_path);
+      } else if (type ==
+                 "SynchronousProcessingUnit::sfaceOverlayBoundingBoxes") {
+        ptr = std::make_unique<SFaceOverlayBoundingBoxes>(m_unit_path);
       } else if (type ==
                  "AsynchronousProcessingUnit::asynchronousProcessingUnit") {
         ptr = std::make_unique<AsynchronousProcessingUnit>(m_unit_path);

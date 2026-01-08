@@ -13,11 +13,6 @@ namespace fs = std::filesystem;
 
 namespace MatrixPipeline::ProcessingUnit {
 
-SfaceDetect::SfaceDetect(const std::string &unit_path)
-    : ISynchronousProcessingUnit(unit_path), m_match_threshold(0.363f) {
-  // Constructor is now strictly empty of path configuration.
-}
-
 bool SfaceDetect::init(const nlohmann::json &config) {
 
   try {
@@ -64,16 +59,14 @@ bool SfaceDetect::init(const nlohmann::json &config) {
       SPDLOG_ERROR("Gallery loading failed. Aborting init.");
       return false;
     }
-
-    SPDLOG_INFO("Initialization successful. Gallery size: {}",
-                m_gallery.size());
+    m_inference_interval = std::chrono::milliseconds(
+        config.value("inferenceIntervalMs", m_inference_interval.count()));
+    SPDLOG_INFO("gallery.size(): {}, inference_interval: {}(ms)",
+                m_gallery.size(), m_inference_interval.count());
     return true;
 
-  } catch (const cv::Exception &e) {
-    SPDLOG_ERROR("OpenCV Exception during init: {}", e.what());
-    return false;
   } catch (const std::exception &e) {
-    SPDLOG_ERROR("Std Exception during init: {}", e.what());
+    SPDLOG_ERROR("Error: {}", e.what());
     return false;
   } catch (...) {
     SPDLOG_ERROR("Unknown exception during init.");
@@ -151,18 +144,18 @@ bool SfaceDetect::load_gallery() {
     SPDLOG_INFO("Loaded identity: {}", identity);
   }
 
-  if (m_gallery.empty()) {
-    SPDLOG_ERROR("Gallery is empty! Please add images to {}",
-                 m_gallery_directory);
-    return false;
-  }
-
   return true;
 }
 
 SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
-  // 1. Reset Context
+  if (std::chrono::steady_clock::now() - m_last_inference_at <
+      m_inference_interval) {
+    ctx.sface = m_prev_sface_ctx;
+    return success_and_continue;
+  }
+  m_last_inference_at = std::chrono::steady_clock::now();
+
   ctx.sface.results.clear();
 
   // 2. Fast Exit
@@ -216,9 +209,9 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
     }
 
     ctx.sface.results.push_back(result);
-    SPDLOG_INFO("ctx.sface.results.push_back({})", result.identity);
   }
 
+  m_prev_sface_ctx = ctx.sface;
   return success_and_continue;
 }
 
