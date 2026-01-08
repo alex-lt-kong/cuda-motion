@@ -10,6 +10,20 @@ struct DeviceInfo {
   cv::Size expected_frame_size;
 };
 
+struct FaceRecognitionResult {
+  cv::Mat embedding;      // The 128-d vector
+  std::string identity;   // "Unknown" or matched name
+  float similarity_score; // Cosine distance
+  int matched_idx;        // Index in your gallery (optional)
+};
+
+// Add this to your PipelineContext struct
+struct SFaceContext {
+  // 1-to-1 mapping with YuNetContext: yunet[i] corresponds to results[i]
+  std::vector<FaceRecognitionResult> results;
+  bool model_loaded = false;
+};
+
 struct FaceDetection {
   cv::Rect2f bbox;
   std::array<cv::Point2f, 5> landmarks; // 5 points: eyes, nose, mouth corners
@@ -43,5 +57,6 @@ struct PipelineContext {
 
   YoloContext yolo;
   YuNetContext yunet;
+  SFaceContext sface;
 };
 } // namespace MatrixPipeline::ProcessingUnit

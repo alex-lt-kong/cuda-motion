@@ -12,11 +12,11 @@ namespace MatrixPipeline::ProcessingUnit {
 
 using njson = nlohmann::json;
 
-class FFmpegStreamerUnit : public IAsynchronousProcessingUnit {
+class PipeWriter : public IAsynchronousProcessingUnit {
 public:
-  explicit FFmpegStreamerUnit(const std::string &unit_path)
+  explicit PipeWriter(const std::string &unit_path)
       : IAsynchronousProcessingUnit(unit_path + "/FFmpegStreamer") {}
-  ~FFmpegStreamerUnit() override;
+  ~PipeWriter() override;
 
   bool init(const njson &config) override;
 
@@ -25,9 +25,9 @@ protected:
                       PipelineContext &ctx) override;
 
 private:
-  void close_pipe();
+  void close_pipe() noexcept;
 
-  std::string m_ffmpeg_cmd;
+  std::string m_subprocess_cmd;
   FILE *m_pipe = nullptr;
   cv::Mat m_cpu_frame; // Reusable CPU buffer to avoid re-allocation
 };

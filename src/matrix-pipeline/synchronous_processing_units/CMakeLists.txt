@@ -46,6 +46,18 @@ target_link_libraries(yolo_detect
 )
 
 
+add_library(sface_detect
+        sface_detect.cpp sface_detect.h
+        ../interfaces/i_synchronous_processing_unit.h
+)
+target_link_libraries(sface_detect
+        PUBLIC
+        cuda_helper
+        ${NVINFER_LIB} ${NVONNX_LIB} CUDA::cudart
+        PRIVATE spdlog::spdlog ${OpenCV_LIBS}
+)
+
+
 add_library(yolo_prune_detection_results
         yolo_prune_detection_results.cpp yolo_prune_detection_results.h
         ../interfaces/i_synchronous_processing_unit.h

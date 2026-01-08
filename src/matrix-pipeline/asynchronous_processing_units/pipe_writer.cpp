@@ -1,28 +1,30 @@
-#include "ffmpeg_streamer.h"
+#include "pipe_writer.h"
 
 #include <spdlog/spdlog.h>
 
 namespace MatrixPipeline::ProcessingUnit {
 
-FFmpegStreamerUnit::~FFmpegStreamerUnit() { close_pipe(); }
+PipeWriter::~PipeWriter() { close_pipe(); }
 
-bool FFmpegStreamerUnit::init(const njson &config) {
-  if (!config.contains("ffmpegCmd"))
+bool PipeWriter::init(const njson &config) {
+  if (!config.contains("subprocessCmd")) {
+    SPDLOG_ERROR("subprocessCmd not defined");
     return false;
-  m_ffmpeg_cmd = config["ffmpegCmd"].get<std::string>();
-  SPDLOG_INFO("ffmpeg_cmd: {}", m_ffmpeg_cmd);
+  }
+  m_subprocess_cmd = config["subprocessCmd"].get<std::string>();
+  SPDLOG_INFO("subprocessCmd: {}", m_subprocess_cmd);
   return true;
 }
 
-void FFmpegStreamerUnit::on_frame_ready(cv::cuda::GpuMat &gpu_frame,
-                                        [[maybe_unused]] PipelineContext &ctx) {
+void PipeWriter::on_frame_ready(cv::cuda::GpuMat &gpu_frame,
+                                [[maybe_unused]] PipelineContext &ctx) {
   if (gpu_frame.empty()) {
     return;
   }
 
   // 1. Lazy Initialization of the Pipe
   if (!m_pipe) {
-    if (m_ffmpeg_cmd.empty()) {
+    if (m_subprocess_cmd.empty()) {
       SPDLOG_ERROR("{}: init() was not called with a FFmpeg command.",
                    m_unit_path);
       return;
@@ -32,7 +34,7 @@ void FFmpegStreamerUnit::on_frame_ready(cv::cuda::GpuMat &gpu_frame,
     SPDLOG_DEBUG("{}: Command: {}", m_unit_path, m_ffmpeg_cmd);
 
     // Open pipe to the command
-    m_pipe = popen(m_ffmpeg_cmd.c_str(), "w");
+    m_pipe = popen(m_subprocess_cmd.c_str(), "w");
 
     if (!m_pipe) {
       SPDLOG_ERROR("{}: Failed to open pipe.", m_unit_path);
@@ -59,10 +61,21 @@ void FFmpegStreamerUnit::on_frame_ready(cv::cuda::GpuMat &gpu_frame,
   }
 }
 
-void FFmpegStreamerUnit::close_pipe() {
+void PipeWriter::close_pipe() noexcept {
   if (m_pipe) {
-    SPDLOG_INFO("{}: Closing FFmpeg pipe.", m_unit_path);
-    pclose(m_pipe);
+    SPDLOG_INFO("pclose()ing pipe.");
+    int retries = 10;
+    int pclose_ret;
+    do {
+      errno = 0;
+      pclose_ret = pclose(m_pipe);
+    } while (pclose_ret == -1 && errno == EINTR && --retries > 0);
+    if (pclose_ret == 0)
+      SPDLOG_INFO("FFmpeg pipe pclose()ed");
+    else
+      SPDLOG_ERROR("pclose()ing FFmpeg pipe error: pclose_ret: {}, errno: {} "
+                   "({}), but there is nothing else we can do",
+                   pclose_ret, errno, strerror(errno));
     m_pipe = nullptr;
   }
 }
