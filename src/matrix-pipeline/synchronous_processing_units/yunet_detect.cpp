@@ -34,7 +34,7 @@ bool YuNetDetect::init(const njson &config) {
   }
 }
 
-SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &gpu_frame,
+SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
   if (m_disabled)
     return failure_and_continue;
@@ -48,12 +48,12 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &gpu_frame,
   // 1. Dynamic Input Size Adjustment
   // Optimization: Only update if the resolution actually changed to avoid
   // buffer reallocation
-  if (m_detector->getInputSize() != gpu_frame.size()) {
-    m_detector->setInputSize(gpu_frame.size());
+  if (m_detector->getInputSize() != frame.size()) {
+    m_detector->setInputSize(frame.size());
   }
   // 2. Optimized Download using Pinned Memory
   // This bypasses the extra internal copy the driver usually makes
-  gpu_frame.download(m_pinned_buffer);
+  frame.download(m_pinned_buffer);
 
   // 3. Create a zero-copy Mat header
   // This creates a cv::Mat that points directly to the pinned memory
