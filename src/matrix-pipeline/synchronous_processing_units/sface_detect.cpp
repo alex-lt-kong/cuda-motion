@@ -117,7 +117,7 @@ bool SfaceDetect::load_gallery() {
       // Pro-Tip: Only use samples where the detector is extremely certain.
       // Landmarks must be precise for the SFace embedding to be stable.
       float confidence = faces.at<float>(0, 14);
-      if (constexpr float YUNET_CONF_THRESHOLD = 0.95f;
+      if (constexpr float YUNET_CONF_THRESHOLD = 0.9f;
           confidence < YUNET_CONF_THRESHOLD) {
         SPDLOG_WARN("Skipping {} - landmark confidence too low ({:.2f})",
                     img_entry.path().filename().string(), confidence);
