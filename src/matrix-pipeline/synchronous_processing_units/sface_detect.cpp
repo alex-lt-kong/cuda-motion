@@ -76,74 +76,79 @@ bool SfaceDetect::init(const nlohmann::json &config) {
 
 bool SfaceDetect::load_gallery() {
   if (!fs::exists(m_gallery_directory)) {
-    SPDLOG_ERROR("Gallery folder not found: {}", m_gallery_directory);
+    SPDLOG_ERROR("!fs::exists({})", m_gallery_directory);
     return false;
   }
 
-  SPDLOG_INFO("Scanning gallery folder: {}", m_gallery_directory);
-
-  cv::Ptr<cv::FaceDetectorYN> gallery_detector;
-
-  try {
-    if (!fs::exists(m_model_path_yunet)) {
-      SPDLOG_ERROR("YuNet model for gallery processing "
-                   "not found at: {}",
-                   m_model_path_yunet);
-      return false;
-    }
-
-    gallery_detector = cv::FaceDetectorYN::create(m_model_path_yunet, "",
-                                                  cv::Size(0, 0), 0.5f);
-  } catch (const std::exception &e) {
-    SPDLOG_ERROR("Failed to create temp detector: {}", e.what());
-    return false;
-  }
+  // 1. Temporary YuNet detector for gallery processing
+  // We use a high confidence threshold here to ensure the "Gold Standard" for
+  // our gallery
+  cv::Ptr<cv::FaceDetectorYN> gallery_detector =
+      cv::FaceDetectorYN::create(m_model_path_yunet, "", cv::Size(0, 0), 0.5f);
 
   for (const auto &entry : fs::directory_iterator(m_gallery_directory)) {
-    if (!entry.is_regular_file())
+    if (!entry.is_directory())
       continue;
 
-    std::string filename = entry.path().filename().string();
-    std::string identity = entry.path().stem().string();
+    std::string identity = entry.path().filename().string();
+    cv::Mat aggregated_feature = cv::Mat::zeros(1, 128, CV_32F);
+    int valid_samples_count = 0;
 
-    cv::Mat img = cv::imread(entry.path().string());
-    if (img.empty()) {
-      SPDLOG_WARN("Cannot read image: {}. Skipping.", filename);
-      continue;
+    SPDLOG_INFO("Loading gallery for identity: {}", identity);
+
+    for (const auto &img_entry : fs::directory_iterator(entry.path())) {
+      if (!img_entry.is_regular_file())
+        continue;
+
+      cv::Mat img = cv::imread(img_entry.path().string());
+      if (img.empty())
+        continue;
+
+      gallery_detector->setInputSize(img.size());
+      cv::Mat faces;
+      gallery_detector->detect(img, faces);
+
+      if (faces.rows < 1) {
+        SPDLOG_WARN("No face detected in {}, skipping.",
+                    img_entry.path().filename().string());
+        continue;
+      }
+
+      // Pro-Tip: Only use samples where the detector is extremely certain.
+      // Landmarks must be precise for the SFace embedding to be stable.
+      float confidence = faces.at<float>(0, 14);
+      if (constexpr float YUNET_CONF_THRESHOLD = 0.95f;
+          confidence < YUNET_CONF_THRESHOLD) {
+        SPDLOG_WARN("Skipping {} - landmark confidence too low ({:.2f})",
+                    img_entry.path().filename().string(), confidence);
+        continue;
+      }
+
+      cv::Mat aligned_face, feature_embedding;
+      m_sface->alignCrop(img, faces.row(0), aligned_face);
+      m_sface->feature(aligned_face, feature_embedding);
+
+      // Accumulate the vectors
+      aggregated_feature += feature_embedding;
+      valid_samples_count++;
     }
 
-    gallery_detector->setInputSize(img.size());
-    cv::Mat faces;
-    gallery_detector->detect(img, faces);
+    // 2. Finalize the Identity Centroid
+    if (valid_samples_count > 0) {
+      // Calculate the mean
+      aggregated_feature /= static_cast<float>(valid_samples_count);
 
-    if (faces.rows < 1) {
-      SPDLOG_WARN("No face found in {}. Skipping.", filename);
-      continue;
+      // 3. Normalization: The "Magic" Step
+      // SFace match() expects vectors to be on the unit hypersphere (length
+      // = 1.0). Averaging pulls the vector "inside" the sphere; this puts it
+      // back on the surface.
+      cv::normalize(aggregated_feature, aggregated_feature, 1, 0, cv::NORM_L2);
+
+      m_gallery.emplace_back(identity, aggregated_feature.clone());
+      SPDLOG_INFO("Identity '{}' loaded. Samples used: {}", identity,
+                  valid_samples_count);
     }
-
-    cv::Mat face = faces.row(0);
-    std::vector<cv::Point2f> landmarks;
-    for (int i = 0; i < 5; ++i) {
-      float x = face.at<float>(0, 4 + 2 * i);
-      float y = face.at<float>(0, 5 + 2 * i);
-      landmarks.emplace_back(x, y);
-    }
-
-    cv::Mat aligned_face;
-    m_sface->alignCrop(img, landmarks, aligned_face);
-
-    if (aligned_face.empty()) {
-      SPDLOG_WARN("Alignment failed for {}. Skipping.", filename);
-      continue;
-    }
-
-    cv::Mat feature_emb;
-    m_sface->feature(aligned_face, feature_emb);
-
-    m_gallery.emplace_back(identity, feature_emb.clone());
-    SPDLOG_INFO("Loaded identity: {}", identity);
   }
-
   return true;
 }
 
@@ -152,15 +157,13 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
   if (std::chrono::steady_clock::now() - m_last_inference_at <
       m_inference_interval) {
     ctx.sface = m_prev_sface_ctx;
-    return success_and_continue;
+    return failure_and_continue;
   }
   m_last_inference_at = std::chrono::steady_clock::now();
 
   ctx.sface.results.clear();
-
-  // 2. Fast Exit
   if (ctx.yunet.empty()) {
-    return success_and_continue;
+    return failure_and_continue;
   }
 
   // 3. Download Frame
@@ -181,18 +184,18 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
 
     cv::Mat aligned_face;
 
-    m_sface->alignCrop(frame_cpu, detection.landmarks, aligned_face);
+    m_sface->alignCrop(frame_cpu, detection.face, aligned_face);
 
     if (!aligned_face.empty()) {
-      cv::Mat feature_emb;
-      m_sface->feature(aligned_face, feature_emb);
-      result.embedding = feature_emb.clone();
+      cv::Mat feature_embedding;
+      m_sface->feature(aligned_face, feature_embedding);
+      result.embedding = feature_embedding.clone();
 
       double max_score = 0.0;
       int best_idx = -1;
 
       for (size_t i = 0; i < m_gallery.size(); ++i) {
-        double score = m_sface->match(feature_emb, m_gallery[i].second,
+        double score = m_sface->match(feature_embedding, m_gallery[i].second,
                                       cv::FaceRecognizerSF::DisType::FR_COSINE);
 
         if (score > max_score) {

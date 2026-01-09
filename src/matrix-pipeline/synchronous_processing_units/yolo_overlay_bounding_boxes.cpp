@@ -65,8 +65,9 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
         color = cv::Scalar(127, 127, 127);
       else {
         while (m_colors.size() <= class_id) {
-          m_colors.emplace_back(std::rand() % 255, std::rand() % 255,
-                                std::rand() % 255);
+          // we want the color to be on the dark side
+          m_colors.emplace_back(std::rand() % 127, std::rand() % 127,
+                                std::rand() % 127);
         }
         color = m_colors[class_id];
       }

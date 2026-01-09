@@ -3,7 +3,6 @@
 #include "../asynchronous_processing_units/http_service.h"
 #include "../asynchronous_processing_units/matrix_notifier.h"
 #include "../asynchronous_processing_units/video_writer.h"
-#include "../asynchronous_processing_units/zeromq_publisher.h"
 #include "../entities/processing_context.h"
 #include "../entities/processing_units_variant.h"
 #include "../interfaces/i_synchronous_processing_unit.h"

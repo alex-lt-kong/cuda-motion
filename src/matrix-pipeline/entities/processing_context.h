@@ -23,6 +23,7 @@ struct SFaceContext {
 };
 
 struct FaceDetection {
+  cv::Mat face;
   cv::Rect2f bbox;
   std::array<cv::Point2f, 5> landmarks; // 5 points: eyes, nose, mouth corners
   float confidence;

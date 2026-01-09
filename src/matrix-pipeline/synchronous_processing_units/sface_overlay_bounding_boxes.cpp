@@ -10,8 +10,10 @@ namespace MatrixPipeline::ProcessingUnit {
 bool SFaceOverlayBoundingBoxes::init(const njson &config) {
   try {
     std::srand(time(nullptr));
+    // we want the color to be on the dark side
     m_box_color_bgr =
-        cv::Scalar(std::rand() % 255, std::rand() % 255, std::rand() % 255);
+        cv::Scalar(std::rand() % 127, std::rand() % 127, std::rand() % 127);
+    // This is white
     m_text_color_bgr = cv::Scalar(255, 255, 255);
 
     // 3. Parse geometric/font properties

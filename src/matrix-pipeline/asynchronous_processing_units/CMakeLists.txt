@@ -10,7 +10,18 @@ add_library(pipe_writer
         pipe_writer.cpp pipe_writer.h
         ../interfaces/i_asynchronous_processing_unit.h
 )
-target_link_libraries(pipe_writer ${OpenCV_LIBS} CUDA::nvjpeg spdlog::spdlog cpr::cpr nlohmann_json::nlohmann_json)
+target_link_libraries(pipe_writer
+        PUBLIC ${OpenCV_LIBS}
+        PRIVATE CUDA::nvjpeg spdlog::spdlog cpr::cpr nlohmann_json::nlohmann_json)
+
+
+add_library(video_writer
+        video_writer.cpp video_writer.h
+        ../interfaces/i_asynchronous_processing_unit.h
+)
+target_link_libraries(video_writer
+        PUBLIC ${OpenCV_LIBS}
+        PRIVATE CUDA::nvjpeg spdlog::spdlog cpr::cpr nlohmann_json::nlohmann_json)
 
 
 add_library(asynchronous_processing_unit
@@ -35,4 +46,5 @@ target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         pipe_writer
         sface_detect
         sface_overlay_bounding_boxes
+        video_writer
 )

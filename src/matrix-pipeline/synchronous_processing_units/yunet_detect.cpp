@@ -69,7 +69,7 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
 
     for (int i = 0; i < faces.rows; ++i) {
       FaceDetection face_data;
-
+      face_data.face = faces.row(i);
       // [0-3]: Bounding Box (x, y, width, height)
       face_data.bbox = cv::Rect2f(faces.at<float>(i, 0), faces.at<float>(i, 1),
                                   faces.at<float>(i, 2), faces.at<float>(i, 3));

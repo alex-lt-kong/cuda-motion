@@ -10,7 +10,7 @@
 
 #include <atomic>
 #include <chrono>
-#include <list> // Added for streaming clients list
+#include <list>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -35,8 +35,8 @@ inline std::atomic s_global_handler_registered{false};
  */
 class HttpService : public IAsynchronousProcessingUnit {
 public:
-
-  explicit HttpService(const std::string &unit_path) : IAsynchronousProcessingUnit(unit_path  + "/HttpService") {}
+  explicit HttpService(const std::string &unit_path)
+      : IAsynchronousProcessingUnit(unit_path + "/HttpService") {}
 
   ~HttpService() override {
     std::lock_guard<std::mutex> lock(s_registry_mutex);
@@ -99,8 +99,9 @@ public:
             {Get});
       }
 
-      SPDLOG_INFO("HttpService initialized on {}:{} (HTTPS: {}), refresh_interval_sec: {}", m_ip, m_port,
-                  use_https, m_refresh_interval_sec.count());
+      SPDLOG_INFO("HttpService initialized on {}:{} (HTTPS: {}), "
+                  "refresh_interval_sec: {}",
+                  m_ip, m_port, use_https, m_refresh_interval_sec.count());
       return true;
     } catch (const std::exception &e) {
       SPDLOG_ERROR("Failed to init HttpService: {}", e.what());
@@ -248,7 +249,7 @@ private:
       return;
 
     // OPTIMIZATION: Construct the payload string ONCE
-    std::string chunk_header = "--cuda_motion_frame\r\n"
+    std::string chunk_header = "--matrix_pipeline_frame\r\n"
                                "Content-Type: image/jpeg\r\n"
                                "Content-Length: " +
                                std::to_string(buffer.size()) + "\r\n\r\n";
@@ -269,11 +270,12 @@ private:
     }
   }
 
-  bool perform_auth(const HttpRequestPtr &req,
-                    std::function<void(const HttpResponsePtr &)> &callback) {
+  bool perform_auth(
+      const HttpRequestPtr &req,
+      const std::function<void(const HttpResponsePtr &)> &callback) const {
     if (m_auth_enabled) {
-      std::string auth_header = req->getHeader("Authorization");
-      if (!check_auth(auth_header)) {
+      if (const std::string auth_header = req->getHeader("Authorization");
+          !check_auth(auth_header)) {
         auto resp = HttpResponse::newHttpResponse();
         resp->setStatusCode(k401Unauthorized);
         resp->addHeader("WWW-Authenticate", "Basic realm=\"MatrixPipeline\"");
@@ -285,20 +287,20 @@ private:
     return true;
   }
 
-  bool check_auth(const std::string &header_val) {
+  bool check_auth(const std::string &header_val) const {
     if (header_val.empty())
       return false;
-    size_t split_pos = header_val.find(' ');
+    const size_t split_pos = header_val.find(' ');
     if (split_pos == std::string::npos ||
         header_val.substr(0, split_pos) != "Basic")
       return false;
-    std::string encoded = header_val.substr(split_pos + 1);
+    const std::string encoded = header_val.substr(split_pos + 1);
     std::string decoded = drogon::utils::base64Decode(encoded);
-    size_t colon_pos = decoded.find(':');
+    const size_t colon_pos = decoded.find(':');
     if (colon_pos == std::string::npos)
       return false;
-    std::string u = decoded.substr(0, colon_pos);
-    std::string p = decoded.substr(colon_pos + 1);
+    const std::string u = decoded.substr(0, colon_pos);
+    const std::string p = decoded.substr(colon_pos + 1);
     return (u == m_username && p == m_password);
   }
 

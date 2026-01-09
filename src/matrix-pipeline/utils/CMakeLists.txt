@@ -27,8 +27,9 @@ add_library(cuda_helper
         cuda_helper.cpp
         cuda_helper.h
 )
-target_include_directories(cuda_helper PUBLIC
-        "$ENV{TRT_HOME}/include"
+target_include_directories(cuda_helper
+        # the SYSTEM keyword can be used to silence warnings from system headers
+        SYSTEM PUBLIC "$ENV{TRT_HOME}/include"
 )
 target_link_libraries(cuda_helper
         PUBLIC ${NVINFER_LIB} ${NVONNX_LIB} CUDA::cudart
