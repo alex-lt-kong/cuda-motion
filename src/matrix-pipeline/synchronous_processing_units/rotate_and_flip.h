@@ -4,13 +4,15 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-class RotateFrame final : public ISynchronousProcessingUnit {
+class RotateAndFlip final : public ISynchronousProcessingUnit {
 private:
-  int m_angle{0};
+  std::optional<int> m_angle{std::nullopt};
+  std::optional<int> m_flip_code{std::nullopt};
 
 public:
-  explicit RotateFrame(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/RotateFrame") {}
-  ~RotateFrame() override = default;
+  explicit RotateAndFlip(const std::string &unit_path)
+      : ISynchronousProcessingUnit(unit_path + "/RotateAndFlip") {}
+  ~RotateAndFlip() override = default;
 
   SynchronousProcessingResult
   process(cv::cuda::GpuMat &frame,

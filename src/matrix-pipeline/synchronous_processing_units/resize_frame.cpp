@@ -10,7 +10,7 @@ using njson = nlohmann::json;
 
 namespace MatrixPipeline::ProcessingUnit {
 
-bool ResizeFrame::init(const njson &config) {
+bool resize::init(const njson &config) {
   try {
     // 1. Parse Dimensions
     if (config.contains("width"))
@@ -41,21 +41,20 @@ bool ResizeFrame::init(const njson &config) {
     bool has_scale = (m_scale_factor > 0.0);
 
     if (!has_dims && !has_scale) {
-      SPDLOG_ERROR(
-          "ResizeFrame: Config must provide 'width'/'height' OR 'scale'");
+      SPDLOG_ERROR("resize: Config must provide 'width'/'height' OR 'scale'");
       return false;
     }
 
     return true;
   } catch (const std::exception &e) {
-    SPDLOG_ERROR("ResizeFrame Init Error: {}", e.what());
+    SPDLOG_ERROR("resize Init Error: {}", e.what());
     return false;
   }
 }
 
 [[nodiscard]] SynchronousProcessingResult
-ResizeFrame::process(cv::cuda::GpuMat &frame,
-                     [[maybe_unused]] PipelineContext &ctx) {
+resize::process(cv::cuda::GpuMat &frame,
+                [[maybe_unused]] PipelineContext &ctx) {
   if (frame.empty())
     return failure_and_continue;
 

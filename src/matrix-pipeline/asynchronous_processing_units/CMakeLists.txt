@@ -33,7 +33,7 @@ target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         overlay_info
         matrix_notifier
         debug_output
-        rotate_frame
+        rotate_and_flip
         resize_frame
         collect_stats
         measure_latency

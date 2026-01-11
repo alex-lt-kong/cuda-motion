@@ -1,8 +1,8 @@
-add_library(rotate_frame
-        rotate_frame.cpp rotate_frame.h
+add_library(rotate_and_flip
+        rotate_and_flip.cpp rotate_and_flip.h
         ../interfaces/i_synchronous_processing_unit.h
 )
-target_link_libraries(rotate_frame
+target_link_libraries(rotate_and_flip
         PUBLIC nlohmann_json::nlohmann_json
         PRIVATE spdlog::spdlog)
 
@@ -12,8 +12,7 @@ add_library(resize_frame
         ../interfaces/i_synchronous_processing_unit.h
 )
 target_link_libraries(resize_frame
-        PUBLIC nlohmann_json::nlohmann_json
-        PRIVATE spdlog::spdlog)
+        PUBLIC nlohmann_json::nlohmann_json)
 
 
 add_library(measure_latency

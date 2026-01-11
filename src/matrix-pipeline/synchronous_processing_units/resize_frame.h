@@ -9,8 +9,7 @@ using njson = nlohmann::json;
 
 namespace MatrixPipeline::ProcessingUnit {
 
-
-class ResizeFrame final : public ISynchronousProcessingUnit {
+class resize final : public ISynchronousProcessingUnit {
 private:
   int m_target_width{0};
   int m_target_height{0};
@@ -18,8 +17,9 @@ private:
   int m_interpolation{cv::INTER_LINEAR};
 
 public:
-  explicit ResizeFrame(const std::string &unit_path) : ISynchronousProcessingUnit(unit_path  + "/ResizeFrame") {}
-  ~ResizeFrame() override = default;
+  explicit resize(const std::string &unit_path)
+      : ISynchronousProcessingUnit(unit_path + "/Resize") {}
+  ~resize() override = default;
 
   /**
    * @brief Initializes resize parameters from JSON.
@@ -34,6 +34,5 @@ public:
   [[nodiscard]] SynchronousProcessingResult
   process(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
 };
-
 
 } // namespace MatrixPipeline::ProcessingUnit

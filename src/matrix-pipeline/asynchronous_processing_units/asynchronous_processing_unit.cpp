@@ -12,7 +12,7 @@
 #include "../synchronous_processing_units/measure_latency.h"
 #include "../synchronous_processing_units/overlay_info.h"
 #include "../synchronous_processing_units/resize_frame.h"
-#include "../synchronous_processing_units/rotate_frame.h"
+#include "../synchronous_processing_units/rotate_and_flip.h"
 #include "../synchronous_processing_units/sface_detect.h"
 #include "../synchronous_processing_units/sface_overlay_bounding_boxes.h"
 #include "../synchronous_processing_units/yolo_detect.h"
@@ -38,16 +38,16 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
     try {
       ProcessingUnitVariant ptr;
       const std::string type = settings_pipeline[i]["type"].get<std::string>();
-      if (type == "SynchronousProcessingUnit::rotation") {
-        ptr = std::make_unique<RotateFrame>(m_unit_path);
+      if (type == "SynchronousProcessingUnit::rotateAndFlip") {
+        ptr = std::make_unique<RotateAndFlip>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::overlayInfo") {
         ptr = std::make_unique<OverlayInfo>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::cropFrame") {
         ptr = std::make_unique<CropFrame>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::debugOutput") {
         ptr = std::make_unique<DebugOutput>(m_unit_path);
-      } else if (type == "SynchronousProcessingUnit::resizeFrame") {
-        ptr = std::make_unique<ResizeFrame>(m_unit_path);
+      } else if (type == "SynchronousProcessingUnit::resizeAndFlip") {
+        ptr = std::make_unique<resize>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::collectStats") {
         ptr = std::make_unique<CollectStats>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::measureLatency") {
@@ -78,8 +78,7 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
         ptr = std::make_unique<AsynchronousProcessingUnit>(m_unit_path);
       } else if (type == "AsynchronousProcessingUnit::matrixNotifier") {
         ptr = std::make_unique<MatrixNotifier>(m_unit_path);
-      } else if (type == "AsynchronousProcessingUnit::ffmpegStreamerUnit" ||
-                 type == "AsynchronousProcessingUnit::pipeWriter") {
+      } else if (type == "AsynchronousProcessingUnit::pipeWriter") {
         ptr = std::make_unique<PipeWriter>(m_unit_path);
       } else {
         SPDLOG_WARN("Unrecognized pipeline unit, type: {}, idx: {}", type, i);
