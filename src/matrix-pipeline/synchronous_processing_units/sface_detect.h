@@ -21,6 +21,11 @@ public:
                                       PipelineContext &ctx) override;
 
 private:
+  struct Identity {
+    std::string name;
+    std::vector<cv::Mat> embeddings;
+  };
+
   cv::Ptr<cv::FaceRecognizerSF> m_sface;
 
   // Configs
@@ -31,8 +36,7 @@ private:
   std::chrono::milliseconds m_inference_interval{100};
   std::chrono::time_point<std::chrono::steady_clock> m_last_inference_at;
   SFaceContext m_prev_sface_ctx;
-  // In-memory gallery: pair<Name, Embedding>
-  std::vector<std::pair<std::string, cv::Mat>> m_gallery;
+  std::vector<Identity> m_gallery;
 
   // Helper: Returns false if gallery cannot be populated
   bool load_gallery();

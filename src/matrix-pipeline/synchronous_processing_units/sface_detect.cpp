@@ -2,8 +2,6 @@
 
 #include <opencv2/core/cuda_stream_accessor.hpp>
 #include <opencv2/cudaarithm.hpp>
-#include <opencv2/cudaimgproc.hpp>
-#include <opencv2/cudawarping.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <spdlog/spdlog.h>
 
@@ -76,33 +74,32 @@ bool SfaceDetect::init(const nlohmann::json &config) {
 
 bool SfaceDetect::load_gallery() {
   if (!fs::exists(m_gallery_directory)) {
-    SPDLOG_ERROR("!fs::exists({})", m_gallery_directory);
+    SPDLOG_ERROR("gallery_directory does not exist: {}", m_gallery_directory);
     return false;
   }
 
-  // 1. Temporary YuNet detector for gallery processing
-  // We use a high confidence threshold here to ensure the "Gold Standard" for
-  // our gallery
   cv::Ptr<cv::FaceDetectorYN> gallery_detector =
       cv::FaceDetectorYN::create(m_model_path_yunet, "", cv::Size(0, 0), 0.5f);
 
   for (const auto &entry : fs::directory_iterator(m_gallery_directory)) {
-    if (!entry.is_directory())
+    if (!entry.is_directory()) {
+      SPDLOG_WARN("Skipping non-directory entry: {}", entry.path().string());
       continue;
+    }
 
-    std::string identity = entry.path().filename().string();
-    cv::Mat aggregated_feature = cv::Mat::zeros(1, 128, CV_32F);
-    int valid_samples_count = 0;
-
-    SPDLOG_INFO("Loading gallery for identity: {}", identity);
+    Identity identity;
+    identity.name = entry.path().filename().string();
+    SPDLOG_INFO("Loading gallery for identity: {}", identity.name);
 
     for (const auto &img_entry : fs::directory_iterator(entry.path())) {
       if (!img_entry.is_regular_file())
         continue;
 
       cv::Mat img = cv::imread(img_entry.path().string());
-      if (img.empty())
+      if (img.empty()) {
+        SPDLOG_ERROR("cv::imread({}) is empty", img_entry.path().string());
         continue;
+      }
 
       gallery_detector->setInputSize(img.size());
       cv::Mat faces;
@@ -114,12 +111,9 @@ bool SfaceDetect::load_gallery() {
         continue;
       }
 
-      // Pro-Tip: Only use samples where the detector is extremely certain.
-      // Landmarks must be precise for the SFace embedding to be stable.
-      float confidence = faces.at<float>(0, 14);
-      if (constexpr float YUNET_CONF_THRESHOLD = 0.9f;
-          confidence < YUNET_CONF_THRESHOLD) {
-        SPDLOG_WARN("Skipping {} - landmark confidence too low ({:.2f})",
+      // High precision check for gallery quality
+      if (const auto confidence = faces.at<float>(0, 14); confidence < 0.9f) {
+        SPDLOG_WARN("Skipping {} - low landmark confidence ({:.2f})",
                     img_entry.path().filename().string(), confidence);
         continue;
       }
@@ -128,25 +122,20 @@ bool SfaceDetect::load_gallery() {
       m_sface->alignCrop(img, faces.row(0), aligned_face);
       m_sface->feature(aligned_face, feature_embedding);
 
-      // Accumulate the vectors
-      aggregated_feature += feature_embedding;
-      valid_samples_count++;
+      // Crucial: SFace match() works best on normalized vectors.
+      // Since we aren't averaging anymore, we normalize each individual vector.
+      cv::Mat normalized_embedding;
+      cv::normalize(feature_embedding, normalized_embedding, 1, 0, cv::NORM_L2);
+
+      identity.embeddings.push_back(normalized_embedding.clone());
     }
 
-    // 2. Finalize the Identity Centroid
-    if (valid_samples_count > 0) {
-      // Calculate the mean
-      aggregated_feature /= static_cast<float>(valid_samples_count);
-
-      // 3. Normalization: The "Magic" Step
-      // SFace match() expects vectors to be on the unit hypersphere (length
-      // = 1.0). Averaging pulls the vector "inside" the sphere; this puts it
-      // back on the surface.
-      cv::normalize(aggregated_feature, aggregated_feature, 1, 0, cv::NORM_L2);
-
-      m_gallery.emplace_back(identity, aggregated_feature.clone());
-      SPDLOG_INFO("Identity '{}' loaded. Samples used: {}", identity,
-                  valid_samples_count);
+    if (!identity.embeddings.empty()) {
+      m_gallery.push_back(std::move(identity));
+      SPDLOG_INFO("Identity '{}' loaded with {} embeddings.",
+                  m_gallery.back().name, m_gallery.back().embeddings.size());
+    } else {
+      SPDLOG_WARN("Identity '{}' has no embeddings. Skipping.", identity.name);
     }
   }
   return true;
@@ -162,11 +151,11 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
   m_last_inference_at = std::chrono::steady_clock::now();
 
   ctx.sface.results.clear();
-  if (ctx.yunet.empty()) {
+  if (ctx.yunet.empty())
     return failure_and_continue;
-  }
 
-  // 3. Download Frame
+  // GPU to CPU transfer for SFace (SFace inference is currently CPU-based in
+  // OpenCV, even if the backend is CUDA, the preprocessing often hits CPU).
   cv::Mat frame_cpu;
   try {
     frame.download(frame_cpu);
@@ -175,40 +164,52 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
     return success_and_continue;
   }
 
-  // 4. Process Detections
   for (const auto &detection : ctx.yunet) {
     FaceRecognitionResult result;
     result.identity = "Unknown";
-    result.similarity_score = 0.0f;
+    result.similarity_score = std::numeric_limits<float>::quiet_NaN();
     result.matched_idx = -1;
 
     cv::Mat aligned_face;
-
     m_sface->alignCrop(frame_cpu, detection.face, aligned_face);
 
-    if (!aligned_face.empty()) {
-      cv::Mat feature_embedding;
-      m_sface->feature(aligned_face, feature_embedding);
-      result.embedding = feature_embedding.clone();
+    if (aligned_face.empty())
+      return success_and_continue;
 
-      double max_score = 0.0;
-      int best_idx = -1;
+    cv::Mat probe_embedding, normalized_probe;
+    m_sface->feature(aligned_face, probe_embedding);
+    cv::normalize(probe_embedding, normalized_probe, 1, 0, cv::NORM_L2);
 
-      for (size_t i = 0; i < m_gallery.size(); ++i) {
-        double score = m_sface->match(feature_embedding, m_gallery[i].second,
+    result.embedding = normalized_probe.clone();
+
+    double best_score_overall = -1.0;
+    int best_identity_idx = -1;
+
+    // Iterate through each person in the gallery
+    for (size_t i = 0; i < m_gallery.size(); ++i) {
+      double best_score_for_this_person = -1.0;
+
+      // Compare probe against EVERY embedding for this specific person
+      for (const auto &stored_vec : m_gallery[i].embeddings) {
+        double score = m_sface->match(normalized_probe, stored_vec,
                                       cv::FaceRecognizerSF::DisType::FR_COSINE);
 
-        if (score > max_score) {
-          max_score = score;
-          best_idx = static_cast<int>(i);
-        }
+        best_score_for_this_person =
+            std::max(best_score_for_this_person, score);
       }
 
-      if (max_score > m_match_threshold && best_idx != -1) {
-        result.similarity_score = static_cast<float>(max_score);
-        result.matched_idx = best_idx;
-        result.identity = m_gallery[best_idx].first;
+      if (best_score_for_this_person > best_score_overall) {
+        best_score_overall = best_score_for_this_person;
+        best_identity_idx = static_cast<int>(i);
       }
+    }
+
+    // Note: Since you have more vectors, consider raising m_match_threshold
+    // by ~0.05
+    if (best_score_overall > m_match_threshold && best_identity_idx != -1) {
+      result.similarity_score = static_cast<float>(best_score_overall);
+      result.matched_idx = best_identity_idx;
+      result.identity = m_gallery[best_identity_idx].name;
     }
 
     ctx.sface.results.push_back(result);
