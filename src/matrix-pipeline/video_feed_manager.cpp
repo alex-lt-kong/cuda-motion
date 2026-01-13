@@ -157,11 +157,6 @@ void VideoFeedManager::handle_video_capture(
               delay_before_attempt_.count(), ctx.device_info.uri);
           std::this_thread::sleep_for(delay_before_attempt_);
           {
-            if (!ev_flag) {
-              SPDLOG_WARN(
-                  "ev_flag set, cv::cudacodec::createVideoReader() aborted");
-              return;
-            }
             std::lock_guard lock(self_ptr->mtx_vr);
             SPDLOG_INFO(
                 "delay_before_attempt(sec) ({}) reached, about to invoke "
