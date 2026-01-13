@@ -6,7 +6,6 @@ namespace MatrixPipeline::ProcessingUnit {
 
 bool YuNetDetect::init(const njson &config) {
   try {
-    // --- Translation Layer: camelCase JSON -> snake_case C++ ---
     const auto model_path = config.value("modelPath", "");
     m_score_threshold = config.value("scoreThreshold", m_score_threshold);
     m_inference_interval = std::chrono::milliseconds(
@@ -15,7 +14,7 @@ bool YuNetDetect::init(const njson &config) {
     m_top_k = config.value("topK", m_top_k);
 
     if (model_path.empty()) {
-      SPDLOG_ERROR("'modelPath' is missing in config", m_unit_path);
+      SPDLOG_ERROR("'modelPath' is missing in config");
       return false;
     }
 
@@ -24,12 +23,12 @@ bool YuNetDetect::init(const njson &config) {
         model_path, "", cv::Size(1, 1), m_score_threshold, m_nms_threshold,
         m_top_k, cv::dnn::DNN_BACKEND_CUDA, cv::dnn::DNN_TARGET_CUDA);
 
-    SPDLOG_INFO("model_path: {}, inference_interval(ms): {}", model_path,
-                m_inference_interval.count());
+    SPDLOG_INFO(
+        "model_path: {}, inference_interval(ms): {}, score_threshold: {}",
+        model_path, m_inference_interval.count(), m_score_threshold);
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("e.what(): {}", e.what());
-    m_disabled = true;
     return false;
   }
 }
@@ -43,22 +42,16 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
   }
   m_last_inference_at = std::chrono::steady_clock::now();
 
-  // 1. Dynamic Input Size Adjustment
-  // Optimization: Only update if the resolution actually changed to avoid
-  // buffer reallocation
   if (m_detector->getInputSize() != frame.size()) {
     m_detector->setInputSize(frame.size());
   }
   // 2. Optimized Download using Pinned Memory
   // This bypasses the extra internal copy the driver usually makes
   frame.download(m_pinned_buffer);
-
   // 3. Create a zero-copy Mat header
   // This creates a cv::Mat that points directly to the pinned memory
-  cv::Mat h_frame = m_pinned_buffer.createMatHeader();
-  // 4. Run Detection
-  // OpenCV will still upload this, but the upload from pinned memory
-  // is significantly faster and lower-latency in a VM.
+  const cv::Mat h_frame = m_pinned_buffer.createMatHeader();
+
   cv::Mat faces;
   m_detector->detect(h_frame, faces);
 

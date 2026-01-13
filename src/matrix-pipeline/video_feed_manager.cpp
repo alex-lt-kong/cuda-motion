@@ -113,8 +113,7 @@ void VideoFeedManager::always_fill_in_frame(
     frame.setTo(cv::Scalar(128, 128, 128));
   }
   ctx.capture_timestamp =
-      std::chrono::time_point_cast<std::chrono::milliseconds>(
-          std::chrono::steady_clock::now());
+      std::chrono::time_point_cast<milliseconds>(steady_clock::now());
   if (captured_from_real_device != ctx.captured_from_real_device) {
     ctx.capture_from_this_device_since = ctx.capture_timestamp;
   }
@@ -158,6 +157,11 @@ void VideoFeedManager::handle_video_capture(
               delay_before_attempt_.count(), ctx.device_info.uri);
           std::this_thread::sleep_for(delay_before_attempt_);
           {
+            if (!ev_flag) {
+              SPDLOG_WARN(
+                  "ev_flag set, cv::cudacodec::createVideoReader() aborted");
+              return;
+            }
             std::lock_guard lock(self_ptr->mtx_vr);
             SPDLOG_INFO(
                 "delay_before_attempt(sec) ({}) reached, about to invoke "

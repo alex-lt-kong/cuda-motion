@@ -27,6 +27,10 @@ bool SfaceDetect::init(const nlohmann::json &config) {
       SPDLOG_ERROR("modelPathYunet undefined");
       return false;
     }
+    m_enrollment_face_score_threshold = config.value(
+        "enrollmentFaceScoreThreshold", m_enrollment_face_score_threshold);
+    m_inference_face_score_threshold = config.value(
+        "inferenceFaceScoreThreshold", m_inference_face_score_threshold);
 
     if (config.contains("galleryDirectory")) {
       m_gallery_directory = config["galleryDirectory"].get<std::string>();
@@ -52,15 +56,21 @@ bool SfaceDetect::init(const nlohmann::json &config) {
       return false;
     }
 
-    // 4. Load Gallery
     if (!load_gallery()) {
-      SPDLOG_ERROR("Gallery loading failed. Aborting init.");
+      SPDLOG_ERROR("load_gallery() failed");
       return false;
     }
     m_inference_interval = std::chrono::milliseconds(
         config.value("inferenceIntervalMs", m_inference_interval.count()));
-    SPDLOG_INFO("gallery.size(): {}, inference_interval: {}(ms)",
-                m_gallery.size(), m_inference_interval.count());
+
+    SPDLOG_INFO("gallery.size(): {}, inference_interval: {}(ms), "
+                "enrollment_face_score_threshold: {}, "
+                "inference_face_score_threshold: {}",
+                m_gallery.size(), m_inference_interval.count(),
+                m_enrollment_face_score_threshold,
+                m_inference_face_score_threshold.has_value()
+                    ? std::to_string(m_inference_face_score_threshold.value())
+                    : std::string("NaN"));
     return true;
 
   } catch (const std::exception &e) {
@@ -78,8 +88,11 @@ bool SfaceDetect::load_gallery() {
     return false;
   }
 
-  cv::Ptr<cv::FaceDetectorYN> gallery_detector =
-      cv::FaceDetectorYN::create(m_model_path_yunet, "", cv::Size(0, 0), 0.5f);
+  // here we set score_threshold to  m_enrollment_face_score_threshold / 2 to
+  // provide some warnings to user
+  cv::Ptr<cv::FaceDetectorYN> yunet =
+      cv::FaceDetectorYN::create(m_model_path_yunet, "", cv::Size(0, 0),
+                                 m_enrollment_face_score_threshold / 2);
 
   for (const auto &entry : fs::directory_iterator(m_gallery_directory)) {
     if (!entry.is_directory()) {
@@ -101,9 +114,9 @@ bool SfaceDetect::load_gallery() {
         continue;
       }
 
-      gallery_detector->setInputSize(img.size());
+      yunet->setInputSize(img.size());
       cv::Mat faces;
-      gallery_detector->detect(img, faces);
+      yunet->detect(img, faces);
 
       if (faces.rows < 1) {
         SPDLOG_WARN("No face detected in {}, skipping.",
@@ -112,9 +125,13 @@ bool SfaceDetect::load_gallery() {
       }
 
       // High precision check for gallery quality
-      if (const auto confidence = faces.at<float>(0, 14); confidence < 0.9f) {
-        SPDLOG_WARN("Skipping {} - low landmark confidence ({:.2f})",
-                    img_entry.path().filename().string(), confidence);
+      // faces.at<float>(0, 14) extract the 14th value from YuNet's results
+      if (const auto confidence = faces.at<float>(0, 14);
+          confidence < m_enrollment_face_score_threshold) {
+        SPDLOG_WARN(" {} skipped due to low landmark confidence ({:.2f} vs "
+                    "landmark_confidence_threshold: {})",
+                    img_entry.path().filename().string(), confidence,
+                    m_enrollment_face_score_threshold);
         continue;
       }
 
@@ -160,11 +177,16 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
   try {
     frame.download(frame_cpu);
   } catch (const cv::Exception &e) {
-    SPDLOG_ERROR("GPU download failed: {}", e.what());
+    SPDLOG_ERROR("frame.download(frame_cpu) failed: {}", e.what());
+    disable();
     return success_and_continue;
   }
 
   for (const auto &detection : ctx.yunet) {
+    if (m_inference_face_score_threshold.has_value() &&
+        detection.confidence < m_inference_face_score_threshold.value()) {
+      return failure_and_continue;
+    }
     FaceRecognitionResult result;
     result.identity = "Unknown";
     result.similarity_score = std::numeric_limits<float>::quiet_NaN();

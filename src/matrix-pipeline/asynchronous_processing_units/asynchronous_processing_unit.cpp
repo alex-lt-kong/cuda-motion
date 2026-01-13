@@ -46,7 +46,7 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
         ptr = std::make_unique<CropFrame>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::debugOutput") {
         ptr = std::make_unique<DebugOutput>(m_unit_path);
-      } else if (type == "SynchronousProcessingUnit::resizeAndFlip") {
+      } else if (type == "SynchronousProcessingUnit::resize") {
         ptr = std::make_unique<resize>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::collectStats") {
         ptr = std::make_unique<CollectStats>(m_unit_path);

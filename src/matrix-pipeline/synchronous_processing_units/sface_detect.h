@@ -29,6 +29,8 @@ private:
   cv::Ptr<cv::FaceRecognizerSF> m_sface;
 
   // Configs
+  double m_enrollment_face_score_threshold{0.93};
+  std::optional<double> m_inference_face_score_threshold{std::nullopt};
   std::string m_model_path_sface;
   std::string m_model_path_yunet;
   std::string m_gallery_directory;
