@@ -211,10 +211,55 @@ void YoloDetect::post_process_yolo(const cv::cuda::GpuMat &frame,
 
 SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
                                                 PipelineContext &ctx) {
+  struct LetterboxProps {
+    float scale;
+    int x_offset;
+    int y_offset;
+  };
+
+  // 2. The Lambda Definition
+  auto letterbox_resize =
+      [](const cv::cuda::GpuMat &src, cv::cuda::GpuMat &dst,
+         cv::cuda::GpuMat
+             &intermediate_buffer, // Optimized: Pass pre-allocated buffer
+         const cv::Size &target_size,
+         cv::cuda::Stream &stream) -> LetterboxProps {
+    // A. Calculate Scaling Ratio (Model / Input)
+    const float scale_x = static_cast<float>(target_size.width) / src.cols;
+    const float scale_y = static_cast<float>(target_size.height) / src.rows;
+    const float scale = std::min(scale_x, scale_y);
+
+    // B. Calculate New Dimensions (Unpadded)
+    const int new_w = static_cast<int>(std::round(src.cols * scale));
+    const int new_h = static_cast<int>(std::round(src.rows * scale));
+
+    // C. Resize into the intermediate buffer (Standard Linear Resize)
+    // Note: We use the passed 'intermediate_buffer' to avoid malloc on every
+    // frame
+    cv::cuda::resize(src, intermediate_buffer, cv::Size(new_w, new_h), 0, 0,
+                     cv::INTER_LINEAR, stream);
+
+    // D. Prepare Destination (Black/Grey Padding)
+    if (dst.size() != target_size || dst.type() != src.type()) {
+      dst.create(target_size, src.type());
+    }
+    // 114 is the standard YOLO grey, 0 is black. Changing to 114 is safer for
+    // accuracy.
+    dst.setTo(cv::Scalar(114, 114, 114), stream);
+    // E. Copy Resized Image to Center of Destination
+    const int x_offset = (target_size.width - new_w) / 2;
+    const int y_offset = (target_size.height - new_h) / 2;
+
+    cv::cuda::GpuMat dst_roi = dst(cv::Rect(x_offset, y_offset, new_w, new_h));
+    intermediate_buffer.copyTo(dst_roi, stream);
+
+    // F. Return transformation properties for Post-Processing NMS
+    return LetterboxProps{scale, x_offset, y_offset};
+  };
+
   using namespace std::chrono;
 
-  // 1. Interval Check
-  const auto steady_now = std::chrono::steady_clock::now();
+  const auto steady_now = steady_clock::now();
   if (steady_now - m_last_inference_time < m_inference_interval) {
     ctx.yolo = m_prev_yolo_ctx;
     return success_and_continue;
@@ -225,14 +270,13 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
     return failure_and_continue;
   }
 
-  // Clear previous results
-  // ctx.yolo.inference_outputs.clear(); // Not used by TRT but good to clean
   ctx.yolo.inference_input_size = m_model_input_size;
 
   try {
+    // YOLO expects us to use "letterbox resize", not just resize()
+    letterbox_resize(frame, m_resized_gpu, m_resized_gpu_buffer,
+                     m_model_input_size, m_cv_stream);
 
-    cv::cuda::resize(frame, m_resized_gpu, m_model_input_size, 0, 0,
-                     cv::INTER_LINEAR, m_cv_stream);
     // 2. Color Convert: BGR -> RGB
     cv::cuda::cvtColor(m_resized_gpu, m_rgb, cv::COLOR_BGR2RGB, 0, m_cv_stream);
     // alpha is  1.0/255.0, while in yunet_detect.cpp it is 1.0
@@ -240,8 +284,8 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
     // This creates the exact memory layout TensorRT expects.
     m_rgb.convertTo(m_normalized_gpu, CV_32FC3, 1.0 / 255.0, m_cv_stream);
 
-    // 4. HWC -> NCHW Conversion (The Missing Link)
-    // We split the interleaved Mat into 3 separate planes (R, G, B)
+    // 4. HWC -> NCHW Conversion， We split the interleaved Mat into 3 separate
+    // planes (R, G, B)
     std::vector<cv::cuda::GpuMat> channels;
     cv::cuda::split(m_normalized_gpu, channels, m_cv_stream);
 

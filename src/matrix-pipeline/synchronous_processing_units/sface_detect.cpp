@@ -128,10 +128,20 @@ bool SfaceDetect::load_gallery() {
       // faces.at<float>(0, 14) extract the 14th value from YuNet's results
       if (const auto confidence = faces.at<float>(0, 14);
           confidence < m_enrollment_face_score_threshold) {
+
         SPDLOG_WARN(" {} skipped due to low landmark confidence ({:.2f} vs "
                     "landmark_confidence_threshold: {})",
                     img_entry.path().filename().string(), confidence,
                     m_enrollment_face_score_threshold);
+
+        const auto old_path = img_entry.path();
+        if (old_path.extension() == ".bak")
+          continue;
+        auto new_path = img_entry.path();
+        new_path += ".bak";
+        fs::rename(old_path, new_path);
+        SPDLOG_WARN("{} fs::rename()ed to {}", old_path.filename().string(),
+                    new_path.filename().string());
         continue;
       }
 

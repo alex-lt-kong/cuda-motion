@@ -30,7 +30,7 @@ private:
   int m_output_dimensions{-1};
   int m_output_rows{-1};
   // --- OpenCV GpuMat Buffers (Reuse these to avoid re-allocation) ---
-  cv::cuda::GpuMat m_resized_gpu;
+  cv::cuda::GpuMat m_resized_gpu, m_resized_gpu_buffer;
   cv::cuda::GpuMat m_normalized_gpu;
   cv::cuda::GpuMat m_rgb;
 
