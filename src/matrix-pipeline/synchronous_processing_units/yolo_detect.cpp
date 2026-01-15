@@ -151,13 +151,7 @@ bool YoloDetect::init(const njson &config) {
 
 void YoloDetect::post_process_yolo(const cv::cuda::GpuMat &frame,
                                    PipelineContext &ctx) const {
-  // 1. Calculate Scale Factor (Frame vs Input Blob)
-  const double x_factor =
-      static_cast<double>(frame.cols) / m_model_input_size.width;
-  const double y_factor =
-      static_cast<double>(frame.rows) / m_model_input_size.height;
 
-  // 2. Wrap the CPU Output Buffer
   // We use the dimensions calculated in init() (e.g., 84 x 8400)
   // m_output_cpu contains the data copied from GPU in process()
   cv::Mat result_wrapper(m_output_dimensions, m_output_rows, CV_32F,
@@ -186,17 +180,15 @@ void YoloDetect::post_process_yolo(const cv::cuda::GpuMat &frame,
     cv::minMaxLoc(scores, 0, &max_class_score, 0, &class_id_point);
 
     if (max_class_score > m_confidence_threshold) {
-      float cx = row_ptr[0];
-      float cy = row_ptr[1];
+      // c in cx/cy means center. cx and cy are the coordinates of the frame
+      // center
+      const float cx = row_ptr[0];
+      const float cy = row_ptr[1];
       float w = row_ptr[2];
       float h = row_ptr[3];
-
-      auto left = static_cast<int>((cx - 0.5 * w) * x_factor);
-      auto top = static_cast<int>((cy - 0.5 * h) * y_factor);
-      auto width = static_cast<int>(w * x_factor);
-      auto height = static_cast<int>(h * y_factor);
-
-      ctx.yolo.boxes.emplace_back(left, top, width, height);
+      float left = cx - (0.5f * w);
+      float top = cy - (0.5f * h);
+      ctx.yolo.boxes.emplace_back(left, top, w, h);
       ctx.yolo.confidences.push_back(static_cast<float>(max_class_score));
       ctx.yolo.class_ids.push_back(class_id_point.x);
       ctx.yolo.is_detection_valid.push_back(false);
@@ -217,7 +209,6 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
     int y_offset;
   };
 
-  // 2. The Lambda Definition
   auto letterbox_resize =
       [](const cv::cuda::GpuMat &src, cv::cuda::GpuMat &dst,
          cv::cuda::GpuMat
@@ -225,13 +216,17 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
          const cv::Size &target_size,
          cv::cuda::Stream &stream) -> LetterboxProps {
     // A. Calculate Scaling Ratio (Model / Input)
-    const float scale_x = static_cast<float>(target_size.width) / src.cols;
-    const float scale_y = static_cast<float>(target_size.height) / src.rows;
+    const float scale_x =
+        static_cast<float>(target_size.width) / static_cast<float>(src.cols);
+    const float scale_y =
+        static_cast<float>(target_size.height) / static_cast<float>(src.rows);
     const float scale = std::min(scale_x, scale_y);
 
     // B. Calculate New Dimensions (Unpadded)
-    const int new_w = static_cast<int>(std::round(src.cols * scale));
-    const int new_h = static_cast<int>(std::round(src.rows * scale));
+    const int new_w =
+        static_cast<int>(std::round(static_cast<float>(src.cols) * scale));
+    const int new_h =
+        static_cast<int>(std::round(static_cast<float>(src.rows) * scale));
 
     // C. Resize into the intermediate buffer (Standard Linear Resize)
     // Note: We use the passed 'intermediate_buffer' to avoid malloc on every

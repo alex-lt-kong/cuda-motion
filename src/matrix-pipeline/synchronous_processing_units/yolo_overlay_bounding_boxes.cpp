@@ -23,93 +23,125 @@ bool YoloOverlayBoundingBoxes::init([[maybe_unused]] const njson &config) {
 SynchronousProcessingResult
 YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
                                   PipelineContext &ctx) {
-  // Fast exit if no detections or invalid frame
   if (frame.empty() || ctx.yolo.indices.empty()) {
     return success_and_continue;
   }
 
   try {
-    // 1. Prepare CPU Canvas
-    // Ensure CPU canvas matches the GPU frame size/type
-    if (h_overlay_canvas.size() != frame.size() ||
-        h_overlay_canvas.type() != frame.type()) {
-      h_overlay_canvas.create(frame.size(), frame.type());
+    // ---------------------------------------------------------
+    // 1. Calculate Inverse Letterbox Parameters
+    // ---------------------------------------------------------
+    // These must match the logic used in letterbox_resize@yolo_detect.cpp
+    const float scale_x =
+        static_cast<float>(ctx.yolo.inference_input_size.width) /
+        static_cast<float>(frame.cols);
+    const float scale_y =
+        static_cast<float>(ctx.yolo.inference_input_size.height) /
+        static_cast<float>(frame.rows);
+    const float scale = std::min(scale_x, scale_y);
+    // Calculate the padding that was added to the model input
+    const int x_offset =
+        (ctx.yolo.inference_input_size.width -
+         static_cast<int>(static_cast<float>(frame.cols) * scale)) /
+        2;
+    const int y_offset =
+        (ctx.yolo.inference_input_size.height -
+         static_cast<int>(static_cast<float>(frame.rows) * scale)) /
+        2;
+
+    // ---------------------------------------------------------
+    // 2. Prepare CPU Canvas
+    // ---------------------------------------------------------
+    if (m_h_overlay_canvas.size() != frame.size() ||
+        m_h_overlay_canvas.type() != frame.type()) {
+      m_h_overlay_canvas.create(frame.size(), frame.type());
     }
+    // Clear canvas to black (transparent key)
+    m_h_overlay_canvas.setTo(cv::Scalar::all(0));
 
-    // Clear canvas to black (0,0,0) - this is our transparent key
-    h_overlay_canvas.setTo(cv::Scalar::all(0));
-
-    // 2. Draw Detections on CPU Canvas
+    // ---------------------------------------------------------
+    // 3. Draw Detections
+    // ---------------------------------------------------------
     for (const auto idx : ctx.yolo.indices) {
       auto class_id = ctx.yolo.class_ids[idx];
-
-      const auto &box = ctx.yolo.boxes[idx];
+      const auto &raw_box = ctx.yolo.boxes[idx]; // Box in 640x640 space
       float conf = ctx.yolo.confidences[idx];
 
+      // --- TRANSFORM COORDINATES START ---
+      // Map from "Padded Model Space" back to "Original Image Space"
+      const float x_original = (raw_box.x - x_offset) / scale;
+      const float y_original = (raw_box.y - y_offset) / scale;
+      const float w_original = raw_box.width / scale;
+      const float h_original = raw_box.height / scale;
+
+      // Create the corrected box and clip it to frame boundaries to prevent
+      // crashes
+      cv::Rect drawn_box((int)x_original, (int)y_original, (int)w_original,
+                         (int)h_original);
+
+      // Safety clip: ensure box stays inside the 1920x1080 frame
+      drawn_box &= cv::Rect(0, 0, frame.cols, frame.rows);
+      // --- TRANSFORM COORDINATES END ---
+
+      // Prepare Label
       std::string label;
-      std::string label_text;
       if (class_id >= m_class_names.size()) {
         label = "Undefined";
       } else {
         label = m_class_names[class_id];
       }
 
-      label_text = fmt::format("{}{} {:.2f} ",
-                               !ctx.yolo.is_detection_valid[idx] ? "(!)" : "",
-                               label, conf);
+      std::string label_text = fmt::format(
+          "{}{} {:.2f} ", !ctx.yolo.is_detection_valid[idx] ? "(!)" : "", label,
+          conf);
 
+      // Determine Color
       cv::Scalar color;
-      // SPDLOG_INFO("frame_seq_num: {}, idx: {}, is_detection_valid: {}",
-      // ctx.frame_seq_num, idx, (int)ctx.yolo.is_detection_valid[idx]);
       if (!ctx.yolo.is_detection_valid[idx])
         color = cv::Scalar(127, 127, 127);
       else {
         while (m_colors.size() <= class_id) {
-          // we want the color to be on the dark side
           m_colors.emplace_back(std::rand() % 127, std::rand() % 127,
                                 std::rand() % 127);
         }
         color = m_colors[class_id];
       }
 
-      // Draw Bounding Box
-      cv::rectangle(h_overlay_canvas, box, color, 2);
+      // Draw Bounding Box (Use drawn_box, NOT raw_box)
+      cv::rectangle(m_h_overlay_canvas, drawn_box, color, 2);
 
       // Draw Label Background
       int baseLine;
       cv::Size labelSize = cv::getTextSize(label_text, cv::FONT_HERSHEY_SIMPLEX,
                                            m_label_font_scale, 1, &baseLine);
-      int top = std::max(box.y, labelSize.height);
+      int top = std::max(drawn_box.y, labelSize.height);
 
-      cv::rectangle(h_overlay_canvas, cv::Point(box.x, top - labelSize.height),
-                    cv::Point(box.x + labelSize.width, top + baseLine), color,
-                    cv::FILLED);
-      // Draw Label Text (White)
-      cv::putText(h_overlay_canvas, label_text, cv::Point(box.x, top),
+      cv::rectangle(m_h_overlay_canvas,
+                    cv::Point(drawn_box.x, top - labelSize.height),
+                    cv::Point(drawn_box.x + labelSize.width, top + baseLine),
+                    color, cv::FILLED);
+
+      // Draw Label Text
+      cv::putText(m_h_overlay_canvas, label_text, cv::Point(drawn_box.x, top),
                   cv::FONT_HERSHEY_SIMPLEX, m_label_font_scale,
                   cv::Scalar(255, 255, 255), 1);
     }
 
-    // 3. Upload Canvas to GPU
-    d_overlay_canvas.upload(h_overlay_canvas);
+    // ---------------------------------------------------------
+    // 4. Upload & Stamp
+    // ---------------------------------------------------------
+    m_d_overlay_canvas.upload(m_h_overlay_canvas);
 
-    // 4. Generate Mask from Canvas
-    // Convert to grayscale to check for non-black pixels
-    if (d_overlay_canvas.channels() > 1) {
-      cv::cuda::cvtColor(d_overlay_canvas, d_overlay_gray, cv::COLOR_BGR2GRAY);
+    if (m_d_overlay_canvas.channels() > 1) {
+      cv::cuda::cvtColor(m_d_overlay_canvas, m_d_overlay_gray,
+                         cv::COLOR_BGR2GRAY);
     } else {
-      d_overlay_gray = d_overlay_canvas;
+      m_d_overlay_gray = m_d_overlay_canvas;
     }
 
-    // Threshold: 1 = Drawing Present (Keep Canvas), 0 = Black (Keep Original
-    // Frame)
-    cv::cuda::threshold(d_overlay_gray, d_overlay_mask, 1, 255,
+    cv::cuda::threshold(m_d_overlay_gray, d_overlay_mask, 1, 255,
                         cv::THRESH_BINARY);
-
-    // 5. Stamp Overlay onto Original Frame
-    // This copies pixels from d_overlay_canvas into 'frame' ONLY where mask is
-    // non-zero.
-    d_overlay_canvas.copyTo(frame, d_overlay_mask);
+    m_d_overlay_canvas.copyTo(frame, d_overlay_mask);
 
     return success_and_continue;
 
