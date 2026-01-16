@@ -28,7 +28,7 @@ private:
   std::chrono::time_point<std::chrono::steady_clock> m_last_info_update_time;
 
   // --- Configuration ---
-  std::string m_format_template;
+  std::string m_info_template;
 
   // --- Visual Settings ---
   float m_text_height_ratio{0.02f}; // 2% of frame height

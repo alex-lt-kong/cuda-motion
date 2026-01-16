@@ -34,14 +34,16 @@ public:
 
   static std::string
   generate_filename(const std::string &path_template,
-                    std::chrono::system_clock::time_point timestamp);
+                    const PipelineContext &ctx,
+                    std::chrono::system_clock::time_point timestamp =
+                        std::chrono::system_clock::now());
 
 protected:
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
 
 private:
-  [[nodiscard]] std::string generate_filename() const;
-  bool start_recording(const cv::Size frame_size);
+  [[nodiscard]] std::string generate_filename(const PipelineContext &ctx) const;
+  bool start_recording(cv::Size frame_size, const PipelineContext &ctx);
   void stop_recording();
   void write_frame(const cv::cuda::GpuMat &frame) const;
 

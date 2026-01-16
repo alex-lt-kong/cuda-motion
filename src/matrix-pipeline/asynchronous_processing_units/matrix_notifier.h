@@ -14,8 +14,9 @@ struct RamVideoBuffer;
 }
 namespace MatrixPipeline::ProcessingUnit {
 
-class MatrixNotifier final : public IAsynchronousProcessingUnit,
-                             std::enable_shared_from_this<MatrixNotifier> {
+class MatrixNotifier final
+    : public IAsynchronousProcessingUnit,
+      public std::enable_shared_from_this<MatrixNotifier> {
   boost::uuids::random_generator m_uuid_generator;
   std::unique_ptr<Utils::NvJpegEncoder> m_gpu_encoder{nullptr};
   std::unique_ptr<Utils::MatrixSender> m_sender{nullptr};
@@ -52,7 +53,7 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit,
   static float calculate_roi_score(const YoloContext &yolo);
   static void
   finalize_video_then_send_out(const std::unique_ptr<Utils::RamVideoBuffer> &,
-                               const std::shared_ptr<MatrixNotifier> &);
+                               const std::shared_ptr<MatrixNotifier>);
   static std::unique_ptr<Utils::RamVideoBuffer> trim_video_ram(
       const std::string &input_sympath, // <--- Input is now just the path
       int frames_to_remove, boost::uuids::random_generator &uuid_gen);

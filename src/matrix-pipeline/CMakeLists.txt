@@ -36,9 +36,6 @@ add_subdirectory(utils)
 add_subdirectory(synchronous_processing_units)
 add_subdirectory(asynchronous_processing_units)
 
-add_library(utils
-        utils.cpp utils.h
-)
 add_library(video_feed_manager
         video_feed_manager.cpp video_feed_manager.h
 )

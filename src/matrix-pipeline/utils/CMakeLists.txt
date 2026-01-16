@@ -1,3 +1,7 @@
+add_library(utils
+        misc.cpp misc.h
+)
+
 add_library(nvjpeg_encoder
         nvjpeg_encoder.cpp
         nvjpeg_encoder.h

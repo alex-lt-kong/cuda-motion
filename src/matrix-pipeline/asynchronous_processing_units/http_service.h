@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../interfaces/i_asynchronous_processing_unit.h"
-#include "../utils.h"
+#include "../misc.h"
 #include "../utils/nvjpeg_encoder.h"
 
 #include <drogon/drogon.h>

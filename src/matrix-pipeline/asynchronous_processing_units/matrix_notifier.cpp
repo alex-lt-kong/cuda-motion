@@ -31,7 +31,7 @@ std::unique_ptr<Utils::RamVideoBuffer> MatrixNotifier::trim_video_ram(
 
 void MatrixNotifier::finalize_video_then_send_out(
     const std::unique_ptr<Utils::RamVideoBuffer> &ram_buf,
-    const std::shared_ptr<MatrixNotifier> &This) {
+    const std::shared_ptr<MatrixNotifier> This /* MUST pass by val here*/) {
   using namespace std::chrono;
   if (!ram_buf->lock_and_map()) {
     SPDLOG_ERROR("ram_buf->lock_and_map() failed");

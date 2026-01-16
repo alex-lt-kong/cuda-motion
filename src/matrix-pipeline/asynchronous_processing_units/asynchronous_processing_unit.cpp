@@ -56,9 +56,9 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
                  "SynchronousProcessingUnit::yoloPruneDetectionResults") {
         ptr = std::make_unique<YoloPruneDetectionResults>(m_unit_path);
       } else if (type == "AsynchronousProcessingUnit::videoWriter") {
-        ptr = std::make_unique<VideoWriter>(m_unit_path);
+        ptr = std::make_shared<VideoWriter>(m_unit_path);
       } else if (type == "AsynchronousProcessingUnit::httpService") {
-        ptr = std::make_unique<HttpService>(m_unit_path);
+        ptr = std::make_shared<HttpService>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::yoloDetect") {
         ptr = std::make_unique<YoloDetect>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::yuNetDetect") {
@@ -77,9 +77,9 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
                  "AsynchronousProcessingUnit::asynchronousProcessingUnit") {
         ptr = std::make_unique<AsynchronousProcessingUnit>(m_unit_path);
       } else if (type == "AsynchronousProcessingUnit::matrixNotifier") {
-        ptr = std::make_unique<MatrixNotifier>(m_unit_path);
+        ptr = std::make_shared<MatrixNotifier>(m_unit_path);
       } else if (type == "AsynchronousProcessingUnit::pipeWriter") {
-        ptr = std::make_unique<PipeWriter>(m_unit_path);
+        ptr = std::make_shared<PipeWriter>(m_unit_path);
       } else {
         SPDLOG_WARN("Unrecognized pipeline unit, type: {}, idx: {}", type, i);
         continue;
@@ -90,7 +90,7 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
                   [&](const std::unique_ptr<ISynchronousProcessingUnit> &ptr_) {
                     return ptr_->init(settings_pipeline[i]);
                   },
-                  [&](const std::unique_ptr<IAsynchronousProcessingUnit>
+                  [&](const std::shared_ptr<IAsynchronousProcessingUnit>
                           &ptr_) {
                     if (!ptr_->init(settings_pipeline[i]))
                       return false;
@@ -126,7 +126,7 @@ void AsynchronousProcessingUnit::on_frame_ready(cv::cuda::GpuMat &frame,
                 return failure_and_continue;
               return ptr->process(frame, ctx);
             },
-            [&](const std::unique_ptr<IAsynchronousProcessingUnit> &ptr) {
+            [&](const std::shared_ptr<IAsynchronousProcessingUnit> &ptr) {
               if (ptr->is_disabled())
                 return failure_and_continue;
               return ptr->enqueue(frame, ctx);

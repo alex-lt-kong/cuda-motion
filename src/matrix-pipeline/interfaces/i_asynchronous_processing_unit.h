@@ -177,7 +177,7 @@ private:
       try {
         on_frame_ready(payload.frame, payload.ctx);
       } catch (const std::exception &e) {
-        // TODO: we should consider disable the async unit if thrown exception
+        // TODO: we should consider disable the async unit if it throws exception
         SPDLOG_ERROR(
             "e.what(): {}\n{}", e.what(),
             boost::stacktrace::to_string(boost::stacktrace::stacktrace()));

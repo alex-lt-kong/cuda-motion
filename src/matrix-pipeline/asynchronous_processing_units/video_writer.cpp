@@ -1,4 +1,5 @@
 #include "video_writer.h"
+#include "../utils/misc.h"
 
 #include <spdlog/fmt/chrono.h>
 #include <spdlog/spdlog.h>
@@ -43,45 +44,6 @@ bool VideoWriter::init(const njson &config) {
   }
 }
 
-std::string VideoWriter::generate_filename(
-    const std::string &path_template,
-    std::chrono::system_clock::time_point timestamp) {
-  std::string filename = path_template;
-  static const std::regex placeholder_regex(
-      R"(\{videoStartTime(?::([^}]+))?\})");
-  std::smatch match;
-  if (std::regex_search(filename, match, placeholder_regex)) {
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                  timestamp.time_since_epoch()) %
-              1000;
-    auto t_c = std::chrono::system_clock::to_time_t(timestamp);
-    std::tm tm = *std::localtime(&t_c);
-    std::string time_format = "{:%Y%m%d_%H%M%S}";
-    if (match[1].matched) {
-      std::string user_fmt = match[1].str();
-      size_t f_pos = user_fmt.find("%f");
-      if (f_pos != std::string::npos)
-        user_fmt.replace(f_pos, 2, fmt::format("{:03d}", ms.count()));
-      time_format = "{:" + user_fmt + "}";
-    }
-    try {
-      std::string formatted_time = fmt::format(fmt::runtime(time_format), tm);
-      filename.replace(match.position(), match.length(), formatted_time);
-    } catch (const std::exception &e) {
-      return "error.mp4";
-    }
-  } else {
-    auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      timestamp.time_since_epoch())
-                      .count();
-    if (filename.find(".mp4") == std::string::npos)
-      filename += "_" + std::to_string(now_ms) + ".mp4";
-    else
-      filename.insert(filename.rfind('.'), "_" + std::to_string(now_ms));
-  }
-  return filename;
-}
-
 void VideoWriter::on_frame_ready(cv::cuda::GpuMat &frame,
                                  PipelineContext &ctx) {
   if (frame.empty() || m_state == Utils::VideoRecordingState::DISABLED)
@@ -111,7 +73,7 @@ void VideoWriter::on_frame_ready(cv::cuda::GpuMat &frame,
         ctx.captured_from_real_device &&
         std::chrono::steady_clock::now() - ctx.capture_from_this_device_since >
             10000ms) {
-      if (!start_recording(frame.size()))
+      if (!start_recording(frame.size(), ctx))
         return;
 
       // 3. FLUSH Pre-Roll Buffer to Writer
@@ -162,15 +124,15 @@ void VideoWriter::on_frame_ready(cv::cuda::GpuMat &frame,
   }
 }
 
-std::string VideoWriter::generate_filename() const {
-  return generate_filename(m_config.m_file_path_template,
-                           std::chrono::system_clock::now());
+std::string VideoWriter::generate_filename(const PipelineContext &ctx) const {
+  return Utils::evaluate_text_template(m_config.m_file_path_template, ctx);
 }
 
-bool VideoWriter::start_recording(const cv::Size frame_size) {
+bool VideoWriter::start_recording(const cv::Size frame_size,
+                                  const PipelineContext &ctx) {
   if (m_writer)
     m_writer.release();
-  m_file_path = generate_filename();
+  m_file_path = generate_filename(ctx);
   try {
     SPDLOG_INFO("cv::cudacodec::createVideoWriter({})ing", m_file_path);
     m_writer = cv::cudacodec::createVideoWriter(

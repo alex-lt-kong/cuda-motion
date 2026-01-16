@@ -1,10 +1,9 @@
-#include "utils.h"
+#include "misc.h"
 
 #include <spdlog/spdlog.h>
 
 #include <atomic>
 #include <signal.h>
-#include <thread>
 #include <time.h>
 
 using namespace std;

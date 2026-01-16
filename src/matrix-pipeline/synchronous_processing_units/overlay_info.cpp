@@ -1,5 +1,5 @@
 #include "overlay_info.h"
-#include "../utils.h"
+#include "../utils/misc.h"
 
 #include <fmt/chrono.h>
 #include <opencv2/cudaarithm.hpp>
@@ -19,16 +19,21 @@ bool OverlayInfo::init(const nlohmann::json &config) {
     m_text_height_ratio = config.value("textHeightRatio", m_text_height_ratio);
     m_outline_ratio = config.value("outlineRatio", m_outline_ratio);
 
-    m_format_template =
-        config.value("text", "{deviceName},\nChg: {changeRate:.2f}, FPS: "
-                             "{fps:.1f}\n{frameCaptureTime:%Y-%m-%d %H:%M:%S}");
+    if (config.contains("infoTemplate")) {
+      m_info_template = config["infoTemplate"];
+    } else {
+      const std::string default_template =
+          "{deviceName},\nChg: {changeRatePct:.1f}%, FPS: "
+          "{fps:.1f}\n{frameCaptureTime:%Y-%m-%d %H:%M:%S}";
+      m_info_template = default_template;
+    }
 
     SPDLOG_INFO(
         "outline_ratio: {}, text_height_ratio: {}, format_template: {:?}",
-        m_outline_ratio, m_text_height_ratio, m_format_template);
+        m_outline_ratio, m_text_height_ratio, m_info_template);
     return true;
   } catch (const std::exception &e) {
-    SPDLOG_ERROR("OverlayInfo init error: {}", e.what());
+    SPDLOG_ERROR("error: {}", e.what());
     return false;
   }
 }
@@ -43,25 +48,8 @@ SynchronousProcessingResult OverlayInfo::process(cv::cuda::GpuMat &frame,
     // --- 1. Prepare Data & Format String ---
     const auto now_tp =
         Utils::steady_clock_to_system_time(ctx.capture_timestamp);
-    // const auto now_tp =
-    // std::chrono::clock_cast<std::chrono::system_clock>(ctx.capture_timestamp);
-
-    // Convert to Local Time
-    std::time_t now_c = std::chrono::system_clock::to_time_t(now_tp);
-    std::tm now_tm;
-    // POSIX thread-safe localtime
-    localtime_r(&now_c, &now_tm);
-
-    std::string full_text;
-    try {
-      full_text = fmt::format(fmt::runtime(m_format_template),
-                              fmt::arg("deviceName", ctx.device_info.name),
-                              fmt::arg("fps", ctx.fps),
-                              fmt::arg("changeRate", ctx.change_rate),
-                              fmt::arg("frameCaptureTime", now_tm));
-    } catch (const std::exception &e) {
-      full_text = std::string("FMT Error: ") + e.what();
-    }
+    const auto full_text =
+        Utils::evaluate_text_template(m_info_template, ctx, now_tp);
 
     if (full_text.empty())
       return success_and_continue;
