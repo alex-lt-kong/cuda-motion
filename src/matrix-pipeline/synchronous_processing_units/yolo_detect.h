@@ -43,8 +43,7 @@ private:
   std::chrono::time_point<std::chrono::steady_clock> m_last_inference_time;
   YoloContext m_prev_yolo_ctx;
 
-  void post_process_yolo(const cv::cuda::GpuMat &frame,
-                         PipelineContext &ctx) const;
+  void post_process_yolo(PipelineContext &ctx) const;
 
 public:
   explicit YoloDetect(const std::string &unit_path)

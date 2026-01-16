@@ -2,8 +2,8 @@ add_library(matrix_notifier
         matrix_notifier.cpp matrix_notifier.h
         ../interfaces/i_asynchronous_processing_unit.h
 )
-target_link_libraries(matrix_notifier nvjpeg_encoder ram_video_buffer matrix_sender)
-target_link_libraries(matrix_notifier ${OpenCV_LIBS} CUDA::nvjpeg spdlog::spdlog cpr::cpr nlohmann_json::nlohmann_json)
+target_link_libraries(matrix_notifier PUBLIC nvjpeg_encoder ram_video_buffer matrix_sender Boost::headers)
+target_link_libraries(matrix_notifier PRIVATE ${OpenCV_LIBS} CUDA::nvjpeg spdlog::spdlog cpr::cpr nlohmann_json::nlohmann_json)
 
 
 add_library(pipe_writer
@@ -34,7 +34,7 @@ target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         matrix_notifier
         debug_output
         rotate_and_flip
-        resize_frame
+        resize
         collect_stats
         measure_latency
         yolo_detect

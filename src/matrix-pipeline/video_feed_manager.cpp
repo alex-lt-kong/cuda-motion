@@ -145,8 +145,8 @@ void VideoFeedManager::handle_video_capture(
                   ctx.captured_from_real_device, video_feed_down_for.count(),
                   delay_before_attempt.count());
 
-    // creating a shared_ptr from this, s.t. the detach()'ed t will never access
-    // this after this is deleted.
+    // creating a shared_ptr from *this, s.t. the detach()'ed t will never
+    // access *this after *this is deleted.
     auto self_ptr = shared_from_this();
     std::thread t(
         [self_ptr](const std::chrono::seconds delay_before_attempt_,

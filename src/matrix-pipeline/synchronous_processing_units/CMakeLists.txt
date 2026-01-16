@@ -7,12 +7,13 @@ target_link_libraries(rotate_and_flip
         PRIVATE spdlog::spdlog)
 
 
-add_library(resize_frame
-        resize_frame.cpp resize_frame.h
+add_library(resize
+        resize.cpp resize.h
         ../interfaces/i_synchronous_processing_unit.h
 )
-target_link_libraries(resize_frame
-        PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(resize
+        PUBLIC nlohmann_json::nlohmann_json
+        PRIVATE spdlog::spdlog)
 
 
 add_library(measure_latency

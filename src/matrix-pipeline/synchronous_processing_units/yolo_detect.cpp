@@ -57,14 +57,14 @@ bool YoloDetect::init(const njson &config) {
     trt_config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE,
                                    1ULL << 30); // 1GB
 
-    SPDLOG_INFO("Building TensorRT Plan for model: {}...", model_path);
-    SPDLOG_INFO("Note: Optimization trials may take several minutes depending "
-                "on your GPU.");
+    SPDLOG_INFO(
+        "Building TensorRT Plan for model: {}, this could take minutes...",
+        model_path);
     const auto start_time = std::chrono::steady_clock::now();
     const auto plan = std::unique_ptr<nvinfer1::IHostMemory>(
         builder->buildSerializedNetwork(*network, *trt_config));
     if (!plan) {
-      SPDLOG_ERROR("builder->buildSerializedNetwork failed");
+      SPDLOG_ERROR("builder->buildSerializedNetwork() failed");
       return false;
     }
     const auto end_time = std::chrono::steady_clock::now();
@@ -149,8 +149,7 @@ bool YoloDetect::init(const njson &config) {
   }
 }
 
-void YoloDetect::post_process_yolo(const cv::cuda::GpuMat &frame,
-                                   PipelineContext &ctx) const {
+void YoloDetect::post_process_yolo(PipelineContext &ctx) const {
 
   // We use the dimensions calculated in init() (e.g., 84 x 8400)
   // m_output_cpu contains the data copied from GPU in process()
@@ -319,7 +318,7 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
     cudaStreamSynchronize(m_cuda_stream);
 
     // 8. Parse Results
-    post_process_yolo(frame, ctx);
+    post_process_yolo(ctx);
 
     m_prev_yolo_ctx = ctx.yolo;
     return success_and_continue;

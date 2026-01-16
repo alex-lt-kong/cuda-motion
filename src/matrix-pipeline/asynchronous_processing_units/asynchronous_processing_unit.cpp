@@ -1,17 +1,17 @@
 #include "asynchronous_processing_unit.h"
-
 #include "../asynchronous_processing_units/http_service.h"
 #include "../asynchronous_processing_units/matrix_notifier.h"
 #include "../asynchronous_processing_units/video_writer.h"
 #include "../entities/processing_context.h"
 #include "../entities/processing_units_variant.h"
+#include "../global_vars.h"
 #include "../interfaces/i_synchronous_processing_unit.h"
 #include "../synchronous_processing_units/collect_stats.h"
 #include "../synchronous_processing_units/crop_frame.h"
 #include "../synchronous_processing_units/debug_output.h"
 #include "../synchronous_processing_units/measure_latency.h"
 #include "../synchronous_processing_units/overlay_info.h"
-#include "../synchronous_processing_units/resize_frame.h"
+#include "../synchronous_processing_units/resize.h"
 #include "../synchronous_processing_units/rotate_and_flip.h"
 #include "../synchronous_processing_units/sface_detect.h"
 #include "../synchronous_processing_units/sface_overlay_bounding_boxes.h"
@@ -117,7 +117,7 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
 
 void AsynchronousProcessingUnit::on_frame_ready(cv::cuda::GpuMat &frame,
                                                 PipelineContext &ctx) {
-  for (size_t i = 0; i < m_processing_units.size(); ++i) {
+  for (size_t i = 0; i < m_processing_units.size() && ev_flag == 0; ++i) {
     ctx.processing_unit_idx = i;
     const auto retval = std::visit(
         overload{

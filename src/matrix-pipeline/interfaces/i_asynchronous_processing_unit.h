@@ -2,6 +2,7 @@
 
 #include "../entities/processing_context.h"
 #include "../entities/synchronous_processing_result.h"
+#include "../global_vars.h"
 #include "../utils/matrix_sender.h"
 #include "i_processing_unit.h"
 
@@ -58,6 +59,9 @@ public:
                                       const PipelineContext &ctx) {
     if (!m_turned_on_hours[get_hours_from_local_time()])
       return success_and_continue;
+    if (ev_flag != 0)
+      return failure_and_stop;
+
     using namespace std::chrono_literals;
     cv::cuda::GpuMat frame_clone;
     try {

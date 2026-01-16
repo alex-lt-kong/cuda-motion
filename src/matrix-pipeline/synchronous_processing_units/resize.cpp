@@ -1,4 +1,4 @@
-#include "resize_frame.h"
+#include "resize.h"
 
 #include <nlohmann/json.hpp>
 #include <opencv2/cudawarping.hpp> // Required for cv::cuda::resize

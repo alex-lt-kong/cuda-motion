@@ -5,6 +5,8 @@
 #include "../utils/nvjpeg_encoder.h"
 #include "../utils/ram_video_buffer.h"
 
+#include <boost/uuid/uuid.hpp> // main uuid family
+#include <boost/uuid/uuid_generators.hpp>
 #include <opencv2/cudacodec.hpp>
 
 namespace MatrixPipeline::Utils {
@@ -12,16 +14,16 @@ struct RamVideoBuffer;
 }
 namespace MatrixPipeline::ProcessingUnit {
 
-class MatrixNotifier final : public IAsynchronousProcessingUnit {
+class MatrixNotifier final : public IAsynchronousProcessingUnit,
+                             std::enable_shared_from_this<MatrixNotifier> {
+  boost::uuids::random_generator m_uuid_generator;
   std::unique_ptr<Utils::NvJpegEncoder> m_gpu_encoder{nullptr};
   std::unique_ptr<Utils::MatrixSender> m_sender{nullptr};
   std::string m_matrix_homeserver;
   std::string m_matrix_room_id;
   std::string m_matrix_access_token;
-  int m_notification_interval_frame{300};
-  bool m_is_send_image_enabled{true};
-  bool m_is_send_video_enabled{true};
-  double m_min_frame_change_rate{0.0};
+  double m_activation_min_frame_change_rate{0.1};
+  double m_maintenance_min_frame_change_rate{0.01};
   std::chrono::seconds m_video_max_length{60};
   std::chrono::seconds m_video_max_length_without_detection{10};
   std::chrono::seconds m_video_precapture{3};
@@ -32,7 +34,7 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
       m_current_video_without_detection_since;
   float m_max_roi_score{0.0f};
   cv::cuda::GpuMat m_max_roi_score_frame{-1};
-  const double m_fallback_fps{25.0};
+  double m_fps{25.0};
   // 0-51, lower is better, effectively acts like CRF.
   // A value of ~25-30 is usually good for NVENC H.264.
   uint8_t m_target_quality{30};
@@ -43,14 +45,17 @@ class MatrixNotifier final : public IAsynchronousProcessingUnit {
 
   static bool look_for_interesting_detection(const PipelineContext &ctx);
 
-  void handle_image(const cv::cuda::GpuMat &frame,
-                    [[maybe_unused]] const PipelineContext &ctx,
-                    const bool is_interesting) const;
   void handle_video(const cv::cuda::GpuMat &frame,
                     [[maybe_unused]] const PipelineContext &ctx,
                     const bool is_detection_interesting);
 
   static float calculate_roi_score(const YoloContext &yolo);
+  static void
+  finalize_video_then_send_out(const std::unique_ptr<Utils::RamVideoBuffer> &,
+                               const std::shared_ptr<MatrixNotifier> &);
+  static std::unique_ptr<Utils::RamVideoBuffer> trim_video_ram(
+      const std::string &input_sympath, // <--- Input is now just the path
+      int frames_to_remove, boost::uuids::random_generator &uuid_gen);
 
 public:
   explicit MatrixNotifier(const std::string &unit_path)
