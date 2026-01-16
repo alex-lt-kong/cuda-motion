@@ -24,7 +24,7 @@ bool OverlayInfo::init(const nlohmann::json &config) {
     } else {
       const std::string default_template =
           "{deviceName},\nChg: {changeRatePct:.1f}%, FPS: "
-          "{fps:.1f}\n{frameCaptureTime:%Y-%m-%d %H:%M:%S}";
+          "{fps:.1f}\n{timestamp:%Y-%m-%d %H:%M:%S}";
       m_info_template = default_template;
     }
 
