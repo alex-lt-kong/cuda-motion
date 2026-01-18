@@ -135,7 +135,7 @@ void MatrixSender::sendText(const std::string &message) const {
 }
 
 void MatrixSender::send_jpeg(const std::string &jpeg_bytes, int width,
-                             int height, const std::string &caption) {
+                             int height, const std::string &caption) const {
   if (std::string mxc = upload(jpeg_bytes, "image/jpeg"); !mxc.empty()) {
     njson content;
     content["body"] = caption;
@@ -149,30 +149,22 @@ void MatrixSender::send_jpeg(const std::string &jpeg_bytes, int width,
 }
 
 void MatrixSender::send_video(const std::string &filepath,
-                              const std::string &caption, int duration_ms) {
+                              const std::string &caption, size_t duration_ms,
+                              const std::string &body,
+                              const std::string &thumbnail_data, int width,
+                              int height, const std::string &thumb_mime) {
   std::string data = readFile(filepath);
-  if (data.empty())
+  if (data.empty()) {
+    SPDLOG_ERROR("readFile({}) is empty, returning", filepath);
     return;
-
-  std::string mxc = upload(data, "video/mp4");
-  if (!mxc.empty()) {
-    njson content;
-    content["body"] = caption;
-    content["url"] = mxc;
-    njson info;
-    info["mimetype"] = "video/mp4";
-    info["size"] = data.size();
-    if (duration_ms > 0)
-      info["duration"] = duration_ms;
-    content["info"] = info;
-    send_event(content, "m.video");
   }
+  send_video_from_memory(data, caption, duration_ms, body, thumbnail_data,
+                         width, height, thumb_mime);
 }
 
 void MatrixSender::send_video_from_memory(const std::string &video_data,
                                           const std::string &caption,
-                                          size_t duration_ms,
-                                          const std::string &body,
+                                          size_t duration_ms, std::string body,
                                           const std::string &thumbnail_data,
                                           int width, int height,
                                           const std::string &thumb_mime) const {
@@ -217,9 +209,12 @@ void MatrixSender::send_video_from_memory(const std::string &video_data,
 
   content["info"] = info; /*
    if (!body.empty()) {
-     content["filename"] = body;
-     content["body"] = body;
+     content["info"]["filename"] = body.ends_with(".mp4") ? body : body +
+   ".mp4"; content["body"] = body.ends_with(".mp4") ? body : body + ".mp4";
+     content["format"] = "org.matrix.custom.html";
+     content["formatted_body"] = "Your Caption Here";
    }*/
+  // SPDLOG_INFO("content: {}", content.dump());
   constexpr size_t max_retry_count = 5;
   for (size_t i = 0; i < max_retry_count; ++i) {
     if (send_event(content, "m.video"))

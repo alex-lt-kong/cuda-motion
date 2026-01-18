@@ -32,17 +32,10 @@ public:
 
   bool init(const njson &config) override;
 
-  static std::string
-  generate_filename(const std::string &path_template,
-                    const PipelineContext &ctx,
-                    std::chrono::system_clock::time_point timestamp =
-                        std::chrono::system_clock::now());
-
 protected:
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
 
 private:
-  [[nodiscard]] std::string generate_filename(const PipelineContext &ctx) const;
   bool start_recording(cv::Size frame_size, const PipelineContext &ctx);
   void stop_recording();
   void write_frame(const cv::cuda::GpuMat &frame) const;
@@ -56,7 +49,7 @@ private:
 
   std::chrono::steady_clock::time_point m_record_start_time;
   std::chrono::steady_clock::time_point m_last_below_threshold_time;
-  std::string m_file_path;
+  std::string m_video_path;
 };
 
 } // namespace MatrixPipeline::ProcessingUnit

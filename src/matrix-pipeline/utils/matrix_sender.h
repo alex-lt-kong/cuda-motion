@@ -41,16 +41,16 @@ public:
 
   // Send JPEG image
   void send_jpeg(const std::string &jpeg_bytes, int width, int height,
-                 const std::string &caption = "Image");
+                 const std::string &caption = "Image") const;
 
-  // Send Video from file path
   void send_video(const std::string &filepath, const std::string &caption,
-                  int duration_ms = 0);
+                  size_t duration_ms = 0, const std::string &body = "",
+                  const std::string &thumbnail_data = {}, int width = 0,
+                  int height = 0, const std::string &thumb_mime = "image/jpeg");
 
-  // Send Video from memory (Updated to support Thumbnails)
   void send_video_from_memory(
       const std::string &video_data, const std::string &caption,
-      size_t duration_ms = 0, const std::string &body = "",
+      size_t duration_ms = 0, std::string body = "",
       const std::string &thumbnail_data = {}, int width = 0, int height = 0,
       const std::string &thumb_mime = "image/jpeg") const;
 };

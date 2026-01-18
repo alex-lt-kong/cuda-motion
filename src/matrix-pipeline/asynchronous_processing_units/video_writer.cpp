@@ -89,7 +89,7 @@ void VideoWriter::on_frame_ready(cv::cuda::GpuMat &frame,
       m_record_start_time = now;
       SPDLOG_INFO("Recording started (change_rate_threshold({}) vs "
                   "change_rate({:.3})), writing video to {}",
-                  m_config.m_change_rate_threshold, change_rate, m_file_path);
+                  m_config.m_change_rate_threshold, change_rate, m_video_path);
     }
   }
 
@@ -124,23 +124,27 @@ void VideoWriter::on_frame_ready(cv::cuda::GpuMat &frame,
   }
 }
 
-std::string VideoWriter::generate_filename(const PipelineContext &ctx) const {
-  return Utils::evaluate_text_template(m_config.m_file_path_template, ctx);
-}
-
 bool VideoWriter::start_recording(const cv::Size frame_size,
                                   const PipelineContext &ctx) {
   if (m_writer)
     m_writer.release();
-  m_file_path = generate_filename(ctx);
+  const auto video_path =
+      Utils::evaluate_text_template(m_config.m_file_path_template, ctx);
+  if (!video_path.has_value()) {
+    SPDLOG_ERROR("evaluate_text_template(m_file_path_template) failed");
+    return false;
+  }
+
+  m_video_path = video_path.value();
+
+  SPDLOG_INFO("cv::cudacodec::createVideoWriter({})ing", m_video_path);
   try {
-    SPDLOG_INFO("cv::cudacodec::createVideoWriter({})ing", m_file_path);
     m_writer = cv::cudacodec::createVideoWriter(
-        m_file_path, frame_size, cv::cudacodec::Codec::H264,
+        m_video_path, frame_size, cv::cudacodec::Codec::H264,
         m_config.m_target_fps, cv::cudacodec::ColorFormat::BGR);
   } catch (const cv::Exception &e) {
-    SPDLOG_ERROR("cv::cudacodec::createVideoWriter({}) failed: {}", m_file_path,
-                 e.what());
+    SPDLOG_ERROR("cv::cudacodec::createVideoWriter({}) failed: {}",
+                 m_video_path, e.what());
     m_writer.release();
     m_state = Utils::VideoRecordingState::DISABLED;
     SPDLOG_WARN("Disabling videoWriter uni");
@@ -152,7 +156,7 @@ bool VideoWriter::start_recording(const cv::Size frame_size,
 void VideoWriter::stop_recording() {
   if (m_writer) {
     m_writer.release();
-    SPDLOG_INFO("Recording stopped, video written to {}", m_file_path);
+    SPDLOG_INFO("Recording stopped, video written to {}", m_video_path);
   }
   m_record_start_time = {};
   m_last_below_threshold_time = {};

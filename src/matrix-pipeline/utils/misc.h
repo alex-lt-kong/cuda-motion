@@ -38,7 +38,7 @@ auto steady_clock_to_system_time(
 }
 
 // seems std::format() wont work if defined in .cpp file
-inline std::string evaluate_text_template(
+inline std::optional<std::string> evaluate_text_template(
     const std::string &string_template,
     const std::optional<ProcessingUnit::PipelineContext> &ctx = std::nullopt,
     const std::chrono::system_clock::time_point timestamp =
@@ -67,7 +67,7 @@ inline std::string evaluate_text_template(
                                formatted_time);
     } catch (const std::exception &e) {
       SPDLOG_ERROR("e.what(): {}", e.what());
-      return string_template;
+      return std::nullopt;
     }
   }
   if (!ctx.has_value())
@@ -81,7 +81,7 @@ inline std::string evaluate_text_template(
   } catch (const std::exception &e) {
     SPDLOG_ERROR("e.what(): {}, evaluated_string: {}", e.what(),
                  evaluated_string);
-    evaluated_string = std::string("Error: ") + e.what();
+    return std::nullopt;
   }
   return evaluated_string;
 }

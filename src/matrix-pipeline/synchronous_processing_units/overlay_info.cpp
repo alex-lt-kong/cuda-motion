@@ -51,12 +51,14 @@ SynchronousProcessingResult OverlayInfo::process(cv::cuda::GpuMat &frame,
     const auto full_text =
         Utils::evaluate_text_template(m_info_template, ctx, now_tp);
 
-    if (full_text.empty())
+    if (!full_text.has_value())
+      return failure_and_continue;
+    if (full_text->empty())
       return success_and_continue;
 
     // --- 2. Split into Lines ---
     std::vector<std::string> lines;
-    std::stringstream ss(full_text);
+    std::stringstream ss(full_text.value());
     std::string line;
     while (std::getline(ss, line, '\n')) {
       lines.push_back(line);
