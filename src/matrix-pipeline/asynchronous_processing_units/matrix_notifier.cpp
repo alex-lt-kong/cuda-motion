@@ -132,11 +132,13 @@ void MatrixNotifier::finalize_video_then_send_out(
     const auto send_video_end_at = steady_clock::now();
     SPDLOG_INFO(
         "video size: {}KB + thumbnail size {}KB, video_length(sec): {}, "
-        "send_video() took {}ms",
+        "send_video_from_memory() took {}ms({}KB/sec)",
         video.value().size() / 1024, jpeg_data.size() / 1024,
         video_duration_ms / 1000,
         duration_cast<milliseconds>(send_video_end_at - send_video_start_at)
-            .count());
+            .count(),
+        (video.value().size() + jpeg_data.size()) / 1024 /
+            (video_duration_ms / 1000));
   } else {
     SPDLOG_ERROR("trim_video() failed");
   }
