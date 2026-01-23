@@ -92,12 +92,12 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
       }
 
       std::string label_text = fmt::format(
-          "{}{} {:.2f} ", !ctx.yolo.is_detection_valid[idx] ? "(!)" : "", label,
-          conf);
+          "{}{} {:.2f} ", !ctx.yolo.is_detection_interesting[idx] ? "(!)" : "",
+          label, conf);
 
       // Determine Color
       cv::Scalar color;
-      if (!ctx.yolo.is_detection_valid[idx])
+      if (!ctx.yolo.is_detection_interesting[idx])
         color = cv::Scalar(127, 127, 127);
       else {
         while (m_colors.size() <= class_id) {

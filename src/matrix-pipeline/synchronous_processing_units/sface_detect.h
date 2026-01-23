@@ -24,12 +24,14 @@ private:
   struct Identity {
     std::string name;
     std::vector<cv::Mat> embeddings;
+    IdentityCategory category;
   };
 
   cv::Ptr<cv::FaceRecognizerSF> m_sface;
 
   // Configs
-  double m_enrollment_face_score_threshold{0.93};
+  double m_authorized_enrollment_face_score_threshold{0.93};
+  double m_unauthorized_enrollment_face_score_threshold{0.60};
   std::optional<double> m_inference_face_score_threshold{std::nullopt};
   std::string m_model_path_sface;
   std::string m_model_path_yunet;
@@ -42,6 +44,10 @@ private:
 
   // Helper: Returns false if gallery cannot be populated
   bool load_gallery();
+
+  void load_identities_from_folder(const std::string &folder_path,
+                                   double threshold, IdentityCategory category,
+                                   cv::FaceDetectorYN &yunet);
 };
 
 } // namespace MatrixPipeline::ProcessingUnit

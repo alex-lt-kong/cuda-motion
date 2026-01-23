@@ -163,7 +163,7 @@ void YoloDetect::post_process_yolo(PipelineContext &ctx) const {
   ctx.yolo.class_ids.clear();
   ctx.yolo.confidences.clear();
   ctx.yolo.boxes.clear();
-  ctx.yolo.is_detection_valid.clear(); // Important to clear this too
+  ctx.yolo.is_detection_interesting.clear(); // Important to clear this too
 
   // 4. Iterate over rows (anchors)
   // m_output_rows is typically 8400 for YOLOv11
@@ -190,7 +190,7 @@ void YoloDetect::post_process_yolo(PipelineContext &ctx) const {
       ctx.yolo.boxes.emplace_back(left, top, w, h);
       ctx.yolo.confidences.push_back(static_cast<float>(max_class_score));
       ctx.yolo.class_ids.push_back(class_id_point.x);
-      ctx.yolo.is_detection_valid.push_back(false);
+      ctx.yolo.is_detection_interesting.push_back(false);
     }
   }
 

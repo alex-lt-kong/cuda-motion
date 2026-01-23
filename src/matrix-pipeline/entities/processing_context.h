@@ -10,11 +10,14 @@ struct DeviceInfo {
   cv::Size expected_frame_size;
 };
 
+enum class IdentityCategory { Unknown, Authorized, Unauthorized };
+
 struct FaceRecognitionResult {
   cv::Mat embedding;      // The 128-d vector
   std::string identity;   // "Unknown" or matched name
   float similarity_score; // Cosine distance
   int matched_idx;        // Index in your gallery (optional)
+  IdentityCategory category = IdentityCategory::Unknown;
 };
 
 struct SFaceContext {
@@ -34,7 +37,7 @@ struct YoloContext {
   cv::Size inference_input_size;
   std::vector<cv::Rect> boxes;
   std::vector<size_t> class_ids;
-  std::vector<short> is_detection_valid;
+  std::vector<short> is_detection_interesting;
   std::vector<float> confidences;
   std::vector<int> indices;
 };

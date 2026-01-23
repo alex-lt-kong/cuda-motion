@@ -7,21 +7,19 @@
 namespace MatrixPipeline::ProcessingUnit {
 
 bool YoloPruneDetectionResults::init(const njson &config) {
-  // 1. Parse Edge Constraints
-  if (config.contains("edgeConstraints")) {
-    const auto &constraints = config["edgeConstraints"];
-    m_left_constraint = parse_constraint(constraints, "left");
-    m_right_constraint = parse_constraint(constraints, "right");
-    m_top_constraint = parse_constraint(constraints, "top");
-    m_bottom_constraint = parse_constraint(constraints, "bottom");
+  try {
+    if (config.contains("edgeConstraints")) {
+      const auto &constraints = config["edgeConstraints"];
+      m_left_constraint = parse_constraint(constraints, "left");
+      m_right_constraint = parse_constraint(constraints, "right");
+      m_top_constraint = parse_constraint(constraints, "top");
+      m_bottom_constraint = parse_constraint(constraints, "bottom");
+    }
 
-    // -------------------------------------------------------
-    // NEW: Parse Size Constraint (Mutually Exclusive)
-    // -------------------------------------------------------
     if (config.contains("sizeConstraint")) {
-      const auto &constraints = config["sizeConstraint"];
 
-      if (constraints.contains("minAreaRatio")) {
+      if (const auto &constraints = config["sizeConstraint"];
+          constraints.contains("minAreaRatio")) {
         m_size_limit_mode = SizeMode::MIN_RATIO;
         m_size_limit_val = constraints["minAreaRatio"].get<double>();
         SPDLOG_INFO("Constraint: Box must be larger than {:.2f}% of frame",
@@ -33,34 +31,36 @@ bool YoloPruneDetectionResults::init(const njson &config) {
                     m_size_limit_val * 100.0);
       }
     }
+
+    // 2. Parse Visualization Config
+    m_debug_overlay_alpha =
+        config.value("debugOverlayAlpha", m_debug_overlay_alpha);
+
+    const auto class_ids_of_interest_vector =
+        config.value("classIdsOfInterest", std::vector<int>{});
+    if (!class_ids_of_interest_vector.empty())
+      for (const auto &idx : class_ids_of_interest_vector)
+        m_class_ids_of_interest.insert(idx);
+    else
+      for (int i = 0; i < 80; ++i)
+        m_class_ids_of_interest.insert(i);
+    SPDLOG_INFO("region_constraint: L:[{:.2f}, {:.2f}], R:[{:.2f}, "
+                "{:.2f}], T:[{:.2f}, {:.2f}], B:[{:.2f}, {:.2f}], "
+                "debug_overlay_alpha: {}",
+                m_left_constraint.min_val, m_left_constraint.max_val,
+                m_right_constraint.min_val, m_right_constraint.max_val,
+                m_top_constraint.min_val, m_top_constraint.max_val,
+                m_bottom_constraint.min_val, m_bottom_constraint.max_val,
+                m_debug_overlay_alpha);
+    SPDLOG_INFO("size_limit_val: {}, size_limit_mode: {}", m_size_limit_val,
+                static_cast<int>(m_size_limit_mode));
+    SPDLOG_INFO("class_ids_of_interest: {}",
+                fmt::join(class_ids_of_interest_vector, ", "));
+    return true;
+  } catch (const std::exception &e) {
+    SPDLOG_ERROR("init() failed, e.what(): {}", e.what());
+    return false;
   }
-
-  // 2. Parse Visualization Config
-  m_debug_overlay_alpha =
-      config.value("debugOverlayAlpha", m_debug_overlay_alpha);
-
-  const auto class_ids_of_interest_vector =
-      config.value("classIdsOfInterest", std::vector<int>{});
-  if (!class_ids_of_interest_vector.empty())
-    for (const auto &idx : class_ids_of_interest_vector)
-      m_class_ids_of_interest.insert(idx);
-  else
-    for (int i = 0; i < 80; ++i)
-      m_class_ids_of_interest.insert(i);
-
-  SPDLOG_INFO("region_constraint: L:[{:.2f}, {:.2f}], R:[{:.2f}, "
-              "{:.2f}], T:[{:.2f}, {:.2f}], B:[{:.2f}, {:.2f}], "
-              "debug_overlay_alpha: {}",
-              m_left_constraint.min_val, m_left_constraint.max_val,
-              m_right_constraint.min_val, m_right_constraint.max_val,
-              m_top_constraint.min_val, m_top_constraint.max_val,
-              m_bottom_constraint.min_val, m_bottom_constraint.max_val,
-              m_debug_overlay_alpha);
-  SPDLOG_INFO("size_limit_val: {} size_limit_mode: {}", m_size_limit_val,
-              static_cast<int>(m_size_limit_mode));
-  SPDLOG_INFO("class_ids_of_interest: {}",
-              fmt::join(class_ids_of_interest_vector, ", "));
-  return true;
 }
 
 YoloPruneDetectionResults::Range
@@ -157,16 +157,16 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame,
   // ---------------------------------------------------------
   // 2. LOGIC (Filter Boxes) - Updated with Size Check
   // ---------------------------------------------------------
-  size_t box_count = ctx.yolo.boxes.size();
-  if (ctx.yolo.is_detection_valid.size() != box_count) {
-    ctx.yolo.is_detection_valid = std::vector<short>(box_count);
+  const size_t box_count = ctx.yolo.boxes.size();
+  if (ctx.yolo.is_detection_interesting.size() != box_count) {
+    ctx.yolo.is_detection_interesting = std::vector<short>(box_count);
   }
 
   if (box_count == 0)
     return success_and_continue;
 
-  float f_w = static_cast<float>(img_w);
-  float f_h = static_cast<float>(img_h);
+  const auto f_w = static_cast<double>(img_w);
+  const auto f_h = static_cast<double>(img_h);
 
   // Pre-calculate frame area for ratio checks
   double frame_area = static_cast<double>(img_w) * static_cast<double>(img_h);
@@ -174,48 +174,78 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame,
   for (const auto idx : ctx.yolo.indices) {
     const cv::Rect &box = ctx.yolo.boxes[idx];
 
-    // --- A. Edge Logic ---
-    float box_left = box.x / f_w;
-    float box_right = (box.x + box.width) / f_w;
-    float box_top = box.y / f_h;
-    float box_bottom = (box.y + box.height) / f_h;
+    // ---------------------------------------------------------
+    // 1. Calculate Inverse Letterbox Parameters
+    // ---------------------------------------------------------
+    // These must match the logic used in letterbox_resize@yolo_detect.cpp
+    const auto scale_x =
+        static_cast<double>(ctx.yolo.inference_input_size.width) /
+        static_cast<double>(frame.cols);
+    const auto scale_y =
+        static_cast<double>(ctx.yolo.inference_input_size.height) /
+        static_cast<double>(frame.rows);
+    const auto scale = std::min(scale_x, scale_y);
+    // Calculate the padding that was added to the model input
+    const int x_offset =
+        (ctx.yolo.inference_input_size.width -
+         static_cast<int>(static_cast<double>(frame.cols) * scale)) /
+        2;
+    const int y_offset =
+        (ctx.yolo.inference_input_size.height -
+         static_cast<int>(static_cast<double>(frame.rows) * scale)) /
+        2;
 
-    bool valid_left = (box_left >= m_left_constraint.min_val &&
-                       box_left <= m_left_constraint.max_val);
-    bool valid_right = (box_right >= m_right_constraint.min_val &&
-                        box_right <= m_right_constraint.max_val);
-    bool valid_top = (box_top >= m_top_constraint.min_val &&
-                      box_top <= m_top_constraint.max_val);
-    bool valid_bottom = (box_bottom >= m_bottom_constraint.min_val &&
-                         box_bottom <= m_bottom_constraint.max_val);
+    // --- A. Edge Logic (Corrected) ---
 
-    // --- B. Size Logic (New) ---
+    // 1. Transform from Letterbox Space -> Original Image Pixel Space
+    //    Formula: x_orig = (x_model - offset) / scale
+    double left_px = (box.x - x_offset) / scale;
+    double right_px = (box.x + box.width - x_offset) / scale;
+    double top_px = (box.y - y_offset) / scale;
+    double bottom_px = (box.y + box.height - y_offset) / scale;
+
+    // 2. Clamp values to be safe (prevent boxes slightly outside image due to
+    // rounding)
+    left_px = std::max(0.0, left_px);
+    right_px = std::min(f_w, right_px);
+    top_px = std::max(0.0, top_px);
+    bottom_px = std::min(f_h, bottom_px);
+
+    // 3. Normalize (0.0 to 1.0)
+    const auto box_left = left_px / f_w;
+    const auto box_right = right_px / f_w;
+    const auto box_top = top_px / f_h;
+    const auto box_bottom = bottom_px / f_h;
+
+    bool valid_left = box_left >= m_left_constraint.min_val &&
+                      box_left <= m_left_constraint.max_val;
+    bool valid_right = box_right >= m_right_constraint.min_val &&
+                       box_right <= m_right_constraint.max_val;
+    bool valid_top = box_top >= m_top_constraint.min_val &&
+                     box_top <= m_top_constraint.max_val;
+    bool valid_bottom = box_bottom >= m_bottom_constraint.min_val &&
+                        box_bottom <= m_bottom_constraint.max_val;
+
+    // --- B. Size Logic ---
     bool valid_size = true;
     if (m_size_limit_mode != SizeMode::NONE) {
-      double box_area = static_cast<double>(box.width * box.height);
-      double ratio = box_area / frame_area;
+      const auto box_area = static_cast<double>(box.width * box.height);
+      const auto ratio = box_area / frame_area;
 
       if (m_size_limit_mode == SizeMode::MIN_RATIO) {
         // Criterion 1: Must be BIGGER than ratio (e.g., > 10%)
-        valid_size = (ratio >= m_size_limit_val);
+        valid_size = ratio >= m_size_limit_val;
       } else {
         // Criterion 2: Must be SMALLER than ratio (e.g., < 80%)
-        valid_size = (ratio <= m_size_limit_val);
+        valid_size = ratio <= m_size_limit_val;
       }
     }
 
     // Combine all checks
-    ctx.yolo.is_detection_valid[idx] =
-        (valid_left && valid_right && valid_top && valid_bottom && valid_size &&
-         m_class_ids_of_interest.contains(ctx.yolo.class_ids[idx]));
-    /*
-    SPDLOG_INFO("frame_seq_num: {}, idx: {}, ctx.yolo.class_ids[idx]: {},
-    m_class_ids_of_interest: [{}], m_class_ids_of_interest.contains(): {},
-    ctx.yolo.is_detection_valid[idx]: {}", ctx.frame_seq_num, idx,
-    ctx.yolo.class_ids[idx], fmt::join(m_class_ids_of_interest, ", "),
-    m_class_ids_of_interest.contains(ctx.yolo.class_ids[idx]),
-    ctx.yolo.is_detection_valid[idx] );
-      */
+    ctx.yolo.is_detection_interesting[idx] =
+        valid_left && valid_right && valid_top && valid_bottom && valid_size &&
+        m_class_ids_of_interest.contains(
+            static_cast<int>(ctx.yolo.class_ids[idx]));
   }
 
   return success_and_continue;

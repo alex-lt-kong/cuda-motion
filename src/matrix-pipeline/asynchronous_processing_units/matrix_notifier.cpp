@@ -16,7 +16,7 @@ namespace MatrixPipeline::ProcessingUnit {
 bool MatrixNotifier::look_for_interesting_detection(
     const PipelineContext &ctx) {
   for (const auto idx : ctx.yolo.indices) {
-    if (ctx.yolo.is_detection_valid[idx]) {
+    if (ctx.yolo.is_detection_interesting[idx]) {
       return true;
     }
   }
@@ -204,7 +204,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       m_writer = nullptr;
       disable();
       unlink(m_temp_video_path.c_str());
-      SPDLOG_WARN("{} turned off to avoid log flooding", m_unit_path);
+      SPDLOG_WARN("{} turned off", m_unit_path);
       return;
     }
   }
@@ -251,7 +251,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
 float MatrixNotifier::calculate_roi_score(const YoloContext &yolo) {
   float roi_value = 0.0;
   for (const auto idx : yolo.indices) {
-    if (yolo.class_ids[idx] == 0 && yolo.is_detection_valid[idx]) {
+    if (yolo.class_ids[idx] == 0 && yolo.is_detection_interesting[idx]) {
       roi_value += yolo.boxes[idx].area() * yolo.confidences[idx] *
                    pow(yolo.indices.size(), 0.5);
     }
