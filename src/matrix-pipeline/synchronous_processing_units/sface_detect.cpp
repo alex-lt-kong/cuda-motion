@@ -189,15 +189,15 @@ void SfaceDetect::load_identities_from_folder(const std::string &folder_path,
 
       cv::Mat normalized_embedding;
       cv::normalize(feature_embedding, normalized_embedding, 1, 0, cv::NORM_L2);
-      identity.embeddings.push_back(normalized_embedding.clone());
+      identity.normalized_embeddings.push_back(normalized_embedding.clone());
     }
 
-    if (!identity.embeddings.empty()) {
+    if (!identity.normalized_embeddings.empty()) {
       m_gallery.push_back(std::move(identity));
       SPDLOG_INFO(
           "Loaded '{}' ({}) with {} embeddings.", m_gallery.back().name,
           (category == IdentityCategory::Authorized ? "Auth" : "Unauth"),
-          m_gallery.back().embeddings.size());
+          m_gallery.back().normalized_embeddings.size());
     }
   }
 }
@@ -243,11 +243,13 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
     if (aligned_face.empty())
       continue;
 
-    cv::Mat probe_embedding, normalized_probe;
+    cv::Mat probe_embedding, normalized_probe_embedding;
+    // Where the DNN actually runs
     m_sface->feature(aligned_face, probe_embedding);
-    cv::normalize(probe_embedding, normalized_probe, 1, 0, cv::NORM_L2);
+    cv::normalize(probe_embedding, normalized_probe_embedding, 1, 0,
+                  cv::NORM_L2);
 
-    result.embedding = normalized_probe.clone();
+    result.embedding = normalized_probe_embedding.clone();
 
     double best_score_overall = -1.0;
     int best_identity_idx = -1;
@@ -256,8 +258,10 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
     for (size_t i = 0; i < m_gallery.size(); ++i) {
       double best_score_for_this_person = -1.0;
 
-      for (const auto &stored_vec : m_gallery[i].embeddings) {
-        double score = m_sface->match(normalized_probe, stored_vec,
+      for (const auto &normalized_gallery_embedding :
+           m_gallery[i].normalized_embeddings) {
+        double score = m_sface->match(normalized_probe_embedding,
+                                      normalized_gallery_embedding,
                                       cv::FaceRecognizerSF::DisType::FR_COSINE);
         best_score_for_this_person =
             std::max(best_score_for_this_person, score);

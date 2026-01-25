@@ -23,7 +23,7 @@ public:
 private:
   struct Identity {
     std::string name;
-    std::vector<cv::Mat> embeddings;
+    std::vector<cv::Mat> normalized_embeddings;
     IdentityCategory category;
   };
 
