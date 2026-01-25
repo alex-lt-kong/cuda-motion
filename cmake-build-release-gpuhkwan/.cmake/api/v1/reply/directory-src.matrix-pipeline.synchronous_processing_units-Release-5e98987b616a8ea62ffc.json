@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "src/matrix-pipeline/synchronous_processing_units",
+		"source" : "src/matrix-pipeline/synchronous_processing_units"
+	}
+}

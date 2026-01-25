@@ -1,0 +1,13 @@
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: absl_node_hash_set
+Description: Abseil node_hash_set library
+URL: https://abseil.io/
+Version: 20250814
+
+Libs: "-L${libdir}"
+Requires: absl_container_memory = 20250814, absl_core_headers = 20250814, absl_hash_container_defaults = 20250814, absl_node_slot_policy = 20250814, absl_raw_hash_set = 20250814, absl_algorithm_container = 20250814, absl_memory = 20250814, absl_type_traits = 20250814
+Cflags: "-I${includedir}" -DNOMINMAX

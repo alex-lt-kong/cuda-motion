@@ -1,0 +1,13 @@
+x64-linux/
+x64-linux/include/
+x64-linux/include/cxxopts.hpp
+x64-linux/share/
+x64-linux/share/cxxopts/
+x64-linux/share/cxxopts/copyright
+x64-linux/share/cxxopts/cxxopts-config-version.cmake
+x64-linux/share/cxxopts/cxxopts-config.cmake
+x64-linux/share/cxxopts/cxxopts-targets.cmake
+x64-linux/share/cxxopts/vcpkg.spdx.json
+x64-linux/share/cxxopts/vcpkg_abi_info.txt
+x64-linux/share/pkgconfig/
+x64-linux/share/pkgconfig/cxxopts.pc

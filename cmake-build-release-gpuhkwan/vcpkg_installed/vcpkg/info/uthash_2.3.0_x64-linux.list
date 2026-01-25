@@ -1,0 +1,13 @@
+x64-linux/
+x64-linux/include/
+x64-linux/include/utarray.h
+x64-linux/include/uthash.h
+x64-linux/include/utlist.h
+x64-linux/include/utringbuffer.h
+x64-linux/include/utstack.h
+x64-linux/include/utstring.h
+x64-linux/share/
+x64-linux/share/uthash/
+x64-linux/share/uthash/copyright
+x64-linux/share/uthash/vcpkg.spdx.json
+x64-linux/share/uthash/vcpkg_abi_info.txt

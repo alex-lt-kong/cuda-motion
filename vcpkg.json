@@ -9,6 +9,7 @@
     "boost-stacktrace",
     "boost-uuid",
     "boost-random",
+    "mosquitto",
     "ms-gsl",
     "fmt",
     {

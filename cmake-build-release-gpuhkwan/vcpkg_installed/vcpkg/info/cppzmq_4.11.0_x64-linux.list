@@ -1,0 +1,15 @@
+x64-linux/
+x64-linux/include/
+x64-linux/include/zmq.hpp
+x64-linux/include/zmq_addon.hpp
+x64-linux/lib/
+x64-linux/lib/pkgconfig/
+x64-linux/lib/pkgconfig/cppzmq.pc
+x64-linux/share/
+x64-linux/share/cppzmq/
+x64-linux/share/cppzmq/copyright
+x64-linux/share/cppzmq/cppzmqConfig.cmake
+x64-linux/share/cppzmq/cppzmqConfigVersion.cmake
+x64-linux/share/cppzmq/cppzmqTargets.cmake
+x64-linux/share/cppzmq/vcpkg.spdx.json
+x64-linux/share/cppzmq/vcpkg_abi_info.txt

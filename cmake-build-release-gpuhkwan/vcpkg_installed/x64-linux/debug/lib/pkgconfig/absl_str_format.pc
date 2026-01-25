@@ -1,0 +1,13 @@
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/../include
+
+Name: absl_str_format
+Description: Abseil str_format library
+URL: https://abseil.io/
+Version: 20250814
+
+Libs: "-L${libdir}"
+Requires: absl_config = 20250814, absl_core_headers = 20250814, absl_nullability = 20250814, absl_span = 20250814, absl_str_format_internal = 20250814, absl_string_view = 20250814
+Cflags: "-I${includedir}" -DNOMINMAX

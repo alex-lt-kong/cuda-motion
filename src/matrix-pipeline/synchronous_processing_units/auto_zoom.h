@@ -11,12 +11,12 @@ class AutoZoom : public ISynchronousProcessingUnit {
 public:
   explicit AutoZoom(const std::string &unit_path)
       : ISynchronousProcessingUnit(unit_path + "/AutoZoom") {}
-  ~AutoZoom() override {};
+  ~AutoZoom() override = default;
 
   bool init(const njson &config) override;
 
-  virtual SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
-                                              PipelineContext &ctx) override;
+  SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
+                                      PipelineContext &ctx) override;
 
 private:
   // Factor of the original frame size to set the output resolution.
@@ -31,8 +31,8 @@ private:
   bool initialized_ = false;
 
   // Calculates the ideal crop box based on bounding boxes
-  cv::Rect calculate_target_roi(const cv::Size &input_size,
-                                const PipelineContext &ctx) const;
+  [[nodiscard]] cv::Rect calculate_target_roi(const cv::Size &input_size,
+                                              const PipelineContext &ctx) const;
 
   // Expands a rect to match the aspect ratio of the output size
   static cv::Rect fix_aspect_ratio(const cv::Rect &input,

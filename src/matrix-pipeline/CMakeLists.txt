@@ -2,16 +2,17 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(Boost REQUIRED COMPONENTS stacktrace_backtrace)
 find_package(CUDAToolkit)
-find_package(protobuf CONFIG REQUIRED)
 find_package(cppzmq CONFIG REQUIRED)
+find_package(cpr CONFIG REQUIRED)
 find_package(cxxopts REQUIRED)
-find_package(spdlog REQUIRED)
+find_package(Drogon CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(mosquitto REQUIRED)
+find_package(Microsoft.GSL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(Protobuf REQUIRED)
-find_package(cpr CONFIG REQUIRED)
-find_package(fmt CONFIG REQUIRED)
-find_package(Drogon CONFIG REQUIRED)
-find_package(Microsoft.GSL CONFIG REQUIRED)
+find_package(spdlog REQUIRED)
+
 
 # --- Find TensorRT ---
 find_path(TENSORRT_INCLUDE_DIR NvInfer.h

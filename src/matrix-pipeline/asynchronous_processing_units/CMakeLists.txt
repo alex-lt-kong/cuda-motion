@@ -48,4 +48,5 @@ target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         sface_overlay_bounding_boxes
         video_writer
         auto_zoom
+        yolo_publish_mqtt
 )

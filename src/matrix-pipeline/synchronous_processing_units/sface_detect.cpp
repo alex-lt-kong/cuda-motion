@@ -47,6 +47,8 @@ bool SfaceDetect::init(const nlohmann::json &config) {
                      m_unauthorized_enrollment_face_score_threshold);
     m_inference_face_score_threshold = config.value(
         "inferenceFaceScoreThreshold", m_inference_face_score_threshold);
+    m_inference_match_threshold =
+        config.value("inferenceMatchThreshold", m_inference_match_threshold);
 
     SPDLOG_INFO("Loading SFace model...");
     m_sface = cv::FaceRecognizerSF::create(m_model_path_sface, "",
@@ -66,16 +68,18 @@ bool SfaceDetect::init(const nlohmann::json &config) {
     m_inference_interval = std::chrono::milliseconds(
         config.value("inferenceIntervalMs", m_inference_interval.count()));
 
-    SPDLOG_INFO("gallery.size(): {}, inference_interval: {}ms, "
-                "authorized_enrollment_face_score_threshold: {}, "
-                "unauthorized_enrollment_face_score_threshold: {}, "
-                "inference_face_score_threshold: {}",
-                m_gallery.size(), m_inference_interval.count(),
-                m_authorized_enrollment_face_score_threshold,
-                m_unauthorized_enrollment_face_score_threshold,
-                m_inference_face_score_threshold.has_value()
-                    ? std::to_string(m_inference_face_score_threshold.value())
-                    : "nullopt");
+    SPDLOG_INFO(
+        "gallery.size(): {}, inference_interval: {}ms, "
+        "authorized_enrollment_face_score_threshold: {}, "
+        "unauthorized_enrollment_face_score_threshold: {}, "
+        "inference_face_score_threshold: {}, m_inference_match_threshold: {}",
+        m_gallery.size(), m_inference_interval.count(),
+        m_authorized_enrollment_face_score_threshold,
+        m_unauthorized_enrollment_face_score_threshold,
+        m_inference_face_score_threshold.has_value()
+            ? std::to_string(m_inference_face_score_threshold.value())
+            : "nullopt",
+        m_inference_match_threshold);
 
     return true;
 
@@ -265,7 +269,8 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
       }
     }
 
-    if (best_score_overall > m_match_threshold && best_identity_idx != -1) {
+    if (best_score_overall > m_inference_match_threshold &&
+        best_identity_idx != -1) {
       result.similarity_score = static_cast<float>(best_score_overall);
       result.matched_idx = best_identity_idx;
 

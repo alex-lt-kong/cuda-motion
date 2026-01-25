@@ -125,3 +125,13 @@ add_library(auto_zoom
 target_link_libraries(auto_zoom
         PUBLIC cuda_helper ${OpenCV_LIBS} nlohmann_json::nlohmann_json ${NVINFER_LIB} ${NVONNX_LIB} CUDA::cudart
         PRIVATE spdlog::spdlog)
+
+
+add_library(yolo_publish_mqtt
+        yolo_publish_mqtt.cpp yolo_publish_mqtt.h
+        ../interfaces/i_synchronous_processing_unit.h
+)
+target_include_directories(yolo_publish_mqtt PRIVATE ${MOSQUITTO_INCLUDE_DIRS})
+target_link_libraries(yolo_publish_mqtt
+        PUBLIC nlohmann_json::nlohmann_json ${MOSQUITTO_LIBRARIES}
+        PRIVATE spdlog::spdlog)

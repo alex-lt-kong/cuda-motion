@@ -1,0 +1,5 @@
+x64-linux/
+x64-linux/share/
+x64-linux/share/pthreads/
+x64-linux/share/pthreads/vcpkg.spdx.json
+x64-linux/share/pthreads/vcpkg_abi_info.txt

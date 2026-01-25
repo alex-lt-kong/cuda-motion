@@ -1,0 +1,12 @@
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+includedir=${prefix}/../include
+libdir=${exec_prefix}/lib
+
+Name: mosquittopp
+Description: mosquitto MQTT library (C++ bindings)
+Version: 2.0.22
+
+Libs: "-L${libdir}" -lmosquittopp
+Requires: libmosquitto
+Cflags: "-I${includedir}"
