@@ -17,7 +17,7 @@ include(cmake/compiler-flags.cmake)
 include(cmake/sanitizers.cmake)
 include(cmake/git.cmake)
 
-find_package(OpenCV REQUIRED)
+find_package(OpenCV REQUIRED COMPONENTS)
 include_directories(${OpenCV_INCLUDE_DIRS})
 message(STATUS "OpenCV found at: ${OpenCV_DIR}")
 message(STATUS "OpenCV_INCLUDE_DIRS: ${OpenCV_INCLUDE_DIRS}")

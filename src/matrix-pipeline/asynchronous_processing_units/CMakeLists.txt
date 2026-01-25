@@ -47,4 +47,5 @@ target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         sface_detect
         sface_overlay_bounding_boxes
         video_writer
+        auto_zoom
 )

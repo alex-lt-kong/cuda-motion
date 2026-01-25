@@ -13,7 +13,6 @@
 #include <vector>
 
 namespace MatrixPipeline::ProcessingUnit {
-
 bool YoloDetect::init(const njson &config) {
   try {
     if (!config.contains("modelPath")) {
@@ -335,6 +334,37 @@ YoloDetect::~YoloDetect() {
   if (m_cuda_stream) {
     cudaStreamDestroy(m_cuda_stream);
   }
+}
+
+BoundingBoxScaleParams
+YoloDetect::get_bounding_box_scale(const cv::cuda::GpuMat &frame,
+                                   const PipelineContext &ctx) {
+  BoundingBoxScaleParams params;
+  const auto scale_x =
+      static_cast<double>(ctx.yolo.inference_input_size.width) /
+      static_cast<double>(frame.cols);
+  const auto scale_y =
+      static_cast<double>(ctx.yolo.inference_input_size.height) /
+      static_cast<double>(frame.rows);
+  params.scale = std::min(scale_x, scale_y);
+  params.x_offset =
+      (ctx.yolo.inference_input_size.width - (frame.cols * params.scale)) / 2;
+  params.y_offset =
+      (ctx.yolo.inference_input_size.height - frame.rows * params.scale) / 2;
+
+  return params;
+}
+
+cv::Rect YoloDetect::get_scaled_bounding_box_coordinates(
+    const cv::Rect &orig_box, const BoundingBoxScaleParams &params) {
+  const float x_original = (orig_box.x - params.x_offset) / params.scale;
+  const float y_original = (orig_box.y - params.y_offset) / params.scale;
+  const float w_original = orig_box.width / params.scale;
+  const float h_original = orig_box.height / params.scale;
+  cv::Rect drawn_box(static_cast<int>(x_original), static_cast<int>(y_original),
+                     static_cast<int>(w_original),
+                     static_cast<int>(h_original));
+  return drawn_box;
 }
 
 } // namespace MatrixPipeline::ProcessingUnit

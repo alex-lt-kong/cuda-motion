@@ -64,8 +64,7 @@ add_library(yolo_prune_detection_results
 )
 target_link_libraries(yolo_prune_detection_results
         PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
-        PRIVATE spdlog::spdlog)
-
+        PRIVATE spdlog::spdlog yolo_detect)
 
 add_library(collect_stats
         collect_stats.cpp collect_stats.h
@@ -82,7 +81,7 @@ add_library(yolo_overlay_bounding_boxes
 )
 target_link_libraries(yolo_overlay_bounding_boxes
         PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
-        PRIVATE spdlog::spdlog)
+        PRIVATE spdlog::spdlog yolo_detect)
 
 add_library(overlay_info
         overlay_info.cpp overlay_info.h
@@ -117,4 +116,12 @@ add_library(sface_overlay_bounding_boxes
 )
 target_link_libraries(sface_overlay_bounding_boxes
         PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
+        PRIVATE spdlog::spdlog)
+
+add_library(auto_zoom
+        auto_zoom.cpp auto_zoom.h
+        ../interfaces/i_synchronous_processing_unit.h
+)
+target_link_libraries(auto_zoom
+        PUBLIC cuda_helper ${OpenCV_LIBS} nlohmann_json::nlohmann_json ${NVINFER_LIB} ${NVONNX_LIB} CUDA::cudart
         PRIVATE spdlog::spdlog)

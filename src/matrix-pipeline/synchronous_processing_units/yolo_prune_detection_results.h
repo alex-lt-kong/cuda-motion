@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../interfaces/i_synchronous_processing_unit.h"
+#include "yolo_detect.h"
 
 #include <nlohmann/json.hpp>
 #include <opencv2/cudaimgproc.hpp>
@@ -42,6 +43,7 @@ private:
 
   std::unordered_set<int> m_class_ids_of_interest;
 
+  std::optional<BoundingBoxScaleParams> m_scaling_params{std::nullopt};
   // Helper to parse a specific edge constraint from JSON
   static Range parse_constraint(const njson &constraints,
                                 const std::string &key);

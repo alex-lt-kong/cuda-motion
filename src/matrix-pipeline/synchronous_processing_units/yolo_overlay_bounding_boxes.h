@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../interfaces/i_synchronous_processing_unit.h"
+#include "yolo_detect.h"
 
 #include <opencv2/cudaimgproc.hpp>
 
@@ -56,6 +57,7 @@ private:
   cv::cuda::GpuMat m_d_overlay_canvas; // Device (GPU) Canvas
   cv::cuda::GpuMat m_d_overlay_gray;   // Intermediate Gray for masking
   cv::cuda::GpuMat d_overlay_mask;     // Final Mask
+  std::optional<BoundingBoxScaleParams> m_scaling_params{std::nullopt};
 };
 
 } // namespace MatrixPipeline::ProcessingUnit

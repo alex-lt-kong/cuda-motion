@@ -6,6 +6,7 @@
 #include "../entities/processing_units_variant.h"
 #include "../global_vars.h"
 #include "../interfaces/i_synchronous_processing_unit.h"
+#include "../synchronous_processing_units/auto_zoom.h"
 #include "../synchronous_processing_units/collect_stats.h"
 #include "../synchronous_processing_units/crop_frame.h"
 #include "../synchronous_processing_units/debug_output.h"
@@ -70,6 +71,8 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
       } else if (type ==
                  "SynchronousProcessingUnit::yoloOverlayBoundingBoxes") {
         ptr = std::make_unique<YoloOverlayBoundingBoxes>(m_unit_path);
+      } else if (type == "SynchronousProcessingUnit::autoZoom") {
+        ptr = std::make_unique<AutoZoom>(m_unit_path);
       } else if (type ==
                  "SynchronousProcessingUnit::sfaceOverlayBoundingBoxes") {
         ptr = std::make_unique<SFaceOverlayBoundingBoxes>(m_unit_path);

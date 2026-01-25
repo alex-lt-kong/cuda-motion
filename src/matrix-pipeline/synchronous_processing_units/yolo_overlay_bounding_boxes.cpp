@@ -1,10 +1,10 @@
 #include "yolo_overlay_bounding_boxes.h"
+#include "yolo_detect.h"
 
 #include <fmt/ranges.h>
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/imgproc.hpp>
-#include <spdlog/fmt/fmt.h>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
@@ -26,28 +26,11 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
   if (frame.empty() || ctx.yolo.indices.empty()) {
     return success_and_continue;
   }
-
+  if (!m_scaling_params.has_value())
+    m_scaling_params = YoloDetect::get_bounding_box_scale(frame, ctx);
   try {
-    // ---------------------------------------------------------
-    // 1. Calculate Inverse Letterbox Parameters
-    // ---------------------------------------------------------
-    // These must match the logic used in letterbox_resize@yolo_detect.cpp
-    const float scale_x =
-        static_cast<float>(ctx.yolo.inference_input_size.width) /
-        static_cast<float>(frame.cols);
-    const float scale_y =
-        static_cast<float>(ctx.yolo.inference_input_size.height) /
-        static_cast<float>(frame.rows);
-    const float scale = std::min(scale_x, scale_y);
+
     // Calculate the padding that was added to the model input
-    const int x_offset =
-        (ctx.yolo.inference_input_size.width -
-         static_cast<int>(static_cast<float>(frame.cols) * scale)) /
-        2;
-    const int y_offset =
-        (ctx.yolo.inference_input_size.height -
-         static_cast<int>(static_cast<float>(frame.rows) * scale)) /
-        2;
 
     // ---------------------------------------------------------
     // 2. Prepare CPU Canvas
@@ -63,31 +46,17 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
     // 3. Draw Detections
     // ---------------------------------------------------------
     for (const auto idx : ctx.yolo.indices) {
-      auto class_id = ctx.yolo.class_ids[idx];
-      const auto &raw_box = ctx.yolo.boxes[idx]; // Box in 640x640 space
+      const auto class_id = ctx.yolo.class_ids[idx];
+      const auto &orig_box = ctx.yolo.boxes[idx]; // Box in 640x640 space
       float conf = ctx.yolo.confidences[idx];
-
-      // --- TRANSFORM COORDINATES START ---
-      // Map from "Padded Model Space" back to "Original Image Space"
-      const float x_original = (raw_box.x - x_offset) / scale;
-      const float y_original = (raw_box.y - y_offset) / scale;
-      const float w_original = raw_box.width / scale;
-      const float h_original = raw_box.height / scale;
-
-      // Create the corrected box and clip it to frame boundaries to prevent
-      // crashes
-      cv::Rect drawn_box((int)x_original, (int)y_original, (int)w_original,
-                         (int)h_original);
-
-      // Safety clip: ensure box stays inside the 1920x1080 frame
+      auto drawn_box = YoloDetect::get_scaled_bounding_box_coordinates(
+          orig_box, m_scaling_params.value());
+      // clip the bounding box so that it stays strictly within the image
+      // boundaries.
       drawn_box &= cv::Rect(0, 0, frame.cols, frame.rows);
-      // --- TRANSFORM COORDINATES END ---
 
-      // Prepare Label
-      std::string label;
-      if (class_id >= m_class_names.size()) {
-        label = "Undefined";
-      } else {
+      std::string label = "Undefined";
+      if (class_id < m_class_names.size()) {
         label = m_class_names[class_id];
       }
 

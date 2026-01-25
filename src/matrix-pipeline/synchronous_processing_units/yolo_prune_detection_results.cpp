@@ -82,6 +82,8 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame,
                                    PipelineContext &ctx) {
   int img_w = frame.cols;
   int img_h = frame.rows;
+  if (!m_scaling_params.has_value())
+    m_scaling_params = YoloDetect::get_bounding_box_scale(frame, ctx);
 
   if (img_w == 0 || img_h == 0)
     return failure_and_continue;
@@ -165,66 +167,33 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame,
   if (box_count == 0)
     return success_and_continue;
 
-  const auto f_w = static_cast<double>(img_w);
-  const auto f_h = static_cast<double>(img_h);
-
   // Pre-calculate frame area for ratio checks
   double frame_area = static_cast<double>(img_w) * static_cast<double>(img_h);
 
   for (const auto idx : ctx.yolo.indices) {
     const cv::Rect &box = ctx.yolo.boxes[idx];
+    auto rect = YoloDetect::get_scaled_bounding_box_coordinates(
+        box, m_scaling_params.value());
+    // clip the bounding box so that it stays strictly within the image
+    // boundaries.
+    rect &= cv::Rect(0, 0, frame.cols, frame.rows);
 
-    // ---------------------------------------------------------
-    // 1. Calculate Inverse Letterbox Parameters
-    // ---------------------------------------------------------
-    // These must match the logic used in letterbox_resize@yolo_detect.cpp
-    const auto scale_x =
-        static_cast<double>(ctx.yolo.inference_input_size.width) /
-        static_cast<double>(frame.cols);
-    const auto scale_y =
-        static_cast<double>(ctx.yolo.inference_input_size.height) /
-        static_cast<double>(frame.rows);
-    const auto scale = std::min(scale_x, scale_y);
-    // Calculate the padding that was added to the model input
-    const int x_offset =
-        (ctx.yolo.inference_input_size.width -
-         static_cast<int>(static_cast<double>(frame.cols) * scale)) /
-        2;
-    const int y_offset =
-        (ctx.yolo.inference_input_size.height -
-         static_cast<int>(static_cast<double>(frame.rows) * scale)) /
-        2;
-
-    // --- A. Edge Logic (Corrected) ---
-
-    // 1. Transform from Letterbox Space -> Original Image Pixel Space
-    //    Formula: x_orig = (x_model - offset) / scale
-    double left_px = (box.x - x_offset) / scale;
-    double right_px = (box.x + box.width - x_offset) / scale;
-    double top_px = (box.y - y_offset) / scale;
-    double bottom_px = (box.y + box.height - y_offset) / scale;
-
-    // 2. Clamp values to be safe (prevent boxes slightly outside image due to
-    // rounding)
-    left_px = std::max(0.0, left_px);
-    right_px = std::min(f_w, right_px);
-    top_px = std::max(0.0, top_px);
-    bottom_px = std::min(f_h, bottom_px);
-
+    const auto f_w = static_cast<double>(img_w);
+    const auto f_h = static_cast<double>(img_h);
     // 3. Normalize (0.0 to 1.0)
-    const auto box_left = left_px / f_w;
-    const auto box_right = right_px / f_w;
-    const auto box_top = top_px / f_h;
-    const auto box_bottom = bottom_px / f_h;
+    const auto box_left = rect.x / f_w;
+    const auto box_right = (rect.x + rect.width) / f_w;
+    const auto box_top = rect.y / f_h;
+    const auto box_bottom = (rect.y + rect.height) / f_h;
 
-    bool valid_left = box_left >= m_left_constraint.min_val &&
-                      box_left <= m_left_constraint.max_val;
-    bool valid_right = box_right >= m_right_constraint.min_val &&
-                       box_right <= m_right_constraint.max_val;
-    bool valid_top = box_top >= m_top_constraint.min_val &&
-                     box_top <= m_top_constraint.max_val;
-    bool valid_bottom = box_bottom >= m_bottom_constraint.min_val &&
-                        box_bottom <= m_bottom_constraint.max_val;
+    const auto valid_left = box_left >= m_left_constraint.min_val &&
+                            box_left <= m_left_constraint.max_val;
+    const auto valid_right = box_right >= m_right_constraint.min_val &&
+                             box_right <= m_right_constraint.max_val;
+    const auto valid_top = box_top >= m_top_constraint.min_val &&
+                           box_top <= m_top_constraint.max_val;
+    const auto valid_bottom = box_bottom >= m_bottom_constraint.min_val &&
+                              box_bottom <= m_bottom_constraint.max_val;
 
     // --- B. Size Logic ---
     bool valid_size = true;

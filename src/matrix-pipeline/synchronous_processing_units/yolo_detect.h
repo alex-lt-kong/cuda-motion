@@ -11,6 +11,12 @@ namespace MatrixPipeline::ProcessingUnit {
 
 using namespace std::chrono_literals;
 
+struct BoundingBoxScaleParams {
+  double scale;
+  int x_offset;
+  int y_offset;
+};
+
 class YoloDetect final : public ISynchronousProcessingUnit {
 private:
   // --- TensorRT Smart Pointers ---
@@ -55,6 +61,12 @@ public:
 
   SynchronousProcessingResult process(cv::cuda::GpuMat &frame,
                                       PipelineContext &ctx) override;
+  static BoundingBoxScaleParams get_bounding_box_scale(const cv::cuda::GpuMat &,
+                                                       const PipelineContext &);
+
+  static cv::Rect
+  get_scaled_bounding_box_coordinates(const cv::Rect &orig_box,
+                                      const BoundingBoxScaleParams &params);
 };
 
 } // namespace MatrixPipeline::ProcessingUnit
