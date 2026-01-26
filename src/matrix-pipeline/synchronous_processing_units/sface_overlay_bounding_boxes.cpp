@@ -8,22 +8,19 @@
 namespace MatrixPipeline::ProcessingUnit {
 
 bool SFaceOverlayBoundingBoxes::init(const njson &config) {
+  identity_to_box_color_bgr[IdentityCategory::Unknown] = cv::Scalar(0, 0, 255);
+  identity_to_box_color_bgr[IdentityCategory::Unauthorized] =
+      cv::Scalar(0, 204, 255);
+  identity_to_box_color_bgr[IdentityCategory::Authorized] =
+      cv::Scalar(102, 204, 0);
+
   try {
-    std::srand(time(nullptr));
-    // we want the color to be on the dark side
-    m_box_color_bgr =
-        cv::Scalar(std::rand() % 127, std::rand() % 127, std::rand() % 127);
-    // This is white
-    m_text_color_bgr = cv::Scalar(255, 255, 255);
+    m_thickness = config.value("thickness", m_thickness);
+    m_label_font_scale = config.value("labelFontScale", m_label_font_scale);
+    m_font_thickness = config.value("fontThickness", m_font_thickness);
 
-    // 3. Parse geometric/font properties
-    m_thickness = config.value("thickness", 2);
-    m_label_font_scale = config.value("labelFontScale", 0.5);
-    m_font_thickness = config.value("fontThickness", 1);
-
-    SPDLOG_INFO("SFaceOverlay init - BoxColor: {{{},{},{}}}, Thickness: {}",
-                m_box_color_bgr[0], m_box_color_bgr[1], m_box_color_bgr[2],
-                m_thickness);
+    SPDLOG_INFO("thickness: {}, label_font_scale: {}", m_thickness,
+                m_label_font_scale);
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("Failed to init SFaceOverlayBoundingBoxes: {}", e.what());
@@ -34,13 +31,11 @@ bool SFaceOverlayBoundingBoxes::init(const njson &config) {
 SynchronousProcessingResult
 SFaceOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
                                    PipelineContext &ctx) {
-  // 1. Check if SFace results exist.
   // We also check YuNet because SFace results rely on YuNet geometry.
   if (ctx.sface.results.empty() || ctx.yunet.empty()) {
-    return SynchronousProcessingResult::failure_and_continue;
+    return failure_and_continue;
   }
 
-  // 2. Download to CPU for drawing
   cv::Mat cpu_frame;
   frame.download(cpu_frame);
 
@@ -55,15 +50,15 @@ SFaceOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
 
     // Convert Rect2f (float) to Rect (int) for cleaner pixel drawing
     cv::Rect box = detection.bbox;
-
     // Draw the bounding box
-    cv::rectangle(cpu_frame, box, m_box_color_bgr, m_thickness);
+    cv::rectangle(cpu_frame, box,
+                  identity_to_box_color_bgr[recognition.category], m_thickness);
 
-    // Prepare label: "Name (Score)"
-    // Using simple snprintf style or string concatenation if fmt isn't
-    // available, but assuming C++20/fmt based on your profile context.
-    std::string label = fmt::format("{} ({:.2f})", recognition.identity,
-                                    recognition.similarity_score);
+    std::string label = fmt::format(
+        "{} ({:.2f})",
+        recognition.category != IdentityCategory::Unknown ? recognition.identity
+                                                          : "?",
+        recognition.similarity_score);
 
     // Calculate text position (put it slightly above the box)
     int baseLine;
@@ -72,22 +67,22 @@ SFaceOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
                         m_font_thickness, &baseLine);
 
     int text_x = box.x;
-    int text_y = std::max(
-        box.y - 5, label_size.height); // Ensure it doesn't go off-screen top
+    // Ensure it doesn't go off-screen top
+    int text_y = std::max(box.y - 5, label_size.height);
 
+    // Draw label box
     cv::rectangle(cpu_frame, cv::Point(text_x, text_y - label_size.height),
                   cv::Point(text_x + label_size.width, text_y + baseLine),
-                  m_box_color_bgr, cv::FILLED);
-    // Draw Label Text (White)
+                  identity_to_box_color_bgr[recognition.category], cv::FILLED);
+    // Draw Label text
     cv::putText(cpu_frame, label, cv::Point(text_x, text_y),
                 cv::FONT_HERSHEY_SIMPLEX, m_label_font_scale, m_text_color_bgr,
                 m_font_thickness);
   }
 
-  // 4. Upload back to GPU
   frame.upload(cpu_frame);
 
-  return SynchronousProcessingResult::success_and_continue;
+  return success_and_continue;
 }
 
 } // namespace MatrixPipeline::ProcessingUnit

@@ -29,22 +29,11 @@ public:
                                       PipelineContext &ctx) override;
 
 private:
-  // --- Configuration Defaults ---
-  // These values are used if the config object is missing keys.
-
-  // Default: Lime Green (BGR: 0, 255, 0)
-  cv::Scalar m_box_color_bgr{0, 255, 0};
-
-  // Default: White (BGR: 255, 255, 255) for high contrast text
-  cv::Scalar m_text_color_bgr{255, 255, 255};
-
-  // Default: 2 pixels (Standard visibility)
+  std::unordered_map<IdentityCategory, cv::Scalar> identity_to_box_color_bgr;
+  const cv::Scalar m_text_color_bgr{255, 255, 255}; // white
   int m_thickness = 2;
-
   // Default: 0.6 (Legible on standard 720p/1080p streams)
   double m_label_font_scale = 0.6;
-
-  // Default: 1 (Standard font weight)
   int m_font_thickness = 1;
 };
 
