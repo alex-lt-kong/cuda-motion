@@ -170,18 +170,23 @@ void SfaceDetect::load_identities_from_folder(const std::string &folder_path,
       if (faces.rows < 1)
         continue;
 
-      // Extract confidence from YuNet result (index 14)
-      float confidence = faces.at<float>(0, 14);
-
-      // Check against the specific threshold for this category
+      const auto confidence = faces.at<float>(0, 14);
       if (confidence < threshold) {
         SPDLOG_WARN("Skipped {} (Score: {:.2f} < Threshold: {:.2f})",
                     img_entry.path().filename().string(), confidence,
                     threshold);
-
-        // Rename logic (omitted for brevity, but you can keep it here)
+        const auto &old_path = img_entry.path();
+        if (old_path.extension() == ".bak")
+          continue;
+        auto new_path = img_entry.path();
+        new_path += ".bak";
+        fs::rename(old_path, new_path);
+        SPDLOG_WARN("{} fs::rename()ed to {}", old_path.filename().string(),
+                    new_path.filename().string());
         continue;
       }
+      SPDLOG_INFO("Adding {} (Score: {:.2f} >= Threshold: {:.2f})",
+                  img_entry.path().filename().string(), confidence, threshold);
 
       cv::Mat aligned_face, feature_embedding;
       m_sface->alignCrop(img, faces.row(0), aligned_face);
