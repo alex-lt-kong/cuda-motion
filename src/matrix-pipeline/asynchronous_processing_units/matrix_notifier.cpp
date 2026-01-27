@@ -233,8 +233,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
         .detach();
     return;
   }
-  if (const auto roi_value =
-          calculate_roi_score(m_frames_queue.front().ctx.yolo);
+  if (const auto roi_value = calculate_roi_score(m_frames_queue.front().ctx);
       roi_value > m_max_roi_score) {
     m_max_roi_score_frame = m_frames_queue.front().frame;
     m_max_roi_score = roi_value;
@@ -248,13 +247,20 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
     m_current_video_without_detection_frames = 0;
 }
 
-float MatrixNotifier::calculate_roi_score(const YoloContext &yolo) {
+float MatrixNotifier::calculate_roi_score(const PipelineContext &ctx) {
+  const auto yolo = ctx.yolo;
   float roi_value = 0.0;
   for (const auto idx : yolo.indices) {
     if (yolo.class_ids[idx] == 0 && yolo.is_detection_interesting[idx]) {
       roi_value += yolo.boxes[idx].area() * yolo.confidences[idx] *
                    pow(yolo.indices.size(), 0.5);
     }
+  }
+
+  for (size_t i = 0; i < ctx.sface.results.size(); ++i) {
+    roi_value += ctx.yunet[i].bbox.area() *
+                 ctx.sface.results[i].similarity_score *
+                 m_identity_to_weight_map.at(ctx.sface.results[i].category);
   }
   return roi_value;
 }

@@ -26,6 +26,10 @@ class MatrixNotifier final
   double m_activation_min_frame_change_rate{0.1};
   double m_maintenance_min_frame_change_rate{0.01};
   std::chrono::seconds m_video_max_length{60};
+  static inline std::unordered_map<IdentityCategory, float>
+      m_identity_to_weight_map = {{IdentityCategory::Unknown, 1.0},
+                                  {IdentityCategory::Unauthorized, 1.414},
+                                  {IdentityCategory::Authorized, 1.732}};
   // using second as unit is more user-friendly but impose significant
   // difficulty on implementation. The problem is that there are two FPSes, one
   // from the video feed, which is dynamic; the other from videoWriter, which is
@@ -56,7 +60,7 @@ class MatrixNotifier final
                     [[maybe_unused]] const PipelineContext &ctx,
                     bool is_detection_interesting);
 
-  static float calculate_roi_score(const YoloContext &yolo);
+  static float calculate_roi_score(const PipelineContext &ctx);
   static void
   finalize_video_then_send_out(std::string,
                                const std::shared_ptr<MatrixNotifier>);
