@@ -31,10 +31,10 @@ public:
 private:
   std::unordered_map<IdentityCategory, cv::Scalar> identity_to_box_color_bgr;
   const cv::Scalar m_text_color_bgr{255, 255, 255}; // white
-  int m_thickness = 2;
+  int m_bounding_box_border_thickness = 2;
   // Default: 0.6 (Legible on standard 720p/1080p streams)
   double m_label_font_scale = 0.6;
-  int m_font_thickness = 1;
+  int m_label_font_thickness = 1;
 };
 
 } // namespace MatrixPipeline::ProcessingUnit
