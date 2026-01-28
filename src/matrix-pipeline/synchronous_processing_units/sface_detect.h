@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../interfaces/i_synchronous_processing_unit.h"
+#include "yunet_detect.h"
 
 #include <opencv2/objdetect.hpp>
 #include <string>
@@ -30,6 +31,7 @@ private:
   cv::Ptr<cv::FaceRecognizerSF> m_sface;
 
   // Configs
+  YuNetDetect m_yunet{m_unit_path};
   double m_authorized_enrollment_face_score_threshold{0.93};
   double m_unauthorized_enrollment_face_score_threshold{0.60};
   std::optional<double> m_inference_face_score_threshold{std::nullopt};

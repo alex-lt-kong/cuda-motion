@@ -15,7 +15,7 @@ bool SfaceDetect::init(const nlohmann::json &config) {
 
   try {
 
-    if (const auto key = "modelPathSface"; config.contains(key)) {
+    if (const auto key = "modelPath"; config.contains(key)) {
       m_model_path_sface = config[key].get<std::string>();
     } else {
       SPDLOG_ERROR("{} undefined", key);
@@ -26,10 +26,11 @@ bool SfaceDetect::init(const nlohmann::json &config) {
       return false;
     }
 
-    if (const auto key = "modelPathYunet"; config.contains(key)) {
-      m_model_path_yunet = config[key].get<std::string>();
+    if (const auto key = njson::json_pointer("/yuNet/modelPath");
+        config.contains(key)) {
+      m_model_path_yunet = config.at(key).get<std::string>();
     } else {
-      SPDLOG_ERROR("{} undefined", key);
+      SPDLOG_ERROR("{} undefined", key.to_string());
       return false;
     }
     if (const auto key = "galleryDirectory"; config.contains(key)) {
@@ -38,7 +39,10 @@ bool SfaceDetect::init(const nlohmann::json &config) {
       SPDLOG_ERROR("{} undefined", key);
       return false;
     }
-
+    if (!m_yunet.init(config["yuNet"])) {
+      SPDLOG_ERROR("m_yunet.init() init failed");
+      return false;
+    }
     m_authorized_enrollment_face_score_threshold =
         config.value("authorizedEnrollmentFaceScoreThreshold",
                      m_authorized_enrollment_face_score_threshold);
@@ -209,16 +213,20 @@ void SfaceDetect::load_identities_from_folder(const std::string &folder_path,
 
 SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
+  /*
   if (std::chrono::steady_clock::now() - m_last_inference_at <
       m_inference_interval) {
     ctx.yunet_sface = m_prev_yunet_sface_ctx;
     return failure_and_continue;
   }
-  m_last_inference_at = std::chrono::steady_clock::now();
-
-  // ctx.yunet_sface.results.clear();
-  if (ctx.yunet_sface.results.empty())
+  */
+  // m_last_inference_at = std::chrono::steady_clock::now();
+  ctx.yunet_sface.results.clear();
+  if (m_yunet.process(frame, ctx) != success_and_continue)
     return failure_and_continue;
+
+  if (ctx.yunet_sface.results.empty())
+    return success_and_continue;
 
   cv::Mat frame_cpu;
   try {

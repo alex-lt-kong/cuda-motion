@@ -8,8 +8,9 @@ bool YuNetDetect::init(const njson &config) {
   try {
     const auto model_path = config.value("modelPath", "");
     m_score_threshold = config.value("scoreThreshold", m_score_threshold);
-    m_inference_interval = std::chrono::milliseconds(
-        config.value("inferenceIntervalMs", m_inference_interval.count()));
+    // m_inference_interval =
+    // std::chrono::milliseconds(config.value("inferenceIntervalMs",
+    // m_inference_interval.count()));
     m_nms_threshold = config.value("nmsThreshold", m_nms_threshold);
     m_top_k = config.value("topK", m_top_k);
 
@@ -23,10 +24,8 @@ bool YuNetDetect::init(const njson &config) {
         model_path, "", cv::Size(1, 1), m_score_threshold, m_nms_threshold,
         m_top_k, cv::dnn::DNN_BACKEND_CUDA, cv::dnn::DNN_TARGET_CUDA);
 
-    SPDLOG_INFO("model_path: {}, inference_interval(ms): {}, score_threshold: "
-                "{}, top_k: {}",
-                model_path, m_inference_interval.count(), m_score_threshold,
-                m_top_k);
+    SPDLOG_INFO("model_path: {}, score_threshold: {}, top_k: {}", model_path,
+                m_score_threshold, m_top_k);
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("e.what(): {}", e.what());
@@ -36,17 +35,13 @@ bool YuNetDetect::init(const njson &config) {
 
 SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
-  if (std::chrono::steady_clock::now() - m_last_inference_at <
-      m_inference_interval) {
-    ctx.yunet_sface = m_prev_ctx_yunet_sface;
-    return success_and_continue;
-  }
+
   m_last_inference_at = std::chrono::steady_clock::now();
   ctx.yunet_sface.results.clear();
+  ctx.yunet_sface.yunet_input_frame_size = frame.size();
   if (m_detector->getInputSize() != frame.size()) {
     m_detector->setInputSize(frame.size());
   }
-  ctx.yunet_sface.yunet_input_frame_size = frame.size();
   // 2. Optimized Download using Pinned Memory
   // This bypasses the extra internal copy the driver usually makes
   frame.download(m_pinned_buffer);
@@ -85,7 +80,6 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
     }
   }
 
-  m_prev_ctx_yunet_sface = ctx.yunet_sface;
   return success_and_continue;
 }
 

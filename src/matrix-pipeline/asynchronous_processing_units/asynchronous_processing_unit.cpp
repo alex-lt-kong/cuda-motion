@@ -63,9 +63,10 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
         ptr = std::make_shared<HttpService>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::yoloDetect") {
         ptr = std::make_unique<YoloDetect>(m_unit_path);
-      } else if (type == "SynchronousProcessingUnit::yuNetDetect") {
+      } /*else if (type == "SynchronousProcessingUnit::yuNetDetect") {
         ptr = std::make_unique<YuNetDetect>(m_unit_path);
-      } else if (type == "SynchronousProcessingUnit::sfaceDetect") {
+      } */
+      else if (type == "SynchronousProcessingUnit::sfaceDetect") {
         ptr = std::make_unique<SfaceDetect>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::yuNetOverlayLandmarks") {
         ptr = std::make_unique<YuNetOverlayLandmarks>(m_unit_path);
