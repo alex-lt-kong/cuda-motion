@@ -8,10 +8,11 @@ namespace MatrixPipeline::ProcessingUnit {
 [[nodiscard]] SynchronousProcessingResult
 DebugOutput::process([[maybe_unused]] cv::cuda::GpuMat &frame,
                      PipelineContext &ctx) {
-  if (!ctx.yunet.empty())
-    SPDLOG_INFO(
-        "frame_seq_num: {}, ctx.yolo.indices.size(): {}, ctx.yunet.size(): {}",
-        ctx.frame_seq_num, ctx.yolo.indices.size(), ctx.yunet.size());
+  if (!ctx.yunet_sface.results.empty())
+    SPDLOG_INFO("frame_seq_num: {}, ctx.yolo.indices.size(): {}, "
+                "ctx.yunet_sface.size(): {}",
+                ctx.frame_seq_num, ctx.yolo.indices.size(),
+                ctx.yunet_sface.results.size());
   return success_and_continue;
 }
 

@@ -161,7 +161,7 @@ void YoloDetect::post_process_yolo(PipelineContext &ctx) const {
   // 3. Reset Context Data
   ctx.yolo.class_ids.clear();
   ctx.yolo.confidences.clear();
-  ctx.yolo.boxes.clear();
+  ctx.yolo.bounding_boxes.clear();
   ctx.yolo.is_detection_interesting.clear(); // Important to clear this too
 
   // 4. Iterate over rows (anchors)
@@ -186,7 +186,7 @@ void YoloDetect::post_process_yolo(PipelineContext &ctx) const {
       float h = row_ptr[3];
       float left = cx - (0.5f * w);
       float top = cy - (0.5f * h);
-      ctx.yolo.boxes.emplace_back(left, top, w, h);
+      ctx.yolo.bounding_boxes.emplace_back(left, top, w, h);
       ctx.yolo.confidences.push_back(static_cast<float>(max_class_score));
       ctx.yolo.class_ids.push_back(class_id_point.x);
       ctx.yolo.is_detection_interesting.push_back(false);
@@ -195,7 +195,7 @@ void YoloDetect::post_process_yolo(PipelineContext &ctx) const {
 
   // 5. NMS
   ctx.yolo.indices.clear();
-  cv::dnn::NMSBoxes(ctx.yolo.boxes, ctx.yolo.confidences,
+  cv::dnn::NMSBoxes(ctx.yolo.bounding_boxes, ctx.yolo.confidences,
                     m_confidence_threshold, m_nms_thres, ctx.yolo.indices);
 }
 

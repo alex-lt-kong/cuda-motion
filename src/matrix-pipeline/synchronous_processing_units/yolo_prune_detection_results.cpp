@@ -159,7 +159,7 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame,
   // ---------------------------------------------------------
   // 2. LOGIC (Filter Boxes) - Updated with Size Check
   // ---------------------------------------------------------
-  const size_t box_count = ctx.yolo.boxes.size();
+  const size_t box_count = ctx.yolo.bounding_boxes.size();
   if (ctx.yolo.is_detection_interesting.size() != box_count) {
     ctx.yolo.is_detection_interesting = std::vector<short>(box_count);
   }
@@ -171,7 +171,7 @@ YoloPruneDetectionResults::process(cv::cuda::GpuMat &frame,
   double frame_area = static_cast<double>(img_w) * static_cast<double>(img_h);
 
   for (const auto idx : ctx.yolo.indices) {
-    const cv::Rect &box = ctx.yolo.boxes[idx];
+    const cv::Rect &box = ctx.yolo.bounding_boxes[idx];
     auto rect = YoloDetect::get_scaled_bounding_box_coordinates(
         box, m_scaling_params.value());
     // clip the bounding box so that it stays strictly within the image

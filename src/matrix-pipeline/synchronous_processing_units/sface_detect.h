@@ -39,7 +39,7 @@ private:
   float m_inference_match_threshold{0.363};
   std::chrono::milliseconds m_inference_interval{100};
   std::chrono::time_point<std::chrono::steady_clock> m_last_inference_at;
-  SFaceContext m_prev_sface_ctx;
+  YuNetSFaceContext m_prev_yunet_sface_ctx;
   std::vector<Identity> m_gallery;
 
   // Helper: Returns false if gallery cannot be populated

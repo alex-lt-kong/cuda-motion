@@ -72,7 +72,7 @@ cv::Rect AutoZoom::calculate_target_roi(const cv::Size &input_size,
   cv::Rect union_rect(0, 0, input_size.width, input_size.height);
   bool valid_box_found = false;
 
-  if (!ctx.yolo.boxes.empty()) {
+  if (!ctx.yolo.bounding_boxes.empty()) {
     int min_x = input_size.width, min_y = input_size.height;
     int max_x = 0, max_y = 0;
 
@@ -80,7 +80,7 @@ cv::Rect AutoZoom::calculate_target_roi(const cv::Size &input_size,
       if (!ctx.yolo.is_detection_interesting[idx])
         continue;
       const auto scaled_box = YoloDetect::get_scaled_bounding_box_coordinates(
-          ctx.yolo.boxes[idx], m_bounding_box_scale_params.value());
+          ctx.yolo.bounding_boxes[idx], m_bounding_box_scale_params.value());
 
       if (scaled_box.width <= 0 || scaled_box.height <= 0)
         continue;
@@ -230,7 +230,7 @@ void AutoZoom::update_current_roi(const cv::Rect &target_roi) {
   if (m_current_roi.x < 0)
     m_current_roi.x = 0;
   // Note: target_output_size_ isn't the limit, the input frame size is.
-  // Assuming you have access to input_frame_size here (or store it in the
+  // Assuming you have access to yunet_input_frame_size here (or store it in the
   // class) If not, you might need to pass it or store it in `init/process`. For
   // now, assuming standard clamping logic:
   /*

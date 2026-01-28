@@ -30,7 +30,7 @@ private:
   cv::Size target_output_size_; // The fixed resolution downstream expects
   bool initialized_ = false;
 
-  // Calculates the ideal crop box based on bounding boxes
+  // Calculates the ideal crop box based on bounding bounding_boxes
   [[nodiscard]] cv::Rect calculate_target_roi(const cv::Size &input_size,
                                               const PipelineContext &ctx) const;
 

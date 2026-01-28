@@ -37,26 +37,23 @@ SynchronousProcessingResult
 SFaceOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
                                    PipelineContext &ctx) {
   // We also check YuNet because SFace results rely on YuNet geometry.
-  if (ctx.sface.results.empty() || ctx.yunet.empty()) {
+  if (ctx.yunet_sface.results.empty()) {
     return failure_and_continue;
   }
 
   cv::Mat cpu_frame;
   frame.download(cpu_frame);
 
-  // 3. Iterate via index to access both Identity (SFace) and Geometry (YuNet)
-  // We use the smaller size to prevent out-of-bounds access if synchronization
-  // failed
-  size_t count = std::min(ctx.sface.results.size(), ctx.yunet.size());
-
-  for (size_t i = 0; i < count; ++i) {
-    const auto &recognition = ctx.sface.results[i];
-    const auto &detection = ctx.yunet[i];
+  for (size_t i = 0; i < ctx.yunet_sface.results.size(); ++i) {
+    if (!ctx.yunet_sface.results[i].recognition.has_value())
+      return failure_and_continue;
+    const auto &recognition = ctx.yunet_sface.results[i].recognition.value();
+    const auto &detection = ctx.yunet_sface.results[i].detection;
 
     // Convert Rect2f (float) to Rect (int) for cleaner pixel drawing
-    cv::Rect box = detection.bbox;
+    const cv::Rect bounding_box = detection.bounding_box;
     // Draw the bounding box
-    cv::rectangle(cpu_frame, box,
+    cv::rectangle(cpu_frame, bounding_box,
                   identity_to_box_color_bgr[recognition.category],
                   m_bounding_box_border_thickness);
 
@@ -73,9 +70,9 @@ SFaceOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
           cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, m_label_font_scale,
                           m_label_font_thickness, &baseLine);
 
-      const auto label_x = box.x;
+      const auto label_x = bounding_box.x;
       // Ensure it doesn't go off-screen top
-      const auto label_y = std::max(box.y - 5, label_size.height);
+      const auto label_y = std::max(bounding_box.y - 5, label_size.height);
 
       // Draw label box
       cv::rectangle(cpu_frame, cv::Point(label_x, label_y - label_size.height),

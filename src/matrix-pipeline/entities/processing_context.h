@@ -12,32 +12,38 @@ struct DeviceInfo {
 
 enum class IdentityCategory { Unknown, Authorized, Unauthorized };
 
-struct FaceRecognitionResult {
+struct SFaceRecognition {
   cv::Mat embedding;      // The 128-d vector
   std::string identity;   // "Unknown" or matched name
   float similarity_score; // Cosine distance
   int matched_idx;        // Index in your gallery (optional)
   IdentityCategory category = IdentityCategory::Unknown;
 };
-
-struct SFaceContext {
-  // 1-to-1 mapping with YuNetContext: yunet[i] corresponds to results[i]
-  std::vector<FaceRecognitionResult> results;
-};
-
-struct FaceDetection {
-  cv::Mat face;
-  cv::Rect2f bbox;
+struct YuNetDetection {
+  // we need this raw output because cv::FaceRecognizerSF::alignCrop() expects
+  // it as an input
+  cv::Mat yunet_output;
+  cv::Rect2f bounding_box;
   std::array<cv::Point2f, 5> landmarks; // 5 points: eyes, nose, mouth corners
   float confidence;
 };
-using YuNetContext = std::vector<FaceDetection>;
+
+struct YuNetSFaceResult {
+  YuNetDetection detection;
+  std::optional<SFaceRecognition> recognition;
+};
+
+struct YuNetSFaceContext {
+  cv::Size2i yunet_input_frame_size;
+  std::vector<YuNetSFaceResult> results;
+};
 
 struct YoloContext {
   cv::Size inference_input_size;
-  std::vector<cv::Rect> boxes;
+  std::vector<cv::Rect> bounding_boxes;
   std::vector<size_t> class_ids;
   std::vector<short> is_detection_interesting;
+  // Must be float as mandated by cv::dnn::NMSBoxes
   std::vector<float> confidences;
   std::vector<int> indices;
 };
@@ -57,7 +63,7 @@ struct PipelineContext {
   std::chrono::steady_clock::time_point latency_start_time;
 
   YoloContext yolo;
-  YuNetContext yunet;
-  SFaceContext sface;
+  YuNetSFaceContext yunet_sface;
+  // SFaceContext sface;
 };
 } // namespace MatrixPipeline::ProcessingUnit

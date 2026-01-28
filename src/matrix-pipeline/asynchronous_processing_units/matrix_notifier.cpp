@@ -247,20 +247,30 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
     m_current_video_without_detection_frames = 0;
 }
 
-float MatrixNotifier::calculate_roi_score(const PipelineContext &ctx) {
-  const auto yolo = ctx.yolo;
-  float roi_value = 0.0;
+double MatrixNotifier::calculate_roi_score(const PipelineContext &ctx) {
+  const auto &yolo = ctx.yolo;
+  double roi_value = 0.0;
   for (const auto idx : yolo.indices) {
+
     if (yolo.class_ids[idx] == 0 && yolo.is_detection_interesting[idx]) {
-      roi_value += yolo.boxes[idx].area() * yolo.confidences[idx] *
+      const auto normalized_area =
+          static_cast<double>(yolo.bounding_boxes[idx].area()) /
+          yolo.inference_input_size.area();
+      roi_value += normalized_area * yolo.confidences[idx] *
                    pow(yolo.indices.size(), 0.5);
     }
   }
 
-  for (size_t i = 0; i < ctx.sface.results.size(); ++i) {
-    roi_value += ctx.yunet[i].bbox.area() *
-                 ctx.sface.results[i].similarity_score *
-                 m_identity_to_weight_map.at(ctx.sface.results[i].category);
+  for (const auto &[detection, recognition] : ctx.yunet_sface.results) {
+    if (!recognition.has_value())
+      continue;
+    constexpr float face_recognition_weight = 3.14;
+    const auto normalized_area =
+        detection.bounding_box.area() /
+        static_cast<float>(ctx.yunet_sface.yunet_input_frame_size.area());
+    roi_value += normalized_area * recognition->similarity_score *
+                 m_identity_to_weight_map.at(recognition->category) *
+                 face_recognition_weight;
   }
   return roi_value;
 }

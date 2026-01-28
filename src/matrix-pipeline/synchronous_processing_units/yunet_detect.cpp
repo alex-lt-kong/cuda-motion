@@ -23,9 +23,10 @@ bool YuNetDetect::init(const njson &config) {
         model_path, "", cv::Size(1, 1), m_score_threshold, m_nms_threshold,
         m_top_k, cv::dnn::DNN_BACKEND_CUDA, cv::dnn::DNN_TARGET_CUDA);
 
-    SPDLOG_INFO(
-        "model_path: {}, inference_interval(ms): {}, score_threshold: {}",
-        model_path, m_inference_interval.count(), m_score_threshold);
+    SPDLOG_INFO("model_path: {}, inference_interval(ms): {}, score_threshold: "
+                "{}, top_k: {}",
+                model_path, m_inference_interval.count(), m_score_threshold,
+                m_top_k);
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("e.what(): {}", e.what());
@@ -37,14 +38,15 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
   if (std::chrono::steady_clock::now() - m_last_inference_at <
       m_inference_interval) {
-    ctx.yunet = m_prev_yunet_ctx;
+    ctx.yunet_sface = m_prev_ctx_yunet_sface;
     return success_and_continue;
   }
   m_last_inference_at = std::chrono::steady_clock::now();
-
+  ctx.yunet_sface.results.clear();
   if (m_detector->getInputSize() != frame.size()) {
     m_detector->setInputSize(frame.size());
   }
+  ctx.yunet_sface.yunet_input_frame_size = frame.size();
   // 2. Optimized Download using Pinned Memory
   // This bypasses the extra internal copy the driver usually makes
   frame.download(m_pinned_buffer);
@@ -55,35 +57,35 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
   cv::Mat faces;
   m_detector->detect(h_frame, faces);
 
-  // 3. Parse raw results into structured C++20/23 types
-  YuNetContext detections;
   if (!faces.empty()) {
-    detections.reserve(faces.rows); // Prevent multiple reallocations
-
     for (int i = 0; i < faces.rows; ++i) {
-      FaceDetection face_data;
-      face_data.face = faces.row(i);
+      YuNetDetection detection;
+      // The raw output, we need this because cv::FaceRecognizerSF::alignCrop()
+      // expects it as an input
+      detection.yunet_output = faces.row(i);
       // [0-3]: Bounding Box (x, y, width, height)
-      face_data.bbox = cv::Rect2f(faces.at<float>(i, 0), faces.at<float>(i, 1),
-                                  faces.at<float>(i, 2), faces.at<float>(i, 3));
+      detection.bounding_box =
+          cv::Rect2f(faces.at<float>(i, 0), faces.at<float>(i, 1),
+                     faces.at<float>(i, 2), faces.at<float>(i, 3));
 
       // [4-13]: Landmarks (5 points)
       for (int j = 0; j < 5; ++j) {
         // FIXED: Using index 'j' for landmarks, not 'i'
-        face_data.landmarks[j] = {faces.at<float>(i, 4 + j * 2),
+        detection.landmarks[j] = {faces.at<float>(i, 4 + j * 2),
                                   faces.at<float>(i, 5 + j * 2)};
       }
 
       // [14]: Confidence score
-      face_data.confidence = faces.at<float>(i, 14);
+      detection.confidence = faces.at<float>(i, 14);
 
-      detections.push_back(std::move(face_data));
+      YuNetSFaceResult res;
+      res.detection = std::move(detection);
+      res.recognition = std::nullopt;
+      ctx.yunet_sface.results.push_back(std::move(res));
     }
   }
 
-  // 4. Save to context
-  ctx.yunet = std::move(detections);
-  m_prev_yunet_ctx = ctx.yunet;
+  m_prev_ctx_yunet_sface = ctx.yunet_sface;
   return success_and_continue;
 }
 

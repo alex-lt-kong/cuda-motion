@@ -47,7 +47,8 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
     // ---------------------------------------------------------
     for (const auto idx : ctx.yolo.indices) {
       const auto class_id = ctx.yolo.class_ids[idx];
-      const auto &orig_box = ctx.yolo.boxes[idx]; // Box in 640x640 space
+      const auto &orig_box =
+          ctx.yolo.bounding_boxes[idx]; // Box in 640x640 space
       float conf = ctx.yolo.confidences[idx];
       auto drawn_box = YoloDetect::get_scaled_bounding_box_coordinates(
           orig_box, m_scaling_params.value());

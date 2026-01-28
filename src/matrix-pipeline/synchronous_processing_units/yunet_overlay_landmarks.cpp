@@ -28,8 +28,8 @@ bool YuNetOverlayLandmarks::init(const njson &config) {
 SynchronousProcessingResult
 YuNetOverlayLandmarks::process(cv::cuda::GpuMat &frame, PipelineContext &ctx) {
   // 1. Check if YuNet data exists in context
-  if (ctx.yunet.empty()) {
-    return SynchronousProcessingResult::failure_and_continue;
+  if (ctx.yunet_sface.results.empty()) {
+    return failure_and_continue;
   }
 
   // 2. OpenCV drawing functions require CPU Mat.
@@ -38,8 +38,8 @@ YuNetOverlayLandmarks::process(cv::cuda::GpuMat &frame, PipelineContext &ctx) {
   frame.download(cpu_frame);
 
   // 3. Iterate through detected faces and draw landmarks
-  for (const auto &face : ctx.yunet) {
-    for (const auto &landmark : face.landmarks) {
+  for (const auto &result : ctx.yunet_sface.results) {
+    for (const auto &landmark : result.detection.landmarks) {
       // Draw a circle for each of the 5 points (eyes, nose, mouth corners)
       cv::circle(cpu_frame, landmark, m_radius, m_landmark_color_bgr,
                  m_thickness);
@@ -49,7 +49,7 @@ YuNetOverlayLandmarks::process(cv::cuda::GpuMat &frame, PipelineContext &ctx) {
   // 4. Upload the modified frame back to GPU
   frame.upload(cpu_frame);
 
-  return SynchronousProcessingResult::success_and_continue;
+  return success_and_continue;
 }
 
 } // namespace MatrixPipeline::ProcessingUnit

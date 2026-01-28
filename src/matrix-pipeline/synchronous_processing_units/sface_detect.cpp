@@ -211,13 +211,13 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
   if (std::chrono::steady_clock::now() - m_last_inference_at <
       m_inference_interval) {
-    ctx.sface = m_prev_sface_ctx;
+    ctx.yunet_sface = m_prev_yunet_sface_ctx;
     return failure_and_continue;
   }
   m_last_inference_at = std::chrono::steady_clock::now();
 
-  ctx.sface.results.clear();
-  if (ctx.yunet.empty())
+  // ctx.yunet_sface.results.clear();
+  if (ctx.yunet_sface.results.empty())
     return failure_and_continue;
 
   cv::Mat frame_cpu;
@@ -229,21 +229,22 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
     return success_and_continue;
   }
 
-  for (const auto &detection : ctx.yunet) {
-    // Basic confidence check for inference
+  for (auto &result : ctx.yunet_sface.results) {
+    result.recognition = std::nullopt;
     if (m_inference_face_score_threshold.has_value() &&
-        detection.confidence < m_inference_face_score_threshold.value()) {
+        result.detection.confidence <
+            m_inference_face_score_threshold.value()) {
       continue;
     }
 
-    FaceRecognitionResult result;
-    result.identity = "Unknown";
-    result.similarity_score = std::numeric_limits<float>::quiet_NaN();
-    result.matched_idx = -1;
-    result.category = IdentityCategory::Unknown; // Default
+    SFaceRecognition recognition;
+    recognition.identity = "Unknown";
+    recognition.similarity_score = std::numeric_limits<float>::quiet_NaN();
+    recognition.matched_idx = -1;
+    recognition.category = IdentityCategory::Unknown; // Default
 
     cv::Mat aligned_face;
-    m_sface->alignCrop(frame_cpu, detection.face, aligned_face);
+    m_sface->alignCrop(frame_cpu, result.detection.yunet_output, aligned_face);
 
     if (aligned_face.empty())
       continue;
@@ -254,7 +255,7 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
     cv::normalize(probe_embedding, normalized_probe_embedding, 1, 0,
                   cv::NORM_L2);
 
-    result.embedding = normalized_probe_embedding.clone();
+    recognition.embedding = normalized_probe_embedding.clone();
 
     double best_score_overall = -1.0;
     int best_identity_idx = -1;
@@ -280,19 +281,19 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
 
     if (best_score_overall > m_inference_match_threshold &&
         best_identity_idx != -1) {
-      result.similarity_score = static_cast<float>(best_score_overall);
-      result.matched_idx = best_identity_idx;
+      recognition.similarity_score = static_cast<float>(best_score_overall);
+      recognition.matched_idx = best_identity_idx;
 
       // Fill the identity info
       const auto &matched_identity = m_gallery[best_identity_idx];
-      result.identity = matched_identity.name;
-      result.category = matched_identity.category; // Set the category
+      recognition.identity = matched_identity.name;
+      recognition.category = matched_identity.category; // Set the category
     }
 
-    ctx.sface.results.push_back(result);
+    result.recognition = recognition;
   }
 
-  m_prev_sface_ctx = ctx.sface;
+  m_prev_yunet_sface_ctx = ctx.yunet_sface;
   return success_and_continue;
 }
 

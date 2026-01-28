@@ -181,18 +181,18 @@ YoloPublishMqtt::process([[maybe_unused]] cv::cuda::GpuMat &frame,
   using namespace std::chrono;
 
   njson payload;
-  payload["boxes"] = {};
+  payload["bounding_boxes"] = {};
   for (const auto idx : ctx.yolo.indices) {
     if (!ctx.yolo.is_detection_interesting[idx])
       continue;
     njson box;
-    box["x"] = ctx.yolo.boxes[idx].x;
-    box["y"] = ctx.yolo.boxes[idx].y;
-    box["w"] = ctx.yolo.boxes[idx].width;
-    box["h"] = ctx.yolo.boxes[idx].height;
-    payload["boxes"].push_back(box);
+    box["x"] = ctx.yolo.bounding_boxes[idx].x;
+    box["y"] = ctx.yolo.bounding_boxes[idx].y;
+    box["w"] = ctx.yolo.bounding_boxes[idx].width;
+    box["h"] = ctx.yolo.bounding_boxes[idx].height;
+    payload["bounding_boxes"].push_back(box);
   }
-  if (payload["boxes"].empty())
+  if (payload["bounding_boxes"].empty())
     return success_and_continue;
 
   payload["unix_time_ms"] =

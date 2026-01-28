@@ -11,15 +11,19 @@ class YuNetDetect : public ISynchronousProcessingUnit {
 private:
   cv::Ptr<cv::FaceDetectorYN> m_detector;
 
-  // Internal variables follow snake_case
   float m_score_threshold = 0.9f;
   float m_nms_threshold = 0.3f;
-  int m_top_k = 5000;
+  // m_top_k typical ranges:
+  // Industry Standard (Typical)  400 - 1,000
+  // Dense Crowd Analysis	  2,000 - 5,000
+  // Real-time / Embedded	  50 - 100
+  // Aggressive Filtering	  10 - 20
+  int m_top_k = 100;
   cv::cuda::HostMem m_pinned_buffer;
   bool m_disabled{false};
   std::chrono::milliseconds m_inference_interval{100};
   std::chrono::time_point<std::chrono::steady_clock> m_last_inference_at;
-  YuNetContext m_prev_yunet_ctx;
+  YuNetSFaceContext m_prev_ctx_yunet_sface;
 
 public:
   explicit YuNetDetect(const std::string &unit_path)

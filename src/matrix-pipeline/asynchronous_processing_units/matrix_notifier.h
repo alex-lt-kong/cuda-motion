@@ -41,7 +41,7 @@ class MatrixNotifier final
 
   std::chrono::time_point<std::chrono::steady_clock> m_current_video_start_at;
   size_t m_current_video_frame_count{0};
-  int m_current_video_without_detection_frames;
+  int m_current_video_without_detection_frames{-1};
   float m_max_roi_score{0.0f};
   cv::cuda::GpuMat m_max_roi_score_frame{-1};
   double m_fps{25.0};
@@ -60,7 +60,7 @@ class MatrixNotifier final
                     [[maybe_unused]] const PipelineContext &ctx,
                     bool is_detection_interesting);
 
-  static float calculate_roi_score(const PipelineContext &ctx);
+  static double calculate_roi_score(const PipelineContext &ctx);
   static void
   finalize_video_then_send_out(std::string,
                                const std::shared_ptr<MatrixNotifier>);
@@ -70,6 +70,7 @@ class MatrixNotifier final
 public:
   explicit MatrixNotifier(const std::string &unit_path)
       : IAsynchronousProcessingUnit(unit_path + "/MatrixNotifier") {}
+  ~MatrixNotifier() override = default;
   bool init(const njson &config) override;
   void on_frame_ready(cv::cuda::GpuMat &frame, PipelineContext &ctx) override;
 };
