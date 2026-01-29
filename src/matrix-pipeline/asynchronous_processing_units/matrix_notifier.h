@@ -25,6 +25,7 @@ class MatrixNotifier final
   std::string m_matrix_access_token;
   double m_activation_min_frame_change_rate{0.1};
   double m_maintenance_min_frame_change_rate{0.01};
+  double m_detection_recognition_weight_ratio{3.14};
   std::chrono::seconds m_video_max_length{60};
   static inline std::unordered_map<IdentityCategory, float>
       m_identity_to_weight_map = {{IdentityCategory::Unknown, 1.0},
@@ -60,7 +61,7 @@ class MatrixNotifier final
                     [[maybe_unused]] const PipelineContext &ctx,
                     bool is_detection_interesting);
 
-  static double calculate_roi_score(const PipelineContext &ctx);
+  double calculate_roi_score(const PipelineContext &ctx);
   static void
   finalize_video_then_send_out(std::string,
                                const std::shared_ptr<MatrixNotifier>);

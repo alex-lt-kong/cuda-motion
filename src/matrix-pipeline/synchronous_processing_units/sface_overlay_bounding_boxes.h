@@ -4,6 +4,7 @@
 #include "../interfaces/i_synchronous_processing_unit.h"
 
 #include <nlohmann/json.hpp>
+#include <opencv2/core/cuda.hpp>
 
 namespace MatrixPipeline::ProcessingUnit {
 
@@ -29,6 +30,8 @@ public:
                                       PipelineContext &ctx) override;
 
 private:
+  cv::Mat m_frame_cpu;
+  cv::cuda::HostMem m_pinned_mem_for_cpu_frame;
   std::unordered_map<IdentityCategory, cv::Scalar> identity_to_box_color_bgr;
   const cv::Scalar m_text_color_bgr{255, 255, 255}; // white
   int m_bounding_box_border_thickness = 2;

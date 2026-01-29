@@ -9,6 +9,8 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
+using namespace std::chrono_literals;
+
 class SfaceDetect : public ISynchronousProcessingUnit {
 public:
   explicit SfaceDetect(const std::string &unit_path)
@@ -27,19 +29,20 @@ private:
     std::vector<cv::Mat> normalized_embeddings;
     IdentityCategory category;
   };
-
+  cv::Mat m_aligned_face;
+  cv::Mat m_frame_cpu;
+  cv::cuda::HostMem m_pinned_mem_for_cpu_frame;
   cv::Ptr<cv::FaceRecognizerSF> m_sface;
-
   // Configs
   YuNetDetect m_yunet{m_unit_path};
   double m_authorized_enrollment_face_score_threshold{0.93};
   double m_unauthorized_enrollment_face_score_threshold{0.60};
-  std::optional<double> m_inference_face_score_threshold{std::nullopt};
+  double m_inference_face_score_threshold{0.25};
   std::string m_model_path_sface;
   std::string m_model_path_yunet;
   std::string m_gallery_directory;
   float m_inference_match_threshold{0.363};
-  std::chrono::milliseconds m_inference_interval{100};
+  std::chrono::milliseconds m_inference_interval{100ms};
   std::chrono::time_point<std::chrono::steady_clock> m_last_inference_at;
   YuNetSFaceContext m_prev_yunet_sface_ctx;
   std::vector<Identity> m_gallery;

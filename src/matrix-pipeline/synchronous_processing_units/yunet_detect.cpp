@@ -36,21 +36,21 @@ bool YuNetDetect::init(const njson &config) {
 SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
 
-  m_last_inference_at = std::chrono::steady_clock::now();
+  // m_last_inference_at = std::chrono::steady_clock::now();
   ctx.yunet_sface.results.clear();
+  if (ctx.yunet_sface.results.size() > 0)
+    throw std::runtime_error("");
   ctx.yunet_sface.yunet_input_frame_size = frame.size();
   if (m_detector->getInputSize() != frame.size()) {
     m_detector->setInputSize(frame.size());
   }
-  // 2. Optimized Download using Pinned Memory
-  // This bypasses the extra internal copy the driver usually makes
+
   frame.download(m_pinned_buffer);
-  // 3. Create a zero-copy Mat header
-  // This creates a cv::Mat that points directly to the pinned memory
-  const cv::Mat h_frame = m_pinned_buffer.createMatHeader();
+  // point the cv::Mat directly to the pinned memory
+  m_frame_cpu = m_pinned_buffer.createMatHeader();
 
   cv::Mat faces;
-  m_detector->detect(h_frame, faces);
+  m_detector->detect(m_frame_cpu, faces);
 
   if (!faces.empty()) {
     for (int i = 0; i < faces.rows; ++i) {

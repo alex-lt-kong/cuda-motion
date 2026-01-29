@@ -26,6 +26,7 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
   if (frame.empty() || ctx.yolo.indices.empty()) {
     return success_and_continue;
   }
+
   if (!m_scaling_params.has_value())
     m_scaling_params = YoloDetect::get_bounding_box_scale(frame, ctx);
   try {

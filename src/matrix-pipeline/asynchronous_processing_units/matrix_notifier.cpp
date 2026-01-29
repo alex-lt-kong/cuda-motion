@@ -233,10 +233,10 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
         .detach();
     return;
   }
-  if (const auto roi_value = calculate_roi_score(m_frames_queue.front().ctx);
-      roi_value > m_max_roi_score) {
+  if (const auto roi_score = calculate_roi_score(m_frames_queue.front().ctx);
+      roi_score > m_max_roi_score) {
     m_max_roi_score_frame = m_frames_queue.front().frame;
-    m_max_roi_score = roi_value;
+    m_max_roi_score = roi_score;
   }
 
   m_writer->write(m_frames_queue.front().frame);
@@ -264,13 +264,12 @@ double MatrixNotifier::calculate_roi_score(const PipelineContext &ctx) {
   for (const auto &[detection, recognition] : ctx.yunet_sface.results) {
     if (!recognition.has_value())
       continue;
-    constexpr float face_recognition_weight = 3.14;
     const auto normalized_area =
         detection.bounding_box.area() /
         static_cast<float>(ctx.yunet_sface.yunet_input_frame_size.area());
     roi_value += normalized_area * recognition->similarity_score *
                  m_identity_to_weight_map.at(recognition->category) *
-                 face_recognition_weight;
+                 m_detection_recognition_weight_ratio;
   }
   return roi_value;
 }
@@ -289,6 +288,8 @@ bool MatrixNotifier::init(const njson &config) {
   m_video_max_length = std::chrono::seconds(
       config.value("videoMaxLengthInSeconds", m_video_max_length.count()));
   m_target_quality = config.value("videoTargetQuality", m_target_quality);
+  m_detection_recognition_weight_ratio = config.value(
+      "detectionRecognitionWeightRatio", m_detection_recognition_weight_ratio);
   m_activation_min_frame_change_rate = config.value(
       "activationMinFrameChangeRate", m_activation_min_frame_change_rate);
   m_maintenance_min_frame_change_rate = config.value(

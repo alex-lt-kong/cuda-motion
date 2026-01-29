@@ -80,10 +80,7 @@ bool SfaceDetect::init(const nlohmann::json &config) {
         m_gallery.size(), m_inference_interval.count(),
         m_authorized_enrollment_face_score_threshold,
         m_unauthorized_enrollment_face_score_threshold,
-        m_inference_face_score_threshold.has_value()
-            ? std::to_string(m_inference_face_score_threshold.value())
-            : "nullopt",
-        m_inference_match_threshold);
+        m_inference_face_score_threshold, m_inference_match_threshold);
 
     return true;
 
@@ -213,56 +210,63 @@ void SfaceDetect::load_identities_from_folder(const std::string &folder_path,
 
 SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
-  /*
+
   if (std::chrono::steady_clock::now() - m_last_inference_at <
       m_inference_interval) {
     ctx.yunet_sface = m_prev_yunet_sface_ctx;
     return failure_and_continue;
   }
-  */
-  // m_last_inference_at = std::chrono::steady_clock::now();
+
+  m_last_inference_at = std::chrono::steady_clock::now();
   ctx.yunet_sface.results.clear();
-  if (m_yunet.process(frame, ctx) != success_and_continue)
+  m_prev_yunet_sface_ctx.results.clear();
+
+  if (const auto res = m_yunet.process(frame, ctx);
+      res == success_and_stop || res == failure_and_stop) {
     return failure_and_continue;
+  }
 
   if (ctx.yunet_sface.results.empty())
     return success_and_continue;
 
-  cv::Mat frame_cpu;
   try {
-    frame.download(frame_cpu);
+    // frame.download() handles m_pinned_mem_for_cpu_frame's allocation
+    frame.download(m_pinned_mem_for_cpu_frame);
+    // Map the pinned data to a standard cv::Mat for processing
+    // This is zero-copy (just pointer arithmetic)
+    m_frame_cpu = m_pinned_mem_for_cpu_frame.createMatHeader();
   } catch (const cv::Exception &e) {
     SPDLOG_ERROR("frame.download() failed: {}", e.what());
     disable();
+    ctx.yunet_sface.results.clear();
     return success_and_continue;
   }
 
   for (auto &result : ctx.yunet_sface.results) {
-    result.recognition = std::nullopt;
-    if (m_inference_face_score_threshold.has_value() &&
-        result.detection.confidence <
-            m_inference_face_score_threshold.value()) {
+    if (result.detection.confidence < m_inference_face_score_threshold) {
+      // std::nullopt should have been set in YuNet, but anyways
+      result.recognition = std::nullopt;
       continue;
     }
 
     SFaceRecognition recognition;
-    recognition.identity = "Unknown";
+    recognition.identity = "";
     recognition.similarity_score = std::numeric_limits<float>::quiet_NaN();
     recognition.matched_idx = -1;
-    recognition.category = IdentityCategory::Unknown; // Default
+    recognition.category = IdentityCategory::Unknown;
 
-    cv::Mat aligned_face;
-    m_sface->alignCrop(frame_cpu, result.detection.yunet_output, aligned_face);
-
-    if (aligned_face.empty())
+    m_sface->alignCrop(m_frame_cpu, result.detection.yunet_output,
+                       m_aligned_face);
+    if (m_aligned_face.empty())
       continue;
 
     cv::Mat probe_embedding, normalized_probe_embedding;
     // Where the DNN actually runs
-    m_sface->feature(aligned_face, probe_embedding);
+    m_sface->feature(m_aligned_face, probe_embedding);
     cv::normalize(probe_embedding, normalized_probe_embedding, 1, 0,
                   cv::NORM_L2);
 
+    // Gemini 3 Pro suggests we to keep the clone()
     recognition.embedding = normalized_probe_embedding.clone();
 
     double best_score_overall = -1.0;
@@ -292,10 +296,9 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
       recognition.similarity_score = static_cast<float>(best_score_overall);
       recognition.matched_idx = best_identity_idx;
 
-      // Fill the identity info
       const auto &matched_identity = m_gallery[best_identity_idx];
       recognition.identity = matched_identity.name;
-      recognition.category = matched_identity.category; // Set the category
+      recognition.category = matched_identity.category;
     }
 
     result.recognition = recognition;

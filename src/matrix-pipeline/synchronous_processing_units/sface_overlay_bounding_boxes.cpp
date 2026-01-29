@@ -41,8 +41,9 @@ SFaceOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
     return failure_and_continue;
   }
 
-  cv::Mat cpu_frame;
-  frame.download(cpu_frame);
+  frame.download(m_pinned_mem_for_cpu_frame);
+  // point the cv::Mat directly to the pinned memory
+  m_frame_cpu = m_pinned_mem_for_cpu_frame.createMatHeader();
 
   for (size_t i = 0; i < ctx.yunet_sface.results.size(); ++i) {
     if (!ctx.yunet_sface.results[i].recognition.has_value())
@@ -53,7 +54,7 @@ SFaceOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
     // Convert Rect2f (float) to Rect (int) for cleaner pixel drawing
     const cv::Rect bounding_box = detection.bounding_box;
     // Draw the bounding box
-    cv::rectangle(cpu_frame, bounding_box,
+    cv::rectangle(m_frame_cpu, bounding_box,
                   identity_to_box_color_bgr[recognition.category],
                   m_bounding_box_border_thickness);
 
@@ -75,18 +76,18 @@ SFaceOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
       const auto label_y = std::max(bounding_box.y - 5, label_size.height);
 
       // Draw label box
-      cv::rectangle(cpu_frame, cv::Point(label_x, label_y - label_size.height),
-                    cv::Point(label_x + label_size.width, label_y + baseLine),
-                    identity_to_box_color_bgr[recognition.category],
-                    cv::FILLED);
+      cv::rectangle(
+          m_frame_cpu, cv::Point(label_x, label_y - label_size.height),
+          cv::Point(label_x + label_size.width, label_y + baseLine),
+          identity_to_box_color_bgr[recognition.category], cv::FILLED);
       // Draw label text
-      cv::putText(cpu_frame, label, cv::Point(label_x, label_y),
+      cv::putText(m_frame_cpu, label, cv::Point(label_x, label_y),
                   cv::FONT_HERSHEY_SIMPLEX, m_label_font_scale,
                   m_text_color_bgr, m_label_font_thickness);
     }
   }
 
-  frame.upload(cpu_frame);
+  frame.upload(m_frame_cpu);
 
   return success_and_continue;
 }
