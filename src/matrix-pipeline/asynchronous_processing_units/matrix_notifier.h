@@ -61,7 +61,7 @@ class MatrixNotifier final
                     [[maybe_unused]] const PipelineContext &ctx,
                     bool is_detection_interesting);
 
-  double calculate_roi_score(const PipelineContext &ctx);
+  double calculate_roi_score(const PipelineContext &ctx) const;
   static void
   finalize_video_then_send_out(std::string,
                                const std::shared_ptr<MatrixNotifier>);

@@ -15,12 +15,16 @@ namespace MatrixPipeline::ProcessingUnit {
 
 bool MatrixNotifier::look_for_interesting_detection(
     const PipelineContext &ctx) {
-  for (const auto idx : ctx.yolo.indices) {
-    if (ctx.yolo.is_detection_interesting[idx]) {
-      return true;
-    }
+
+  if (std::ranges::any_of(ctx.yolo.indices, [&](auto idx) {
+        return ctx.yolo.is_detection_interesting[idx];
+      })) {
+    return true;
   }
-  return false;
+
+  return std::ranges::any_of(ctx.yunet_sface.results, [](auto &res) {
+    return res.recognition.has_value();
+  });
 }
 
 std::optional<std::string>
@@ -247,7 +251,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
     m_current_video_without_detection_frames = 0;
 }
 
-double MatrixNotifier::calculate_roi_score(const PipelineContext &ctx) {
+double MatrixNotifier::calculate_roi_score(const PipelineContext &ctx) const {
   const auto &yolo = ctx.yolo;
   double roi_value = 0.0;
   for (const auto idx : yolo.indices) {

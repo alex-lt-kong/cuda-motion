@@ -243,9 +243,9 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
   }
 
   for (auto &result : ctx.yunet_sface.results) {
+    result.recognition = std::nullopt;
     if (result.detection.confidence < m_inference_face_score_threshold) {
       // std::nullopt should have been set in YuNet, but anyways
-      result.recognition = std::nullopt;
       continue;
     }
 
@@ -299,9 +299,8 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
       const auto &matched_identity = m_gallery[best_identity_idx];
       recognition.identity = matched_identity.name;
       recognition.category = matched_identity.category;
+      result.recognition = recognition;
     }
-
-    result.recognition = recognition;
   }
 
   m_prev_yunet_sface_ctx = ctx.yunet_sface;

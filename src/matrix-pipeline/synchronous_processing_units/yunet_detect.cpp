@@ -36,10 +36,7 @@ bool YuNetDetect::init(const njson &config) {
 SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
 
-  // m_last_inference_at = std::chrono::steady_clock::now();
   ctx.yunet_sface.results.clear();
-  if (ctx.yunet_sface.results.size() > 0)
-    throw std::runtime_error("");
   ctx.yunet_sface.yunet_input_frame_size = frame.size();
   if (m_detector->getInputSize() != frame.size()) {
     m_detector->setInputSize(frame.size());

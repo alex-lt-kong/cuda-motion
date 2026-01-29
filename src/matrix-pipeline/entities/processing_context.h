@@ -30,7 +30,7 @@ struct YuNetDetection {
 
 struct YuNetSFaceResult {
   YuNetDetection detection;
-  std::optional<SFaceRecognition> recognition;
+  std::optional<SFaceRecognition> recognition{std::nullopt};
 };
 
 struct YuNetSFaceContext {
