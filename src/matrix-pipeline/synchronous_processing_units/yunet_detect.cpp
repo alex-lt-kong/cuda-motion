@@ -72,7 +72,7 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
 
       YuNetSFaceResult res;
       res.detection = std::move(detection);
-      res.recognition = std::nullopt;
+      // res.recognition = std::nullopt;
       ctx.yunet_sface.results.push_back(std::move(res));
     }
   }

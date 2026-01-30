@@ -42,13 +42,12 @@ add_library(video_feed_manager
         video_feed_manager.cpp video_feed_manager.h
 )
 target_link_libraries(video_feed_manager
-        PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
-        PRIVATE utils asynchronous_processing_unit)
+        PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json)
 target_link_libraries(video_feed_manager
         PRIVATE
+        utils asynchronous_processing_unit
         ${OpenCV_LIBS} rt ssl crypto fmt::fmt
         Drogon::Drogon
-        nlohmann_json::nlohmann_json
         spdlog::spdlog
         CUDA::nvjpeg
         cppzmq cppzmq-static

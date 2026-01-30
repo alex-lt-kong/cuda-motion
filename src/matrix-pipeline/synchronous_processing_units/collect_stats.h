@@ -23,6 +23,8 @@ public:
                                       PipelineContext &ctx) override;
 
 private:
+  bool m_append_info_to_overlay_text{true};
+  std::string m_overlay_text_template;
   // --- Configuration ---
   const double m_scale_factor{0.25};
   double m_change_rate_threshold_per_pixel{25.0};

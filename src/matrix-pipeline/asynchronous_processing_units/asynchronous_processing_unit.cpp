@@ -11,11 +11,11 @@
 #include "../synchronous_processing_units/crop_frame.h"
 #include "../synchronous_processing_units/debug_output.h"
 #include "../synchronous_processing_units/measure_latency.h"
-#include "../synchronous_processing_units/overlay_info.h"
+#include "../synchronous_processing_units/overlay_text.h"
 #include "../synchronous_processing_units/resize.h"
 #include "../synchronous_processing_units/rotate_and_flip.h"
 #include "../synchronous_processing_units/sface_detect.h"
-#include "../synchronous_processing_units/sface_overlay_bounding_boxes.h"
+#include "../synchronous_processing_units/sface_overlay.h"
 #include "../synchronous_processing_units/yolo_detect.h"
 #include "../synchronous_processing_units/yolo_overlay_bounding_boxes.h"
 #include "../synchronous_processing_units/yolo_prune_detection_results.h"
@@ -42,8 +42,8 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
       const std::string type = settings_pipeline[i]["type"].get<std::string>();
       if (type == "SynchronousProcessingUnit::rotateAndFlip") {
         ptr = std::make_unique<RotateAndFlip>(m_unit_path);
-      } else if (type == "SynchronousProcessingUnit::overlayInfo") {
-        ptr = std::make_unique<OverlayInfo>(m_unit_path);
+      } else if (type == "SynchronousProcessingUnit::overlayText") {
+        ptr = std::make_unique<OverlayText>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::cropFrame") {
         ptr = std::make_unique<CropFrame>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::debugOutput") {
@@ -63,10 +63,7 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
         ptr = std::make_shared<HttpService>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::yoloDetect") {
         ptr = std::make_unique<YoloDetect>(m_unit_path);
-      } /*else if (type == "SynchronousProcessingUnit::yuNetDetect") {
-        ptr = std::make_unique<YuNetDetect>(m_unit_path);
-      } */
-      else if (type == "SynchronousProcessingUnit::sfaceDetect") {
+      } else if (type == "SynchronousProcessingUnit::sfaceDetect") {
         ptr = std::make_unique<SfaceDetect>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::yuNetOverlayLandmarks") {
         ptr = std::make_unique<YuNetOverlayLandmarks>(m_unit_path);
@@ -77,9 +74,8 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
         ptr = std::make_unique<AutoZoom>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::yoloPublishMqtt") {
         ptr = std::make_unique<YoloPublishMqtt>(m_unit_path);
-      } else if (type ==
-                 "SynchronousProcessingUnit::sfaceOverlayBoundingBoxes") {
-        ptr = std::make_unique<SFaceOverlayBoundingBoxes>(m_unit_path);
+      } else if (type == "SynchronousProcessingUnit::sfaceOverlay") {
+        ptr = std::make_unique<SFaceOverlay>(m_unit_path);
       } else if (type ==
                  "AsynchronousProcessingUnit::asynchronousProcessingUnit") {
         ptr = std::make_unique<AsynchronousProcessingUnit>(m_unit_path);

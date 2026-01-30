@@ -83,11 +83,11 @@ target_link_libraries(yolo_overlay_bounding_boxes
         PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
         PRIVATE spdlog::spdlog yolo_detect)
 
-add_library(overlay_info
-        overlay_info.cpp overlay_info.h
+add_library(overlay_text
+        overlay_text.cpp overlay_text.h
         ../interfaces/i_synchronous_processing_unit.h
 )
-target_link_libraries(overlay_info
+target_link_libraries(overlay_text
         PUBLIC nlohmann_json::nlohmann_json
         PRIVATE spdlog::spdlog)
 
@@ -110,11 +110,11 @@ target_link_libraries(yunet_overlay_landmarks
         PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
         PRIVATE spdlog::spdlog)
 
-add_library(sface_overlay_bounding_boxes
-        sface_overlay_bounding_boxes.cpp sface_overlay_bounding_boxes.h
+add_library(sface_overlay
+        sface_overlay.cpp sface_overlay.h
         ../interfaces/i_synchronous_processing_unit.h
 )
-target_link_libraries(sface_overlay_bounding_boxes
+target_link_libraries(sface_overlay
         PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
         PRIVATE spdlog::spdlog)
 

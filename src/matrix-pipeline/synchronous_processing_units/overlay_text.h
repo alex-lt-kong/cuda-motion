@@ -10,11 +10,14 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-class OverlayInfo final : public ISynchronousProcessingUnit {
+using namespace std::chrono_literals;
+
+class OverlayText final : public ISynchronousProcessingUnit {
+
 public:
-  explicit OverlayInfo(const std::string &unit_path)
-      : ISynchronousProcessingUnit(unit_path + "/OverlayInfo") {}
-  ~OverlayInfo() override = default;
+  explicit OverlayText(const std::string &unit_path)
+      : ISynchronousProcessingUnit(unit_path + "/OverlayText") {}
+  ~OverlayText() override = default;
 
   bool init(const nlohmann::json &config) override;
 
@@ -23,12 +26,12 @@ public:
 
 private:
   void update_font_metrics(int frameRows);
-  void uploadAndOverlay(cv::cuda::GpuMat &frame, cv::Rect roiRect);
+  void upload_and_overlay(const cv::cuda::GpuMat &frame, cv::Rect roi_rect);
 
-  std::chrono::time_point<std::chrono::steady_clock> m_last_info_update_time;
-
+  std::chrono::milliseconds m_overlay_interval{100ms};
+  std::chrono::time_point<std::chrono::steady_clock> m_last_overlay_at;
   // --- Configuration ---
-  std::string m_info_template;
+  // std::string m_info_template;
 
   // --- Visual Settings ---
   float m_text_height_ratio{0.02f}; // 2% of frame height
@@ -50,9 +53,9 @@ private:
   // --- Buffers ---
   int m_stripHeight{0};
   cv::Mat m_h_text_strip;
-  cv::cuda::GpuMat d_text_strip;
-  cv::cuda::GpuMat d_strip_gray;
-  cv::cuda::GpuMat d_mask;
+  cv::cuda::GpuMat m_d_text_strip;
+  cv::cuda::GpuMat m_d_strip_gray;
+  cv::cuda::GpuMat m_d_mask;
 
   static constexpr float BASE_FONT_HEIGHT_PX = 22.0f;
 };

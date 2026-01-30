@@ -13,10 +13,10 @@ struct DeviceInfo {
 enum class IdentityCategory { Unknown, Authorized, Unauthorized };
 
 struct SFaceRecognition {
-  cv::Mat embedding;      // The 128-d vector
-  std::string identity;   // "Unknown" or matched name
-  float similarity_score; // Cosine distance
-  int matched_idx;        // Index in your gallery (optional)
+  cv::Mat embedding; // The 128-d vector
+  std::string identity{"Unknown"};
+  float cos_distance{std::numeric_limits<float>::quiet_NaN()};
+  int matched_idx; // Index in your gallery (optional)
   IdentityCategory category = IdentityCategory::Unknown;
 };
 struct YuNetDetection {
@@ -30,7 +30,7 @@ struct YuNetDetection {
 
 struct YuNetSFaceResult {
   YuNetDetection detection;
-  std::optional<SFaceRecognition> recognition{std::nullopt};
+  SFaceRecognition recognition;
 };
 
 struct YuNetSFaceContext {
@@ -64,6 +64,7 @@ struct PipelineContext {
 
   YoloContext yolo;
   YuNetSFaceContext yunet_sface;
+  std::string text_to_overlay;
   // SFaceContext sface;
 };
 } // namespace MatrixPipeline::ProcessingUnit

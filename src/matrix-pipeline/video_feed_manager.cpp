@@ -29,9 +29,9 @@ void VideoFeedManager::feed_capture_ev() {
 
   ProcessingUnit::PipelineContext ctx;
   try {
-    const auto device = settings["device"];
+    const auto device = settings.at("device");
     ctx.device_info = {.name = device.value("name", "Unnamed Device"),
-                       .uri = device["uri"].get<std::string>(),
+                       .uri = device.at("uri").get<std::string>(),
                        .expected_frame_size = {
                            device["expectedFrameSize"]["width"].get<int>(),
                            device["expectedFrameSize"]["height"].get<int>()}};

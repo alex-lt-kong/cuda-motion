@@ -1,4 +1,4 @@
-#include "overlay_info.h"
+#include "overlay_text.h"
 #include "../utils/misc.h"
 
 #include <fmt/chrono.h>
@@ -14,23 +14,17 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-bool OverlayInfo::init(const nlohmann::json &config) {
+bool OverlayText::init(const nlohmann::json &config) {
   try {
     m_text_height_ratio = config.value("textHeightRatio", m_text_height_ratio);
     m_outline_ratio = config.value("outlineRatio", m_outline_ratio);
 
-    if (config.contains("infoTemplate")) {
-      m_info_template = config["infoTemplate"];
-    } else {
-      const std::string default_template =
-          "{deviceName},\nChg: {changeRatePct:.1f}%, FPS: "
-          "{fps:.1f}\n{timestamp:%Y-%m-%d %H:%M:%S}";
-      m_info_template = default_template;
-    }
+    m_overlay_interval = std::chrono::milliseconds(
+        config.value("overlayIntervalMs", m_overlay_interval.count()));
 
     SPDLOG_INFO(
-        "outline_ratio: {}, text_height_ratio: {}, format_template: {:?}",
-        m_outline_ratio, m_text_height_ratio, m_info_template);
+        "outline_ratio: {}, text_height_ratio: {}, overlay_interval(ms): {}",
+        m_outline_ratio, m_text_height_ratio, m_overlay_interval.count());
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("error: {}", e.what());
@@ -38,27 +32,20 @@ bool OverlayInfo::init(const nlohmann::json &config) {
   }
 }
 
-SynchronousProcessingResult OverlayInfo::process(cv::cuda::GpuMat &frame,
+SynchronousProcessingResult OverlayText::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
   if (frame.empty())
     return success_and_continue;
-  using namespace std::chrono_literals;
-  if (std::chrono::steady_clock::now() - m_last_info_update_time > 1s) {
-    m_last_info_update_time = std::chrono::steady_clock::now();
-    // --- 1. Prepare Data & Format String ---
-    const auto now_tp =
-        Utils::steady_clock_to_system_time(ctx.capture_timestamp);
-    const auto full_text =
-        Utils::evaluate_text_template(m_info_template, ctx, now_tp);
 
-    if (!full_text.has_value())
-      return failure_and_continue;
-    if (full_text->empty())
-      return success_and_continue;
+  using namespace std::chrono_literals;
+  if (std::chrono::steady_clock::now() - m_last_overlay_at >
+      m_overlay_interval) {
+    m_last_overlay_at = std::chrono::steady_clock::now();
 
     // --- 2. Split into Lines ---
     std::vector<std::string> lines;
-    std::stringstream ss(full_text.value());
+    std::stringstream ss(ctx.text_to_overlay);
+    // SPDLOG_INFO("ctx.text_to_overlay: {}", ctx.text_to_overlay);
     std::string line;
     while (std::getline(ss, line, '\n')) {
       lines.push_back(line);
@@ -111,13 +98,13 @@ SynchronousProcessingResult OverlayInfo::process(cv::cuda::GpuMat &frame,
       currentY += m_line_height_px;
     }
   }
-  // --- 6. Upload and Overlay ---
-  uploadAndOverlay(frame, cv::Rect(0, 0, frame.cols, m_stripHeight));
+
+  upload_and_overlay(frame, cv::Rect(0, 0, frame.cols, m_stripHeight));
 
   return success_and_continue;
 }
 
-void OverlayInfo::update_font_metrics(const int frameRows) {
+void OverlayText::update_font_metrics(const int frameRows) {
   // 1. Calculate base text height
   float final_px_height = std::max(frameRows * m_text_height_ratio, 6.0f);
 
@@ -142,20 +129,21 @@ void OverlayInfo::update_font_metrics(const int frameRows) {
   m_line_height_px = static_cast<int>(final_px_height * 1.2f) + (2 * border_px);
 }
 
-void OverlayInfo::uploadAndOverlay(cv::cuda::GpuMat &frame, cv::Rect roiRect) {
-  cv::Rect validRoi = roiRect & cv::Rect(0, 0, frame.cols, frame.rows);
+void OverlayText::upload_and_overlay(const cv::cuda::GpuMat &frame,
+                                     const cv::Rect roi_rect) {
+  cv::Rect validRoi = roi_rect & cv::Rect(0, 0, frame.cols, frame.rows);
   if (validRoi.empty())
     return;
 
   cv::Mat cpuSrc =
       m_h_text_strip(cv::Rect(0, 0, validRoi.width, validRoi.height));
-  d_text_strip.upload(cpuSrc);
+  m_d_text_strip.upload(cpuSrc);
 
-  cv::cuda::cvtColor(d_text_strip, d_strip_gray, cv::COLOR_BGR2GRAY);
-  cv::cuda::threshold(d_strip_gray, d_mask, 1, 255, cv::THRESH_BINARY);
+  cv::cuda::cvtColor(m_d_text_strip, m_d_strip_gray, cv::COLOR_BGR2GRAY);
+  cv::cuda::threshold(m_d_strip_gray, m_d_mask, 1, 255, cv::THRESH_BINARY);
 
   cv::cuda::GpuMat roi = frame(validRoi);
-  d_text_strip.copyTo(roi, d_mask);
+  m_d_text_strip.copyTo(roi, m_d_mask);
 }
 
 } // namespace MatrixPipeline::ProcessingUnit

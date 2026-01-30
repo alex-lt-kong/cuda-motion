@@ -198,6 +198,7 @@ YoloPublishMqtt::process([[maybe_unused]] cv::cuda::GpuMat &frame,
   payload["unix_time_ms"] =
       duration_cast<milliseconds>(system_clock::now().time_since_epoch())
           .count();
+  payload["signal_source"] = "matrix-pipeline";
   // const auto payload_mp = njson::to_msgpack(payload);
   mosquitto_publish(m_mosq, nullptr, m_mqtt_topic.c_str(),
                     payload.dump().length(), payload.dump().c_str(), 2, false);
@@ -213,76 +214,4 @@ YoloPublishMqtt::~YoloPublishMqtt() {
   mosquitto_lib_cleanup();
   SPDLOG_INFO("mosquitto_lib_cleanup()'ed");
 }
-/*
-int main(int, char **) {
-#ifndef WIN32
-  // Need it SIG_IGN SIGPIPE otherwise each time MQTT broker restarts the
-  // program crashes
-  signal(SIGPIPE, SIG_IGN);
-#endif
-  auto mosq = init_mosquitto();
-  if (mosq == nullptr) {
-    SPDLOG_ERROR("init_mosquitto() failure");
-    return 1;
-  }
-  SPDLOG_INFO("init_mosquitto()'ed");
-  std::this_thread::sleep_for(std::chrono::seconds(10L));
-  while (true) {
-    try {
-      cpr::Response r =
-          cpr::Get(cpr::Url{"https://data.weather.gov.hk/weatherAPI/opendata/"
-                            "weather.php?dataType=rhrread&lang=en"});
-      if (r.status_code != 200) {
-        SPDLOG_ERROR("HTTP request error: {}: {}", r.status_code,
-                      r.error.message);
-        continue;
-      }
-      auto j = json::parse(r.text);
-      json data;
-      std::vector<std::string> places = {"Happy Valley",
-                                         "Hong Kong Observatory"};
-      for (auto const &ele : j["temperature"]["data"]) {
-        // SPDLOG_INFO("ele.dump(): {}", ele.dump());
-        for (auto const &place : places) {
-          if (ele["place"].get<std::string>() == place) {
-            data = ele;
-            break;
-          }
-        }
-        if (!data.empty())
-          break;
-      }
-      if (data.empty()) {
-        throw std::invalid_argument(fmt::format(
-            "Failed to find the expected places: {}, response text:\n{}",
-            fmt::join(places, ", "), r.text));
-      }
-
-      if (data.value("/unit"_json_pointer, "") != "C") {
-        throw std::invalid_argument(std::string("Unit: ") +
-                                    data.value("/unit"_json_pointer, ""));
-      }
-      SPDLOG_INFO("Data from HK gov: recordTime: {}, air temp: {}°C",
-                   j["temperature"]["recordTime"].dump(4),
-                   data["value"].dump(4));
-      auto now = std::chrono::system_clock::now();
-      auto itt = std::chrono::system_clock::to_time_t(now);
-      std::ostringstream ss;
-      ss << std::put_time(std::gmtime(&itt), "%Y-%m-%dT%H:%M:%SZ");
-      json payload;
-      payload["fh_timestamp"] = ss.str();
-      payload["hko_timestamp"] = j["temperature"]["recordTime"];
-      payload["temp_celsius"] = data["value"];
-      mosquitto_publish(mosq, nullptr, mqtt_topic.c_str(),
-                        payload.dump().length(), payload.dump().c_str(), 2,
-                        false);
-
-    } catch (const std::invalid_argument &e) {
-      SPDLOG_ERROR("{}", e.what());
-    }
-    std::this_thread::sleep_for(std::chrono::seconds(600));
-  }
-
-  return 0;
-}*/
 } // namespace MatrixPipeline::ProcessingUnit

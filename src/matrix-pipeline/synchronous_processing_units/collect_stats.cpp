@@ -1,4 +1,5 @@
 #include "collect_stats.h"
+#include "../utils/misc.h"
 
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
@@ -11,6 +12,10 @@ CollectStats::~CollectStats() = default;
 
 bool CollectStats::init(const njson &config) {
   try {
+
+    m_overlay_text_template = config.value(
+        "overlayTextTemplate", "{deviceName},\nChg: {changeRatePct:.1f}%, FPS: "
+                               "{fps:.1f}\n{timestamp:%Y-%m-%d %H:%M:%S}\n");
     m_change_rate_threshold_per_pixel =
         config.value("/changeRate/thresholdPerPixel"_json_pointer,
                      m_change_rate_threshold_per_pixel);
@@ -31,12 +36,15 @@ bool CollectStats::init(const njson &config) {
         config.value("/fps/slidingWindowLengthMs"_json_pointer,
                      m_fps_sliding_window_length.count()));
 
-    SPDLOG_INFO("ChangeRate: change_rate_threshold_per_pixel: {}, "
-                "change_rate_frame_compare_interval(ms): {}",
-                m_change_rate_threshold_per_pixel,
-                m_change_rate_frame_compare_interval.count());
-    SPDLOG_INFO("Fps: sliding_window_length(ms): {}",
-                m_fps_sliding_window_length.count());
+    SPDLOG_INFO(
+        "change_rate_threshold_per_pixel: {}, "
+        "change_rate_frame_compare_interval(ms): {}, "
+        "fps_sliding_window_length(ms): {}, append_info_to_overlay_text: {}, "
+        "overlay_text_template: {:?}",
+        m_change_rate_threshold_per_pixel,
+        m_change_rate_frame_compare_interval.count(),
+        m_fps_sliding_window_length.count(), m_append_info_to_overlay_text,
+        m_overlay_text_template);
 
     return true;
   } catch (const std::exception &e) {
@@ -140,7 +148,6 @@ SynchronousProcessingResult CollectStats::process(cv::cuda::GpuMat &frame,
 
   if (capture_timestamp - reference.first >=
       m_change_rate_frame_compare_interval) {
-
     cv::cuda::absdiff(d_current, reference.second, d_diff);
     cv::cuda::threshold(d_diff, d_mask, m_change_rate_threshold_per_pixel, 255,
                         cv::THRESH_BINARY);
@@ -159,8 +166,14 @@ SynchronousProcessingResult CollectStats::process(cv::cuda::GpuMat &frame,
   }
 
   // Store current frame
-  m_history_buffer.push_back({capture_timestamp, d_current.clone()});
+  m_history_buffer.emplace_back(capture_timestamp, d_current.clone());
 
+  if (m_append_info_to_overlay_text) {
+    if (const auto full_text =
+            Utils::evaluate_text_template(m_overlay_text_template, ctx);
+        full_text.has_value())
+      ctx.text_to_overlay += full_text.value();
+  }
   return success_and_continue;
 }
 

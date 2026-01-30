@@ -10,11 +10,11 @@ namespace MatrixPipeline::ProcessingUnit {
 
 using njson = nlohmann::json;
 
-class SFaceOverlayBoundingBoxes : public ISynchronousProcessingUnit {
+class SFaceOverlay : public ISynchronousProcessingUnit {
 public:
-  SFaceOverlayBoundingBoxes(const std::string &unit_path)
+  SFaceOverlay(const std::string &unit_path)
       : ISynchronousProcessingUnit(unit_path + "/YoloOverlayBoundingBoxes") {}
-  ~SFaceOverlayBoundingBoxes() override = default;
+  ~SFaceOverlay() override = default;
 
   /**
    * @brief Initializes the overlay unit.

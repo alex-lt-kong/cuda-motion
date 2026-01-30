@@ -22,9 +22,7 @@ bool MatrixNotifier::look_for_interesting_detection(
     return true;
   }
 
-  return std::ranges::any_of(ctx.yunet_sface.results, [](auto &res) {
-    return res.recognition.has_value();
-  });
+  return !ctx.yunet_sface.results.empty();
 }
 
 std::optional<std::string>
@@ -266,14 +264,14 @@ double MatrixNotifier::calculate_roi_score(const PipelineContext &ctx) const {
   }
 
   for (const auto &[detection, recognition] : ctx.yunet_sface.results) {
-    if (!recognition.has_value())
-      continue;
+
     const auto normalized_area =
         detection.bounding_box.area() /
         static_cast<float>(ctx.yunet_sface.yunet_input_frame_size.area());
-    roi_value += normalized_area * recognition->similarity_score *
-                 m_identity_to_weight_map.at(recognition->category) *
-                 m_detection_recognition_weight_ratio;
+    if (!std::isnan(recognition.cos_distance))
+      roi_value += normalized_area * recognition.cos_distance *
+                   m_identity_to_weight_map.at(recognition.category) *
+                   m_detection_recognition_weight_ratio;
   }
   return roi_value;
 }

@@ -30,7 +30,7 @@ add_library(asynchronous_processing_unit
 )
 target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         utils
-        overlay_info
+        overlay_text
         matrix_notifier
         debug_output
         rotate_and_flip
@@ -45,7 +45,7 @@ target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         cuda_helper
         pipe_writer
         sface_detect
-        sface_overlay_bounding_boxes
+        sface_overlay
         video_writer
         auto_zoom
         yolo_publish_mqtt

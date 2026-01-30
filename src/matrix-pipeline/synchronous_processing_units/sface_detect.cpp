@@ -242,21 +242,11 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
     return success_and_continue;
   }
 
-  for (auto &result : ctx.yunet_sface.results) {
-    result.recognition = std::nullopt;
-    if (result.detection.confidence < m_inference_face_score_threshold) {
-      // std::nullopt should have been set in YuNet, but anyways
+  for (auto &[detection, recognition] : ctx.yunet_sface.results) {
+    if (detection.confidence < m_inference_face_score_threshold)
       continue;
-    }
 
-    SFaceRecognition recognition;
-    recognition.identity = "";
-    recognition.similarity_score = std::numeric_limits<float>::quiet_NaN();
-    recognition.matched_idx = -1;
-    recognition.category = IdentityCategory::Unknown;
-
-    m_sface->alignCrop(m_frame_cpu, result.detection.yunet_output,
-                       m_aligned_face);
+    m_sface->alignCrop(m_frame_cpu, detection.yunet_output, m_aligned_face);
     if (m_aligned_face.empty())
       continue;
 
@@ -293,14 +283,13 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
 
     if (best_score_overall > m_inference_match_threshold &&
         best_identity_idx != -1) {
-      recognition.similarity_score = static_cast<float>(best_score_overall);
       recognition.matched_idx = best_identity_idx;
 
       const auto &matched_identity = m_gallery[best_identity_idx];
       recognition.identity = matched_identity.name;
       recognition.category = matched_identity.category;
-      result.recognition = recognition;
     }
+    recognition.cos_distance = static_cast<float>(best_score_overall);
   }
 
   m_prev_yunet_sface_ctx = ctx.yunet_sface;
