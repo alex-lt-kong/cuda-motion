@@ -55,7 +55,7 @@ SynchronousProcessingResult SFaceOverlay::process(cv::cuda::GpuMat &frame,
   for (const auto &[detection, recognition] : ctx.yunet_sface.results) {
 
     yunet_text_to_overlay +=
-        fmt::format("conf: {:.2f}, ", detection.confidence);
+        fmt::format("conf: {:.2f}, ", detection.face_score);
     // Convert Rect2f (float) to Rect (int) for cleaner pixel drawing
     const cv::Rect bounding_box = detection.bounding_box;
 
@@ -64,8 +64,9 @@ SynchronousProcessingResult SFaceOverlay::process(cv::cuda::GpuMat &frame,
                   identity_to_box_color_bgr[recognition.category],
                   m_bounding_box_border_thickness);
 
-    sface_text_to_overlay += fmt::format(
-        "{}: dist: {:.2f}, ", recognition.identity, recognition.cos_distance);
+    sface_text_to_overlay +=
+        fmt::format("{}: {{cos: {:.2f}, L2: {:.1f}}}, ", recognition.identity,
+                    recognition.cosine_score, recognition.l2_norm);
     std::string bounding_box_label_text =
         recognition.category != IdentityCategory::Unknown
             ? fmt::format("{}", recognition.identity)

@@ -268,8 +268,8 @@ double MatrixNotifier::calculate_roi_score(const PipelineContext &ctx) const {
     const auto normalized_area =
         detection.bounding_box.area() /
         static_cast<float>(ctx.yunet_sface.yunet_input_frame_size.area());
-    if (!std::isnan(recognition.cos_distance))
-      roi_value += normalized_area * recognition.cos_distance *
+    if (!std::isnan(recognition.cosine_score))
+      roi_value += normalized_area * recognition.cosine_score *
                    m_identity_to_weight_map.at(recognition.category) *
                    m_detection_recognition_weight_ratio;
   }

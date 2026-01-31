@@ -15,9 +15,10 @@ enum class IdentityCategory { Unknown, Authorized, Unauthorized };
 struct SFaceRecognition {
   cv::Mat embedding; // The 128-d vector
   std::string identity{"Unknown"};
-  float cos_distance{std::numeric_limits<float>::quiet_NaN()};
+  double cosine_score{std::numeric_limits<double>::quiet_NaN()};
   int matched_idx; // Index in your gallery (optional)
   IdentityCategory category = IdentityCategory::Unknown;
+  double l2_norm{std::numeric_limits<double>::quiet_NaN()};
 };
 struct YuNetDetection {
   // we need this raw output because cv::FaceRecognizerSF::alignCrop() expects
@@ -25,7 +26,7 @@ struct YuNetDetection {
   cv::Mat yunet_output;
   cv::Rect2f bounding_box;
   std::array<cv::Point2f, 5> landmarks; // 5 points: eyes, nose, mouth corners
-  float confidence;
+  float face_score;
 };
 
 struct YuNetSFaceResult {

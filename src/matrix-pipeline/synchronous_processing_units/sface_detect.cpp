@@ -43,16 +43,16 @@ bool SfaceDetect::init(const nlohmann::json &config) {
       SPDLOG_ERROR("m_yunet.init() init failed");
       return false;
     }
-    m_authorized_enrollment_face_score_threshold =
+    m_authorized_enrollment_face_confidence_threshold =
         config.value("authorizedEnrollmentFaceScoreThreshold",
-                     m_authorized_enrollment_face_score_threshold);
-    m_unauthorized_enrollment_face_score_threshold =
+                     m_authorized_enrollment_face_confidence_threshold);
+    m_unauthorized_enrollment_face_confidence_threshold =
         config.value("unauthorizedEnrollmentFaceScoreThreshold",
-                     m_unauthorized_enrollment_face_score_threshold);
-    m_inference_face_score_threshold = config.value(
-        "inferenceFaceScoreThreshold", m_inference_face_score_threshold);
-    m_inference_match_threshold =
-        config.value("inferenceMatchThreshold", m_inference_match_threshold);
+                     m_unauthorized_enrollment_face_confidence_threshold);
+    m_probe_embedding_l2_norm_threshold = config.value(
+        "probeEmbeddingL2NormThreshold", m_probe_embedding_l2_norm_threshold);
+    m_inference_cosine_score_threshold = config.value(
+        "inferenceMatchThreshold", m_inference_cosine_score_threshold);
 
     SPDLOG_INFO("Loading SFace model...");
     m_sface = cv::FaceRecognizerSF::create(m_model_path_sface, "",
@@ -72,15 +72,16 @@ bool SfaceDetect::init(const nlohmann::json &config) {
     m_inference_interval = std::chrono::milliseconds(
         config.value("inferenceIntervalMs", m_inference_interval.count()));
 
-    SPDLOG_INFO(
-        "gallery.size(): {}, inference_interval: {}ms, "
-        "authorized_enrollment_face_score_threshold: {}, "
-        "unauthorized_enrollment_face_score_threshold: {}, "
-        "inference_face_score_threshold: {}, m_inference_match_threshold: {}",
-        m_gallery.size(), m_inference_interval.count(),
-        m_authorized_enrollment_face_score_threshold,
-        m_unauthorized_enrollment_face_score_threshold,
-        m_inference_face_score_threshold, m_inference_match_threshold);
+    SPDLOG_INFO("gallery.size(): {}, inference_interval: {}ms, "
+                "authorized_enrollment_face_score_threshold: {}, "
+                "unauthorized_enrollment_face_score_threshold: {}, "
+                "l2_norm_threshold: {}, "
+                "m_inference_cosine_score_threshold: {}",
+                m_gallery.size(), m_inference_interval.count(),
+                m_authorized_enrollment_face_confidence_threshold,
+                m_unauthorized_enrollment_face_confidence_threshold,
+                m_probe_embedding_l2_norm_threshold,
+                m_inference_cosine_score_threshold);
 
     return true;
 
@@ -112,9 +113,10 @@ bool SfaceDetect::load_gallery() {
   if (fs::exists(authorized_path)) {
     SPDLOG_INFO("Loading Authorized identities from: {}",
                 authorized_path.string());
-    load_identities_from_folder(authorized_path.string(),
-                                m_authorized_enrollment_face_score_threshold,
-                                IdentityCategory::Authorized, *yunet);
+    load_identities_from_folder(
+        authorized_path.string(),
+        m_authorized_enrollment_face_confidence_threshold,
+        IdentityCategory::Authorized, *yunet);
     loaded_something = true;
   }
 
@@ -122,9 +124,10 @@ bool SfaceDetect::load_gallery() {
   if (fs::exists(unauthorized_path)) {
     SPDLOG_INFO("Loading Unauthorized identities from: {}",
                 unauthorized_path.string());
-    load_identities_from_folder(unauthorized_path.string(),
-                                m_unauthorized_enrollment_face_score_threshold,
-                                IdentityCategory::Unauthorized, *yunet);
+    load_identities_from_folder(
+        unauthorized_path.string(),
+        m_unauthorized_enrollment_face_confidence_threshold,
+        IdentityCategory::Unauthorized, *yunet);
     loaded_something = true;
   }
 
@@ -133,9 +136,9 @@ bool SfaceDetect::load_gallery() {
   if (!loaded_something) {
     SPDLOG_WARN("No 'authorized' or 'unauthorized' subfolders found. Scanning "
                 "root as Authorized.");
-    load_identities_from_folder(m_gallery_directory,
-                                m_authorized_enrollment_face_score_threshold,
-                                IdentityCategory::Authorized, *yunet);
+    load_identities_from_folder(
+        m_gallery_directory, m_authorized_enrollment_face_confidence_threshold,
+        IdentityCategory::Authorized, *yunet);
   }
 
   return !m_gallery.empty();
@@ -243,9 +246,6 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
   }
 
   for (auto &[detection, recognition] : ctx.yunet_sface.results) {
-    if (detection.confidence < m_inference_face_score_threshold)
-      continue;
-
     m_sface->alignCrop(m_frame_cpu, detection.yunet_output, m_aligned_face);
     if (m_aligned_face.empty())
       continue;
@@ -253,35 +253,41 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
     cv::Mat probe_embedding, normalized_probe_embedding;
     // Where the DNN actually runs
     m_sface->feature(m_aligned_face, probe_embedding);
+    recognition.l2_norm = cv::norm(probe_embedding, cv::NORM_L2);
+
+    if (recognition.l2_norm < m_probe_embedding_l2_norm_threshold) {
+      continue;
+    }
+
     cv::normalize(probe_embedding, normalized_probe_embedding, 1, 0,
                   cv::NORM_L2);
 
     // Gemini 3 Pro suggests we to keep the clone()
     recognition.embedding = normalized_probe_embedding.clone();
 
-    double best_score_overall = -1.0;
+    auto best_cosine_score = DBL_MIN;
     int best_identity_idx = -1;
 
     // Match against ALL identities (mixed Authorized and Unauthorized)
     for (size_t i = 0; i < m_gallery.size(); ++i) {
-      double best_score_for_this_person = -1.0;
+      auto best_cosine_score_for_this_person = DBL_MAX;
 
       for (const auto &normalized_gallery_embedding :
            m_gallery[i].normalized_embeddings) {
-        double score = m_sface->match(normalized_probe_embedding,
-                                      normalized_gallery_embedding,
-                                      cv::FaceRecognizerSF::DisType::FR_COSINE);
-        best_score_for_this_person =
-            std::max(best_score_for_this_person, score);
+        auto cosine_score = m_sface->match(
+            normalized_probe_embedding, normalized_gallery_embedding,
+            cv::FaceRecognizerSF::DisType::FR_COSINE);
+        best_cosine_score_for_this_person =
+            std::max(best_cosine_score_for_this_person, cosine_score);
       }
 
-      if (best_score_for_this_person > best_score_overall) {
-        best_score_overall = best_score_for_this_person;
+      if (best_cosine_score_for_this_person > best_cosine_score) {
+        best_cosine_score = best_cosine_score_for_this_person;
         best_identity_idx = static_cast<int>(i);
       }
     }
 
-    if (best_score_overall > m_inference_match_threshold &&
+    if (best_cosine_score > m_inference_cosine_score_threshold &&
         best_identity_idx != -1) {
       recognition.matched_idx = best_identity_idx;
 
@@ -289,7 +295,7 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
       recognition.identity = matched_identity.name;
       recognition.category = matched_identity.category;
     }
-    recognition.cos_distance = static_cast<float>(best_score_overall);
+    recognition.cosine_score = best_cosine_score;
   }
 
   m_prev_yunet_sface_ctx = ctx.yunet_sface;

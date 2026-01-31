@@ -7,7 +7,8 @@ namespace MatrixPipeline::ProcessingUnit {
 bool YuNetDetect::init(const njson &config) {
   try {
     const auto model_path = config.value("modelPath", "");
-    m_score_threshold = config.value("scoreThreshold", m_score_threshold);
+    m_face_score_threshold =
+        config.value("scoreThreshold", m_face_score_threshold);
     // m_inference_interval =
     // std::chrono::milliseconds(config.value("inferenceIntervalMs",
     // m_inference_interval.count()));
@@ -21,11 +22,11 @@ bool YuNetDetect::init(const njson &config) {
 
     // Initialize OpenCV YuNet with an initial dummy size (1,1)
     m_detector = cv::FaceDetectorYN::create(
-        model_path, "", cv::Size(1, 1), m_score_threshold, m_nms_threshold,
+        model_path, "", cv::Size(1, 1), m_face_score_threshold, m_nms_threshold,
         m_top_k, cv::dnn::DNN_BACKEND_CUDA, cv::dnn::DNN_TARGET_CUDA);
 
     SPDLOG_INFO("model_path: {}, score_threshold: {}, top_k: {}", model_path,
-                m_score_threshold, m_top_k);
+                m_face_score_threshold, m_top_k);
     return true;
   } catch (const std::exception &e) {
     SPDLOG_ERROR("e.what(): {}", e.what());
@@ -68,7 +69,10 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
       }
 
       // [14]: Confidence score
-      detection.confidence = faces.at<float>(i, 14);
+      // We dont need to compare face_score with m_face_score_threshold as
+      // m_face_score_threshold is as a parameter being passed to the detector
+      // creator
+      detection.face_score = faces.at<float>(i, 14);
 
       YuNetSFaceResult res;
       res.detection = std::move(detection);

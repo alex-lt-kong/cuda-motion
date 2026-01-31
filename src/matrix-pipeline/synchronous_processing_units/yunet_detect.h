@@ -11,7 +11,7 @@ class YuNetDetect : public ISynchronousProcessingUnit {
 private:
   cv::Ptr<cv::FaceDetectorYN> m_detector;
 
-  float m_score_threshold = 0.9f;
+  float m_face_score_threshold = 0.9f;
   float m_nms_threshold = 0.3f;
   // m_top_k typical ranges:
   // Industry Standard (Typical)  400 - 1,000
