@@ -13,8 +13,7 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-bool MatrixNotifier::look_for_interesting_detection(
-    const PipelineContext &ctx) {
+bool MatrixNotifier::look_for_roi(const PipelineContext &ctx) {
 
   if (std::ranges::any_of(ctx.yolo.indices, [&](auto idx) {
         return ctx.yolo.is_detection_interesting[idx];
@@ -22,7 +21,20 @@ bool MatrixNotifier::look_for_interesting_detection(
     return true;
   }
 
-  return !ctx.yunet_sface.results.empty();
+  if (m_enable_identity_based_roi_classification) {
+    if (std::ranges::any_of(ctx.yunet_sface.results, [&](const auto &result) {
+          if (result.recognition.l2_norm_threshold_passed)
+            return false;
+          if (m_mark_authorized_identity_as_not_interesting &&
+              result.recognition.category == IdentityCategory::Authorized)
+            return false;
+          return true;
+        })) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 std::optional<std::string>
@@ -268,10 +280,13 @@ double MatrixNotifier::calculate_roi_score(const PipelineContext &ctx) const {
     const auto normalized_area =
         detection.bounding_box.area() /
         static_cast<float>(ctx.yunet_sface.yunet_input_frame_size.area());
-    if (!std::isnan(recognition.cosine_score))
-      roi_value += normalized_area * recognition.cosine_score *
-                   m_identity_to_weight_map.at(recognition.category) *
-                   m_detection_recognition_weight_ratio;
+    if (std::isnan(recognition.cosine_score))
+      continue;
+
+    roi_value += normalized_area * recognition.cosine_score *
+                 m_identity_to_weight_map.at(recognition.category) *
+                 m_detection_recognition_weight_ratio *
+                 pow(ctx.yunet_sface.results.size(), 0.5);
   }
   return roi_value;
 }
@@ -303,6 +318,12 @@ bool MatrixNotifier::init(const njson &config) {
       config.value("videoPrecaptureFrames", m_video_precapture_frames);
   m_video_postcapture_frames =
       config.value("videoPostcaptureFrames", m_video_postcapture_frames);
+  m_enable_identity_based_roi_classification =
+      config.value("enableIdentityBasedRoiClassification",
+                   m_enable_identity_based_roi_classification);
+  m_mark_authorized_identity_as_not_interesting =
+      config.value("markAuthorizedIdentityAsNotInteresting",
+                   m_mark_authorized_identity_as_not_interesting);
   SPDLOG_INFO("matrix_homeserver: {}, matrix_room_id: {}, matrix_access_token: "
               "{}",
               m_matrix_homeserver, m_matrix_room_id, m_matrix_access_token);
@@ -312,11 +333,13 @@ bool MatrixNotifier::init(const njson &config) {
       "video_precapture_frames: {}, video_postcapture_frames: {}, fps: {}, "
       "activation_min_frame_change_rate: {}, "
       "maintenance_min_frame_change_rate: {}, target_quality: {} (0-51, "
-      "lower is better)",
+      "lower is better), enable_identity_based_roi_classification: {}, "
+      "mark_authorized_identity_as_not_interesting: {}",
       m_video_max_length, m_detections_gap_tolerance_frames,
       m_video_precapture_frames, m_video_postcapture_frames, m_fps,
       m_activation_min_frame_change_rate, m_maintenance_min_frame_change_rate,
-      m_target_quality);
+      m_target_quality, m_enable_identity_based_roi_classification,
+      m_mark_authorized_identity_as_not_interesting);
   m_sender = std::make_unique<Utils::MatrixSender>(
       m_matrix_homeserver, m_matrix_access_token, m_matrix_room_id);
   m_gpu_encoder = std::make_unique<Utils::NvJpegEncoder>();
@@ -327,9 +350,9 @@ bool MatrixNotifier::init(const njson &config) {
 
 void MatrixNotifier::on_frame_ready(cv::cuda::GpuMat &frame,
                                     [[maybe_unused]] PipelineContext &ctx) {
-  const auto is_detection_interesting = look_for_interesting_detection(ctx);
+  const auto is_frame_interesting = look_for_roi(ctx);
 
-  handle_video(frame, ctx, is_detection_interesting);
+  handle_video(frame, ctx, is_frame_interesting);
 }
 
 } // namespace MatrixPipeline::ProcessingUnit

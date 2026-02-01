@@ -23,14 +23,16 @@ class MatrixNotifier final
   std::string m_matrix_homeserver;
   std::string m_matrix_room_id;
   std::string m_matrix_access_token;
+  bool m_enable_identity_based_roi_classification{true};
+  bool m_mark_authorized_identity_as_not_interesting{false};
   double m_activation_min_frame_change_rate{0.1};
   double m_maintenance_min_frame_change_rate{0.01};
   double m_detection_recognition_weight_ratio{3.14};
   std::chrono::seconds m_video_max_length{60};
   static inline std::unordered_map<IdentityCategory, float>
       m_identity_to_weight_map = {{IdentityCategory::Unknown, 1.0},
-                                  {IdentityCategory::Unauthorized, 1.414},
-                                  {IdentityCategory::Authorized, 1.732}};
+                                  {IdentityCategory::Unauthorized, 1.73},
+                                  {IdentityCategory::Authorized, 3.14}};
   // using second as unit is more user-friendly but impose significant
   // difficulty on implementation. The problem is that there are two FPSes, one
   // from the video feed, which is dynamic; the other from videoWriter, which is
@@ -55,7 +57,7 @@ class MatrixNotifier final
   Utils::VideoRecordingState m_state{Utils::IDLE};
   std::queue<AsyncPayload> m_frames_queue;
 
-  static bool look_for_interesting_detection(const PipelineContext &ctx);
+  bool look_for_roi(const PipelineContext &ctx);
 
   void handle_video(const cv::cuda::GpuMat &frame,
                     [[maybe_unused]] const PipelineContext &ctx,

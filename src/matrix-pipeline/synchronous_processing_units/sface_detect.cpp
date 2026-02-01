@@ -256,8 +256,10 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
     recognition.l2_norm = cv::norm(probe_embedding, cv::NORM_L2);
 
     if (recognition.l2_norm < m_probe_embedding_l2_norm_threshold) {
+      recognition.l2_norm_threshold_passed = false;
       continue;
     }
+    recognition.l2_norm_threshold_passed = true;
 
     cv::normalize(probe_embedding, normalized_probe_embedding, 1, 0,
                   cv::NORM_L2);
@@ -270,7 +272,7 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
 
     // Match against ALL identities (mixed Authorized and Unauthorized)
     for (size_t i = 0; i < m_gallery.size(); ++i) {
-      auto best_cosine_score_for_this_person = DBL_MAX;
+      auto best_cosine_score_for_this_person = DBL_MIN;
 
       for (const auto &normalized_gallery_embedding :
            m_gallery[i].normalized_embeddings) {

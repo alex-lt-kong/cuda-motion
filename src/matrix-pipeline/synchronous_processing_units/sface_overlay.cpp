@@ -67,7 +67,11 @@ SynchronousProcessingResult SFaceOverlay::process(cv::cuda::GpuMat &frame,
     sface_text_to_overlay +=
         fmt::format("{}: {{cos: {:.2f}, L2: {:.1f}}}, ", recognition.identity,
                     recognition.cosine_score, recognition.l2_norm);
-    std::string bounding_box_label_text =
+
+    if (!recognition.l2_norm_threshold_passed)
+      continue;
+
+    const auto bounding_box_label_text =
         recognition.category != IdentityCategory::Unknown
             ? fmt::format("{}", recognition.identity)
             : "?";
