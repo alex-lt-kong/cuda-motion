@@ -39,7 +39,7 @@ target_link_libraries(asynchronous_processing_unit CUDA::nvjpeg
         measure_latency
         yolo_detect
         yolo_prune_detection_results
-        yolo_overlay_bounding_boxes
+        yolo_overlay
         yunet_detect
         yunet_overlay_landmarks
         cuda_helper

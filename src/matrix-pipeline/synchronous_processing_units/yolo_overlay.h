@@ -7,11 +7,11 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-class YoloOverlayBoundingBoxes final : public ISynchronousProcessingUnit {
+class YoloOverlay final : public ISynchronousProcessingUnit {
 public:
-  explicit YoloOverlayBoundingBoxes(const std::string &unit_path)
-      : ISynchronousProcessingUnit(unit_path + "/YoloOverlayBoundingBoxes") {}
-  ~YoloOverlayBoundingBoxes() override = default;
+  explicit YoloOverlay(const std::string &unit_path)
+      : ISynchronousProcessingUnit(unit_path + "/YoloOverlay") {}
+  ~YoloOverlay() override = default;
 
   bool init(const njson &config) override;
 

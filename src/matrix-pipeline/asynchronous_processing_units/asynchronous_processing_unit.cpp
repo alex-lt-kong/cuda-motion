@@ -17,7 +17,7 @@
 #include "../synchronous_processing_units/sface_detect.h"
 #include "../synchronous_processing_units/sface_overlay.h"
 #include "../synchronous_processing_units/yolo_detect.h"
-#include "../synchronous_processing_units/yolo_overlay_bounding_boxes.h"
+#include "../synchronous_processing_units/yolo_overlay.h"
 #include "../synchronous_processing_units/yolo_prune_detection_results.h"
 #include "../synchronous_processing_units/yolo_publish_mqtt.h"
 #include "../synchronous_processing_units/yunet_detect.h"
@@ -67,9 +67,8 @@ bool AsynchronousProcessingUnit::init(const njson &config) {
         ptr = std::make_unique<SfaceDetect>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::yuNetOverlayLandmarks") {
         ptr = std::make_unique<YuNetOverlayLandmarks>(m_unit_path);
-      } else if (type ==
-                 "SynchronousProcessingUnit::yoloOverlayBoundingBoxes") {
-        ptr = std::make_unique<YoloOverlayBoundingBoxes>(m_unit_path);
+      } else if (type == "SynchronousProcessingUnit::yoloOverlay") {
+        ptr = std::make_unique<YoloOverlay>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::autoZoom") {
         ptr = std::make_unique<AutoZoom>(m_unit_path);
       } else if (type == "SynchronousProcessingUnit::yoloPublishMqtt") {

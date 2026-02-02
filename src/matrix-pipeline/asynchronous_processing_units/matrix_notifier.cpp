@@ -6,6 +6,7 @@
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
+#include <absl/strings/internal/resize_uninitialized.h>
 #include <chrono>
 #include <future>
 #include <string>
@@ -13,28 +14,31 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-bool MatrixNotifier::look_for_roi(const PipelineContext &ctx) {
+RoiLookupResult MatrixNotifier::look_for_roi(const PipelineContext &ctx) const {
 
-  if (std::ranges::any_of(ctx.yolo.indices, [&](auto idx) {
-        return ctx.yolo.is_detection_interesting[idx];
-      })) {
-    return true;
-  }
-
-  if (m_enable_identity_based_roi_classification) {
-    if (std::ranges::any_of(ctx.yunet_sface.results, [&](const auto &result) {
-          if (result.recognition.l2_norm_threshold_passed)
-            return false;
-          if (m_mark_authorized_identity_as_not_interesting &&
-              result.recognition.category == IdentityCategory::Authorized)
-            return false;
-          return true;
+  if (m_enable_yolo_roi) {
+    if (std::ranges::any_of(ctx.yolo.indices, [&](auto idx) {
+          return ctx.yolo.is_detection_interesting[idx];
         })) {
-      return true;
+      // SPDLOG_INFO("m_enable_yolo_roi::Found");
+      return Found;
     }
   }
+  if (m_enable_sface_roi) {
+    for (const auto &[detection, recognition] : ctx.yunet_sface.results) {
+      if (!recognition.l2_norm_threshold_crossed ||
+          !recognition.cosine_score_threshold_crossed)
+        continue;
 
-  return false;
+      if (m_sface_mark_authorized_identity_as_not_interesting &&
+          recognition.category == IdentityCategory::Authorized)
+        return Suppress;
+      // SPDLOG_INFO("m_enable_sface_roi::Found");
+      return Found;
+    }
+  }
+  // SPDLOG_INFO("NotFound");
+  return NotFound;
 }
 
 std::optional<std::string>
@@ -129,7 +133,7 @@ void MatrixNotifier::finalize_video_then_send_out(
   const auto video_duration_ms = static_cast<long>(
       This->m_current_video_frame_count * 1000.0 / This->m_fps);
   const auto send_video_start_at = steady_clock::now();
-  int frames_to_remove = This->m_detections_gap_tolerance_frames -
+  int frames_to_remove = This->m_roi_gap_tolerance_frames -
                          This->m_video_postcapture_frames -
                          This->m_video_precapture_frames;
   if (frames_to_remove < 0)
@@ -169,7 +173,7 @@ void MatrixNotifier::finalize_video_then_send_out(
 
 void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
                                   [[maybe_unused]] const PipelineContext &ctx,
-                                  const bool is_detection_interesting) {
+                                  const RoiLookupResult roi_flag) {
   using namespace std::chrono;
 
   m_frames_queue.push({frame, ctx});
@@ -178,12 +182,12 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
     m_frames_queue.pop();
   }
 
-  // is_frame_changing and is_detection_interesting rely on the current frame
+  // is_frame_changing and roi_flag rely on the current frame
   // const auto is_frame_changing = ctx.change_rate >=
   // m_activation_min_frame_change_rate;
-  if ((!is_detection_interesting ||
-       ctx.change_rate < m_activation_min_frame_change_rate) &&
-      m_state == Utils::VideoRecordingState::IDLE)
+  if (m_state == Utils::VideoRecordingState::IDLE &&
+      (roi_flag != Found ||
+       ctx.change_rate < m_activation_min_frame_change_rate))
     return;
 
   if (m_state == Utils::VideoRecordingState::IDLE) {
@@ -226,25 +230,40 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
   const auto is_max_length_reached_or_program_exiting =
       steady_clock::now() - m_current_video_start_at >= m_video_max_length ||
       ev_flag != 0;
-  const auto is_detection_gap_tolerance_reached =
-      m_current_video_without_detection_frames++ >=
-      m_detections_gap_tolerance_frames;
+  const auto is_roi_gap_tolerance_reached =
+      m_current_video_without_detection_frames++ >= m_roi_gap_tolerance_frames;
 
   if (is_max_length_reached_or_program_exiting ||
-      is_detection_gap_tolerance_reached) {
+      is_roi_gap_tolerance_reached || roi_flag == Suppress) {
 
     m_writer.release();
     SPDLOG_INFO("video stopped, "
                 "is_max_length_reached_or_program_exiting: {}, "
-                "is_detection_gap_tolerance_reached: {}",
+                "is_roi_gap_tolerance_reached: {}, roi_flag == Suppress: {}",
                 is_max_length_reached_or_program_exiting,
-                is_detection_gap_tolerance_reached);
+                is_roi_gap_tolerance_reached, roi_flag == Suppress);
     m_state = Utils::VideoRecordingState::IDLE;
-    // creating a shared_ptr from *this, s.t. the detach()'ed t will never
-    // access *this after *this is deleted.
-    auto self_ptr = shared_from_this();
-    std::thread(finalize_video_then_send_out, m_temp_video_path, self_ptr)
-        .detach();
+    if (roi_flag != Suppress) {
+      // creating a shared_ptr from *this, s.t. the detach()'ed t will never
+      // access *this after *this is deleted.
+      auto self_ptr = shared_from_this();
+      std::thread(finalize_video_then_send_out, m_temp_video_path, self_ptr)
+          .detach();
+    } else {
+      try {
+        if (!std::filesystem::remove(m_temp_video_path)) {
+          SPDLOG_ERROR("std::filesystem::remove({}) returns false",
+                       m_temp_video_path);
+        } else {
+          SPDLOG_INFO("std::filesystem::remove({})'edc video not sent due to "
+                      "ROI suppression",
+                      m_temp_video_path);
+        }
+      } catch (const std::filesystem::filesystem_error &e) {
+        SPDLOG_ERROR("std::filesystem::remove({}) exception, e.what(): {}",
+                     m_temp_video_path, e.what());
+      }
+    }
     return;
   }
   if (const auto roi_score = calculate_roi_score(m_frames_queue.front().ctx);
@@ -256,7 +275,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
   m_writer->write(m_frames_queue.front().frame);
   m_frames_queue.pop();
   ++m_current_video_frame_count;
-  if (is_detection_interesting &&
+  if (roi_flag == Found &&
       ctx.change_rate > m_maintenance_min_frame_change_rate)
     m_current_video_without_detection_frames = 0;
 }
@@ -298,9 +317,9 @@ bool MatrixNotifier::init(const njson &config) {
     SPDLOG_ERROR("Missing matrix credentials");
     return false;
   }
-  m_matrix_homeserver = config["matrixHomeServer"];
-  m_matrix_room_id = config["matrixRoomId"];
-  m_matrix_access_token = config["matrixAccessToken"];
+  m_matrix_homeserver = config.at("matrixHomeServer");
+  m_matrix_room_id = config.at("matrixRoomId");
+  m_matrix_access_token = config.at("matrixAccessToken");
 
   m_video_max_length = std::chrono::seconds(
       config.value("videoMaxLengthInSeconds", m_video_max_length.count()));
@@ -312,34 +331,36 @@ bool MatrixNotifier::init(const njson &config) {
   m_maintenance_min_frame_change_rate = config.value(
       "maintenanceMinFrameChangeRate", m_maintenance_min_frame_change_rate);
   m_fps = config.value("fps", m_fps);
-  m_detections_gap_tolerance_frames = config.value(
-      "detectionsGapToleranceFrames", m_detections_gap_tolerance_frames);
+  m_roi_gap_tolerance_frames =
+      config.value("roiGapToleranceFrames", m_roi_gap_tolerance_frames);
   m_video_precapture_frames =
       config.value("videoPrecaptureFrames", m_video_precapture_frames);
   m_video_postcapture_frames =
       config.value("videoPostcaptureFrames", m_video_postcapture_frames);
-  m_enable_identity_based_roi_classification =
-      config.value("enableIdentityBasedRoiClassification",
-                   m_enable_identity_based_roi_classification);
-  m_mark_authorized_identity_as_not_interesting =
-      config.value("markAuthorizedIdentityAsNotInteresting",
-                   m_mark_authorized_identity_as_not_interesting);
+  m_enable_yolo_roi =
+      config.value("/roi/enableYoloRoi"_json_pointer, m_enable_yolo_roi);
+  m_enable_sface_roi =
+      config.value("/roi/enableSFaceRoi"_json_pointer, m_enable_sface_roi);
+  m_sface_mark_authorized_identity_as_not_interesting = config.value(
+      "/roi/sFaceMarkAuthorizedIdentityAsNotInteresting"_json_pointer,
+      m_sface_mark_authorized_identity_as_not_interesting);
   SPDLOG_INFO("matrix_homeserver: {}, matrix_room_id: {}, matrix_access_token: "
               "{}",
               m_matrix_homeserver, m_matrix_room_id, m_matrix_access_token);
 
   SPDLOG_INFO(
-      "video_max_length(sec): {}, m_detections_gap_tolerance_frames: {}, "
+      "video_max_length(sec): {}, m_roi_gap_tolerance_frames: {}, "
       "video_precapture_frames: {}, video_postcapture_frames: {}, fps: {}, "
       "activation_min_frame_change_rate: {}, "
       "maintenance_min_frame_change_rate: {}, target_quality: {} (0-51, "
-      "lower is better), enable_identity_based_roi_classification: {}, "
-      "mark_authorized_identity_as_not_interesting: {}",
-      m_video_max_length, m_detections_gap_tolerance_frames,
-      m_video_precapture_frames, m_video_postcapture_frames, m_fps,
-      m_activation_min_frame_change_rate, m_maintenance_min_frame_change_rate,
-      m_target_quality, m_enable_identity_based_roi_classification,
-      m_mark_authorized_identity_as_not_interesting);
+      "lower is better)",
+      m_video_max_length, m_roi_gap_tolerance_frames, m_video_precapture_frames,
+      m_video_postcapture_frames, m_fps, m_activation_min_frame_change_rate,
+      m_maintenance_min_frame_change_rate, m_target_quality);
+  SPDLOG_INFO("enable_yolo_roi : {}, enable_sface_roi : {}, "
+              "sface_mark_authorized_identity_as_not_interesting: {}",
+              m_enable_yolo_roi, m_enable_sface_roi,
+              m_sface_mark_authorized_identity_as_not_interesting);
   m_sender = std::make_unique<Utils::MatrixSender>(
       m_matrix_homeserver, m_matrix_access_token, m_matrix_room_id);
   m_gpu_encoder = std::make_unique<Utils::NvJpegEncoder>();
@@ -350,9 +371,8 @@ bool MatrixNotifier::init(const njson &config) {
 
 void MatrixNotifier::on_frame_ready(cv::cuda::GpuMat &frame,
                                     [[maybe_unused]] PipelineContext &ctx) {
-  const auto is_frame_interesting = look_for_roi(ctx);
 
-  handle_video(frame, ctx, is_frame_interesting);
+  handle_video(frame, ctx, look_for_roi(ctx));
 }
 
 } // namespace MatrixPipeline::ProcessingUnit

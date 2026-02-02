@@ -65,4 +65,17 @@ void install_signal_handler(signal_handler_callback cb) {
   }
 }
 
+std::string hybrid_njson_array_dump(const njson &j_array) {
+  if (!j_array.is_array())
+    return j_array.dump();
+
+  std::string out = "[\n";
+  for (size_t i = 0; i < j_array.size(); ++i) {
+    out += fmt::format("  {}{}\n", j_array[i].dump(),
+                       (i < j_array.size() - 1 ? ", " : ""));
+  }
+  out += "]";
+  return out;
+}
+
 } // namespace MatrixPipeline::Utils

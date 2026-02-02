@@ -11,9 +11,14 @@
 
 namespace MatrixPipeline::Utils {
 struct RamVideoBuffer;
-}
+} // namespace MatrixPipeline::Utils
 namespace MatrixPipeline::ProcessingUnit {
-
+enum RoiLookupResult {
+  Found,
+  NotFound,
+  Suppress // Find an ROI that is supposed to suppress the entire video
+};
+using namespace std::chrono_literals;
 class MatrixNotifier final
     : public IAsynchronousProcessingUnit,
       public std::enable_shared_from_this<MatrixNotifier> {
@@ -23,12 +28,13 @@ class MatrixNotifier final
   std::string m_matrix_homeserver;
   std::string m_matrix_room_id;
   std::string m_matrix_access_token;
-  bool m_enable_identity_based_roi_classification{true};
-  bool m_mark_authorized_identity_as_not_interesting{false};
+  bool m_enable_yolo_roi{true};
+  bool m_enable_sface_roi{true};
+  bool m_sface_mark_authorized_identity_as_not_interesting{false};
   double m_activation_min_frame_change_rate{0.1};
   double m_maintenance_min_frame_change_rate{0.01};
   double m_detection_recognition_weight_ratio{3.14};
-  std::chrono::seconds m_video_max_length{60};
+  std::chrono::seconds m_video_max_length{60s};
   static inline std::unordered_map<IdentityCategory, float>
       m_identity_to_weight_map = {{IdentityCategory::Unknown, 1.0},
                                   {IdentityCategory::Unauthorized, 1.73},
@@ -39,13 +45,13 @@ class MatrixNotifier final
   // static. If we want to trim the back of the final video, two FPSes cause
   // confusion
   int m_video_precapture_frames{45};
-  int m_detections_gap_tolerance_frames{120};
+  int m_roi_gap_tolerance_frames{120};
   int m_video_postcapture_frames{45};
 
   std::chrono::time_point<std::chrono::steady_clock> m_current_video_start_at;
   size_t m_current_video_frame_count{0};
   int m_current_video_without_detection_frames{-1};
-  float m_max_roi_score{0.0f};
+  double m_max_roi_score{0.0};
   cv::cuda::GpuMat m_max_roi_score_frame{-1};
   double m_fps{25.0};
   // 0-51, lower is better, effectively acts like CRF.
@@ -57,11 +63,11 @@ class MatrixNotifier final
   Utils::VideoRecordingState m_state{Utils::IDLE};
   std::queue<AsyncPayload> m_frames_queue;
 
-  bool look_for_roi(const PipelineContext &ctx);
+  RoiLookupResult look_for_roi(const PipelineContext &ctx) const;
 
   void handle_video(const cv::cuda::GpuMat &frame,
                     [[maybe_unused]] const PipelineContext &ctx,
-                    bool is_detection_interesting);
+                    RoiLookupResult roi_flag);
 
   double calculate_roi_score(const PipelineContext &ctx) const;
   static void

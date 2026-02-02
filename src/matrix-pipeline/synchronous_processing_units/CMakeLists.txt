@@ -75,11 +75,11 @@ target_link_libraries(collect_stats
         PRIVATE spdlog::spdlog)
 
 
-add_library(yolo_overlay_bounding_boxes
-        yolo_overlay_bounding_boxes.cpp yolo_overlay_bounding_boxes.h
+add_library(yolo_overlay
+        yolo_overlay.cpp yolo_overlay.h
         ../interfaces/i_synchronous_processing_unit.h
 )
-target_link_libraries(yolo_overlay_bounding_boxes
+target_link_libraries(yolo_overlay
         PUBLIC ${OpenCV_LIBS} nlohmann_json::nlohmann_json
         PRIVATE spdlog::spdlog yolo_detect)
 

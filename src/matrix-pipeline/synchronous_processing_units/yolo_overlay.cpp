@@ -1,4 +1,5 @@
-#include "yolo_overlay_bounding_boxes.h"
+#include "yolo_overlay.h"
+#include "../utils/misc.h"
 #include "yolo_detect.h"
 
 #include <fmt/ranges.h>
@@ -11,7 +12,7 @@
 
 namespace MatrixPipeline::ProcessingUnit {
 
-bool YoloOverlayBoundingBoxes::init([[maybe_unused]] const njson &config) {
+bool YoloOverlay::init([[maybe_unused]] const njson &config) {
   m_class_names = config.value("classNames", m_class_names);
   m_label_font_scale = config.value("labelFontScale", m_label_font_scale);
   std::srand(4); // we want deterministic coloring
@@ -20,16 +21,16 @@ bool YoloOverlayBoundingBoxes::init([[maybe_unused]] const njson &config) {
   return true;
 }
 
-SynchronousProcessingResult
-YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
-                                  PipelineContext &ctx) {
+SynchronousProcessingResult YoloOverlay::process(cv::cuda::GpuMat &frame,
+                                                 PipelineContext &ctx) {
   if (frame.empty() || ctx.yolo.indices.empty()) {
+    ctx.text_to_overlay += fmt::format("Yolo: []\n");
     return success_and_continue;
   }
-
   if (!m_scaling_params.has_value())
     m_scaling_params = YoloDetect::get_bounding_box_scale(frame, ctx);
   try {
+    njson detection_jsons;
 
     // Calculate the padding that was added to the model input
 
@@ -47,6 +48,7 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
     // 3. Draw Detections
     // ---------------------------------------------------------
     for (const auto idx : ctx.yolo.indices) {
+      njson detection_json;
       const auto class_id = ctx.yolo.class_ids[idx];
       const auto &orig_box =
           ctx.yolo.bounding_boxes[idx]; // Box in 640x640 space
@@ -65,6 +67,9 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
       std::string label_text = fmt::format(
           "{}{} {:.2f} ", !ctx.yolo.is_detection_interesting[idx] ? "(!)" : "",
           label, conf);
+      detection_json["lbl"] = label;
+      detection_json["conf"] = fmt::format("{:.2f}", conf);
+      detection_json["roi"] = ctx.yolo.is_detection_interesting[idx];
 
       // Determine Color
       cv::Scalar color;
@@ -96,6 +101,7 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
       cv::putText(m_h_overlay_canvas, label_text, cv::Point(drawn_box.x, top),
                   cv::FONT_HERSHEY_SIMPLEX, m_label_font_scale,
                   cv::Scalar(255, 255, 255), 1);
+      detection_jsons.emplace_back(detection_json);
     }
 
     // ---------------------------------------------------------
@@ -114,10 +120,13 @@ YoloOverlayBoundingBoxes::process(cv::cuda::GpuMat &frame,
                         cv::THRESH_BINARY);
     m_d_overlay_canvas.copyTo(frame, d_overlay_mask);
 
+    ctx.text_to_overlay += fmt::format(
+        "Yolo: {}\n", Utils::hybrid_njson_array_dump(detection_jsons));
     return success_and_continue;
 
   } catch (const cv::Exception &e) {
-    SPDLOG_ERROR("YoloOverlayBoundingBoxes OpenCV Error: {}", e.what());
+    ctx.text_to_overlay += fmt::format("Yolo: {}\n", e.what());
+    SPDLOG_ERROR("YoloOverlay OpenCV Error: {}", e.what());
     return failure_and_continue;
   }
 }

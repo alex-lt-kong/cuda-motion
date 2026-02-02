@@ -16,10 +16,11 @@ struct SFaceRecognition {
   cv::Mat embedding; // The 128-d vector
   std::string identity{"Unknown"};
   double cosine_score{std::numeric_limits<double>::quiet_NaN()};
+  bool cosine_score_threshold_crossed{false};
   int matched_idx; // Index in your gallery (optional)
   IdentityCategory category = IdentityCategory::Unknown;
   double l2_norm{std::numeric_limits<double>::quiet_NaN()};
-  bool l2_norm_threshold_passed{false};
+  bool l2_norm_threshold_crossed{false};
 };
 struct YuNetDetection {
   // we need this raw output because cv::FaceRecognizerSF::alignCrop() expects

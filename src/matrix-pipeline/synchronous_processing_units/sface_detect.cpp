@@ -256,10 +256,11 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
     recognition.l2_norm = cv::norm(probe_embedding, cv::NORM_L2);
 
     if (recognition.l2_norm < m_probe_embedding_l2_norm_threshold) {
-      recognition.l2_norm_threshold_passed = false;
+      recognition.l2_norm_threshold_crossed = false;
+      recognition.cosine_score_threshold_crossed = false;
       continue;
     }
-    recognition.l2_norm_threshold_passed = true;
+    recognition.l2_norm_threshold_crossed = true;
 
     cv::normalize(probe_embedding, normalized_probe_embedding, 1, 0,
                   cv::NORM_L2);
@@ -296,6 +297,9 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
       const auto &matched_identity = m_gallery[best_identity_idx];
       recognition.identity = matched_identity.name;
       recognition.category = matched_identity.category;
+      recognition.cosine_score_threshold_crossed = true;
+    } else {
+      recognition.cosine_score_threshold_crossed = false;
     }
     recognition.cosine_score = best_cosine_score;
   }

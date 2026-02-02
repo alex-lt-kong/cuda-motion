@@ -13,7 +13,7 @@ using njson = nlohmann::json;
 class SFaceOverlay : public ISynchronousProcessingUnit {
 public:
   SFaceOverlay(const std::string &unit_path)
-      : ISynchronousProcessingUnit(unit_path + "/YoloOverlayBoundingBoxes") {}
+      : ISynchronousProcessingUnit(unit_path + "/YoloOverlay") {}
   ~SFaceOverlay() override = default;
 
   /**

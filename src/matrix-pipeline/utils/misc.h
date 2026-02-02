@@ -20,6 +20,8 @@ typedef auto (*signal_handler_callback)(int) -> void;
 
 void install_signal_handler(signal_handler_callback cb);
 
+std::string hybrid_njson_array_dump(const njson &j_array);
+
 // a temporary solution, we should not need it after C++23 is fully implemented
 template <typename Duration>
 auto steady_clock_to_system_time(
