@@ -15,15 +15,8 @@
 namespace MatrixPipeline::ProcessingUnit {
 
 RoiLookupResult MatrixNotifier::look_for_roi(const PipelineContext &ctx) const {
-
-  if (m_enable_yolo_roi) {
-    if (std::ranges::any_of(ctx.yolo.indices, [&](auto idx) {
-          return ctx.yolo.is_detection_interesting[idx];
-        })) {
-      // SPDLOG_INFO("m_enable_yolo_roi::Found");
-      return Found;
-    }
-  }
+  // The order cant be switched, we need to check sface roi first, as it can
+  // terminate the rest by returning Suppress;
   if (m_enable_sface_roi) {
     for (const auto &[detection, recognition] : ctx.yunet_sface.results) {
       if (!recognition.l2_norm_threshold_crossed ||
@@ -33,7 +26,14 @@ RoiLookupResult MatrixNotifier::look_for_roi(const PipelineContext &ctx) const {
       if (m_sface_mark_authorized_identity_as_not_interesting &&
           recognition.category == IdentityCategory::Authorized)
         return Suppress;
-      // SPDLOG_INFO("m_enable_sface_roi::Found");
+      return Found;
+    }
+  }
+
+  if (m_enable_yolo_roi) {
+    if (std::ranges::any_of(ctx.yolo.indices, [&](auto idx) {
+          return ctx.yolo.is_detection_interesting[idx];
+        })) {
       return Found;
     }
   }
@@ -210,6 +210,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       m_current_video_start_at = m_frames_queue.front().ctx.capture_timestamp;
       m_current_video_without_detection_frames = 0;
       m_current_video_frame_count = 0;
+      m_current_video_should_be_suppressed = false;
       m_max_roi_score = -1;
       SPDLOG_INFO("Start video recording for matrix message, saved file to "
                   "temp_video_path {}, video_max_length(sec): {}",
@@ -232,18 +233,22 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
       ev_flag != 0;
   const auto is_roi_gap_tolerance_reached =
       m_current_video_without_detection_frames++ >= m_roi_gap_tolerance_frames;
-
+  // We have to store the suppression flag, instead of terminating the video
+  // immediately, as we want to suppress the entire video, not just until now
+  m_current_video_should_be_suppressed |= (roi_flag == Suppress);
   if (is_max_length_reached_or_program_exiting ||
-      is_roi_gap_tolerance_reached || roi_flag == Suppress) {
+      is_roi_gap_tolerance_reached) {
 
     m_writer.release();
     SPDLOG_INFO("video stopped, "
                 "is_max_length_reached_or_program_exiting: {}, "
-                "is_roi_gap_tolerance_reached: {}, roi_flag == Suppress: {}",
+                "is_roi_gap_tolerance_reached: {}, "
+                "m_current_video_should_be_suppressed: {}",
                 is_max_length_reached_or_program_exiting,
-                is_roi_gap_tolerance_reached, roi_flag == Suppress);
+                is_roi_gap_tolerance_reached,
+                m_current_video_should_be_suppressed);
     m_state = Utils::VideoRecordingState::IDLE;
-    if (roi_flag != Suppress) {
+    if (!m_current_video_should_be_suppressed) {
       // creating a shared_ptr from *this, s.t. the detach()'ed t will never
       // access *this after *this is deleted.
       auto self_ptr = shared_from_this();

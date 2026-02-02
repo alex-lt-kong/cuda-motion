@@ -50,6 +50,7 @@ class MatrixNotifier final
 
   std::chrono::time_point<std::chrono::steady_clock> m_current_video_start_at;
   size_t m_current_video_frame_count{0};
+  bool m_current_video_should_be_suppressed{false};
   int m_current_video_without_detection_frames{-1};
   double m_max_roi_score{0.0};
   cv::cuda::GpuMat m_max_roi_score_frame{-1};

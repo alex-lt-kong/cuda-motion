@@ -56,7 +56,7 @@ SynchronousProcessingResult SFaceOverlay::process(cv::cuda::GpuMat &frame,
   for (const auto &[detection, recognition] : ctx.yunet_sface.results) {
 
     njson yunet_json;
-    yunet_json["conf"] = fmt::format("{:.2f}, ", detection.face_score);
+    yunet_json["conf"] = std::round(detection.face_score * 100.0) / 100.0;
     yunet_jsons.emplace_back(yunet_json);
     // Convert Rect2f (float) to Rect (int) for cleaner pixel drawing
     const cv::Rect bounding_box = detection.bounding_box;
@@ -67,8 +67,8 @@ SynchronousProcessingResult SFaceOverlay::process(cv::cuda::GpuMat &frame,
                   m_bounding_box_border_thickness);
     njson sface_json;
     sface_json["ID"] = recognition.identity;
-    sface_json["cos"] = fmt::format("{:.2f}", recognition.cosine_score);
-    sface_json["L2"] = fmt::format("{:.2f}", recognition.l2_norm);
+    sface_json["cos"] = std::round(recognition.cosine_score * 100.0) / 100.0;
+    sface_json["L2"] = std::round(recognition.l2_norm * 100.0) / 100.0;
     sface_jsons.emplace_back(sface_json);
     if (!recognition.l2_norm_threshold_crossed ||
         !recognition.cosine_score_threshold_crossed)
