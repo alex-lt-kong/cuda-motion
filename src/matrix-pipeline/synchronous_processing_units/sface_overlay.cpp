@@ -88,25 +88,31 @@ SynchronousProcessingResult SFaceOverlay::process(cv::cuda::GpuMat &frame,
 
     const auto label_x = bounding_box.x;
     int label_y = 0;
-    const int margin = 5;
 
-    // 1. Calculate the Y position if we were to place it ABOVE the face
-    //    (We want the bottom of the text to be 'margin' pixels above the box)
-    int y_above = bounding_box.y - margin;
+    // SAFETY MARGIN: 5px padding + the thickness of the face border + the text
+    // tail size This ensures the green box's bottom edge barely touches the top
+    // of the face border
+    int margin_above = 5 + m_bounding_box_border_thickness + baseLine;
 
-    // 2. Check if the top of the text (y_above - height) would go off-screen (<
-    // 0)
+    // 1. Try placing ABOVE the face
+    // We subtract 'margin_above' to lift the baseline high enough so the
+    // descenders don't touch
+    int y_above = bounding_box.y - margin_above;
+
+    // Check if the TOP of the green box (y_above - height) stays on screen
     bool fits_above = (y_above - label_size.height) >= 0;
 
     if (fits_above) {
-      // Standard: Place above
-      label_y = y_above;
+      // Option A: Place Above
+      // We use the calculated y_above which already accounts for the
+      // baseline/tails
+      label_y = bounding_box.y - 5 - m_bounding_box_border_thickness - baseLine;
     } else {
-      // Fallback: Place BELOW the face
-      // We calculate the baseline such that the top of the text starts after
-      // the box math: (FaceBottom) + (Margin) + (TextHeight)
-      label_y =
-          (bounding_box.y + bounding_box.height) + margin + label_size.height;
+      // Option B: Place Below
+      // Calculate position so the TOP of the text box starts below the face
+      // Face Bottom + Border + 5px Margin + Text Height
+      label_y = (bounding_box.y + bounding_box.height) +
+                m_bounding_box_border_thickness + 5 + label_size.height;
     }
 
     // Draw label background box
