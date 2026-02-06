@@ -272,7 +272,7 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
     return;
   }
   if (const auto roi_score = calculate_roi_score(m_frames_queue.front().ctx);
-      roi_score > m_max_roi_score) {
+      roi_score >= m_max_roi_score /* must be >=, not >*/) {
     m_max_roi_score_frame = m_frames_queue.front().frame;
     m_max_roi_score = roi_score;
   }
@@ -288,30 +288,36 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
 double MatrixNotifier::calculate_roi_score(const PipelineContext &ctx) const {
   const auto &yolo = ctx.yolo;
   double roi_value = 0.0;
-  for (const auto idx : yolo.indices) {
 
-    if (yolo.class_ids[idx] == 0 && yolo.is_detection_interesting[idx]) {
-      const auto normalized_area =
-          static_cast<double>(yolo.bounding_boxes[idx].area()) /
-          yolo.inference_input_size.area();
-      roi_value += normalized_area * yolo.confidences[idx] *
-                   pow(yolo.indices.size(), 0.5);
+  if (m_enable_yolo_roi) {
+    for (const auto idx : yolo.indices) {
+
+      if (yolo.class_ids[idx] == 0 && yolo.is_detection_interesting[idx]) {
+        const auto normalized_area =
+            static_cast<double>(yolo.bounding_boxes[idx].area()) /
+            yolo.inference_input_size.area();
+        roi_value += normalized_area * yolo.confidences[idx] *
+                     pow(yolo.indices.size(), 0.5);
+      }
     }
   }
 
-  for (const auto &[detection, recognition] : ctx.yunet_sface.results) {
+  if (m_enable_sface_roi) {
+    for (const auto &[detection, recognition] : ctx.yunet_sface.results) {
 
-    const auto normalized_area =
-        detection.bounding_box.area() /
-        static_cast<float>(ctx.yunet_sface.yunet_input_frame_size.area());
-    if (std::isnan(recognition.cosine_score))
-      continue;
+      const auto normalized_area =
+          detection.bounding_box.area() /
+          static_cast<float>(ctx.yunet_sface.yunet_input_frame_size.area());
+      if (std::isnan(recognition.cosine_score))
+        continue;
 
-    roi_value += normalized_area * recognition.cosine_score *
-                 m_identity_to_weight_map.at(recognition.category) *
-                 m_detection_recognition_weight_ratio *
-                 pow(ctx.yunet_sface.results.size(), 0.5);
+      roi_value += normalized_area * recognition.cosine_score *
+                   m_identity_to_weight_map.at(recognition.category) *
+                   m_detection_recognition_weight_ratio *
+                   pow(ctx.yunet_sface.results.size(), 0.5);
+    }
   }
+
   return roi_value;
 }
 
