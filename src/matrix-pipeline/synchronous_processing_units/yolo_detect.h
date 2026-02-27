@@ -39,6 +39,7 @@ private:
   cv::cuda::GpuMat m_resized_gpu, m_resized_gpu_buffer;
   cv::cuda::GpuMat m_normalized_gpu;
   cv::cuda::GpuMat m_rgb;
+  std::vector<cv::cuda::GpuMat> m_channels;
 
   // Non-TRT-related
   cv::Size m_model_input_size = {640, 640}; // Default YOLO size

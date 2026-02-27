@@ -279,20 +279,19 @@ SynchronousProcessingResult YoloDetect::process(cv::cuda::GpuMat &frame,
 
     // 4. HWC -> NCHW Conversion， We split the interleaved Mat into 3 separate
     // planes (R, G, B)
-    std::vector<cv::cuda::GpuMat> channels;
-    cv::cuda::split(m_normalized_gpu, channels, m_cv_stream);
+
+    cv::cuda::split(m_normalized_gpu, m_channels, m_cv_stream);
 
     for (int i = 0; i < 3; ++i) {
       // We use cudaMemcpy2DAsync because GpuMat rows might be padded (step !=
       // width)
       cudaMemcpy2DAsync(
-          m_input_buffer_gpu.get() +
-              (i *
-               m_model_input_size.area()), // Dest: Offset for R, G, or B plane
+          // Dest: Offset for R, G, or B plane
+          m_input_buffer_gpu.get() + i * m_model_input_size.area(),
           m_model_input_size.width *
-              sizeof(float), // Dest Pitch (Linear, so equal to width)
-          channels[i].data,  // Src: Ptr to GpuMat data
-          channels[i].step,  // Src Pitch: GpuMat step (padding)
+              sizeof(float),  // Dest Pitch (Linear, so equal to width)
+          m_channels[i].data, // Src: Ptr to GpuMat data
+          m_channels[i].step, // Src Pitch: GpuMat step (padding)
           m_model_input_size.width * sizeof(float), // Width in bytes to copy
           m_model_input_size.height,                // Height (rows)
           cudaMemcpyDeviceToDevice, m_cuda_stream);

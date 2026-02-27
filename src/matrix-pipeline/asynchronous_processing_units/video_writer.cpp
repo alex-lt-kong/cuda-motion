@@ -14,7 +14,8 @@ VideoWriter::VideoWriter(const std::string &unit_path)
 
 VideoWriter::~VideoWriter() {
   if (m_writer) {
-    m_writer.release();
+    m_writer->release(); // 1. Flush NVENC & free pinned host memory
+    m_writer.release();  // 2. Decrement ref count and destroy the smart pointer
     SPDLOG_INFO("GPU Video writer released in destructor.");
   }
 }
@@ -58,6 +59,8 @@ void VideoWriter::on_frame_ready(cv::cuda::GpuMat &frame,
     // 1. Maintain Pre-Roll Buffer
     if (m_config.m_pre_record_frames > 0) {
       // Just push 'frame'. GpuMat acts like a shared_ptr/ref-counted object.
+      // Gemini 3.1 Pro believe this line is perfectly safe if the frame is NOT
+      // re-used, even if it goes out of scope first
       m_pre_roll_buffer.push_back(frame);
 
       // Remove old frames
@@ -126,8 +129,10 @@ void VideoWriter::on_frame_ready(cv::cuda::GpuMat &frame,
 
 bool VideoWriter::start_recording(const cv::Size frame_size,
                                   const PipelineContext &ctx) {
-  if (m_writer)
-    m_writer.release();
+  if (m_writer) {
+    m_writer->release(); // 1. Flush NVENC & free pinned host memory
+    m_writer.release();  // 2. Decrement ref count and destroy the smart pointer
+  }
   const auto video_path =
       Utils::evaluate_text_template(m_config.m_file_path_template, ctx);
   if (!video_path.has_value()) {
@@ -145,7 +150,8 @@ bool VideoWriter::start_recording(const cv::Size frame_size,
   } catch (const cv::Exception &e) {
     SPDLOG_ERROR("cv::cudacodec::createVideoWriter({}) failed: {}",
                  m_video_path, e.what());
-    m_writer.release();
+    m_writer->release(); // 1. Flush NVENC & free pinned host memory
+    m_writer.release();  // 2. Decrement ref count and destroy the smart pointer
     m_state = Utils::VideoRecordingState::DISABLED;
     SPDLOG_WARN("Disabling videoWriter uni");
     return false;
@@ -155,7 +161,8 @@ bool VideoWriter::start_recording(const cv::Size frame_size,
 
 void VideoWriter::stop_recording() {
   if (m_writer) {
-    m_writer.release();
+    m_writer->release(); // 1. Flush NVENC & free pinned host memory
+    m_writer.release();  // 2. Decrement ref count and destroy the smart pointer
     SPDLOG_INFO("Recording stopped, video written to {}", m_video_path);
   }
   m_record_start_time = {};
