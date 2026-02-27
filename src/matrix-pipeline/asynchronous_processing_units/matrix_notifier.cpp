@@ -223,7 +223,8 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
     } catch (const cv::Exception &e) {
       SPDLOG_ERROR("cv::cudacodec::VideoWriter({}) failed: {}",
                    m_temp_video_path, e.what());
-      m_writer.release();
+      if (m_writer)
+        m_writer.release();
       m_writer = nullptr;
       disable();
       unlink(m_temp_video_path.c_str());
