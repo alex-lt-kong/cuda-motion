@@ -46,7 +46,7 @@ bool VideoWriter::init(const njson &config) {
 
 void VideoWriter::on_frame_ready(cv::cuda::GpuMat &frame,
                                  PipelineContext &ctx) {
-  if (frame.empty() || m_state == Utils::VideoRecordingState::DISABLED)
+  if (frame.empty())
     return;
 
   const double change_rate = ctx.change_rate;
@@ -142,17 +142,19 @@ bool VideoWriter::start_recording(const cv::Size frame_size,
 
   SPDLOG_INFO("cv::cudacodec::createVideoWriter({})ing", m_video_path);
   try {
+    cv::cudacodec::EncoderParams params;
+    params.rateControlMode = cv::cudacodec::ENC_PARAMS_RC_VBR;
+    params.targetQuality = 23;
     m_writer = cv::cudacodec::createVideoWriter(
-        m_video_path, frame_size, cv::cudacodec::Codec::H264,
+        m_video_path, frame_size, cv::cudacodec::Codec::HEVC,
         m_config.m_target_fps, cv::cudacodec::ColorFormat::BGR);
   } catch (const cv::Exception &e) {
     SPDLOG_ERROR("cv::cudacodec::createVideoWriter({}) failed: {}",
                  m_video_path, e.what());
     if (m_writer)
       m_writer.release();
-
-    m_state = Utils::VideoRecordingState::DISABLED;
-    SPDLOG_WARN("Disabling videoWriter uni");
+    SPDLOG_WARN("Disabling videoWriter unit");
+    disable();
     return false;
   }
   return m_writer != nullptr;

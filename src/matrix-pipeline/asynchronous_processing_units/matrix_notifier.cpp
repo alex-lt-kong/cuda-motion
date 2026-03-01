@@ -180,10 +180,11 @@ void MatrixNotifier::handle_video(const cv::cuda::GpuMat &frame,
   while (m_frames_queue.size() >
          static_cast<size_t>(m_video_precapture_frames)) {
     m_frames_queue.pop();
+    /*
     SPDLOG_WARN("m_frames_queue.size() == {} >  "
                 "m_video_precapture_frames({}), m_frames_queue.pop()'ed",
                 m_frames_queue.size(),
-                static_cast<size_t>(m_video_precapture_frames));
+                static_cast<size_t>(m_video_precapture_frames));*/
   }
 
   // is_frame_changing and roi_flag rely on the current frame
