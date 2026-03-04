@@ -1,7 +1,7 @@
 #include "sface_overlay.h"
 #include "../utils/misc.h"
 
-#include <fmt/format.h> // Assuming fmt is available given modern C++ usage, or use std::format
+#include <fmt/format.h>
 #include <opencv2/core/cuda.hpp>
 #include <opencv2/imgproc.hpp>
 #include <spdlog/spdlog.h>

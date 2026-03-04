@@ -92,6 +92,7 @@ bool SfaceDetect::init(const nlohmann::json &config) {
 }
 
 bool SfaceDetect::load_gallery() {
+  m_gallery.clear();
   if (!fs::exists(m_gallery_directory)) {
     SPDLOG_ERROR("gallery_directory does not exist: {}", m_gallery_directory);
     return false;
@@ -268,7 +269,7 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
     // Gemini 3 Pro suggests we to keep the clone()
     recognition.embedding = normalized_probe_embedding.clone();
 
-    auto best_cosine_score = DBL_MIN;
+    auto best_cosine_score = std::numeric_limits<double>::lowest();
     int best_identity_idx = -1;
 
     // Match against ALL identities (mixed Authorized and Unauthorized)

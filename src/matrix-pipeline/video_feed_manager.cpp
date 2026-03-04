@@ -44,6 +44,7 @@ void VideoFeedManager::feed_capture_ev() {
       std::chrono::time_point_cast<std::chrono::milliseconds>(
           std::chrono::steady_clock::now());
   while (ev_flag == 0) {
+    ctx.text_to_overlay = "";
     always_fill_in_frame(frame, ctx);
     handle_video_capture(ctx);
     m_apu.enqueue(frame, ctx);
@@ -168,6 +169,8 @@ void VideoFeedManager::handle_video_capture(
             try {
               self_ptr->vr = cv::cudacodec::createVideoReader(
                   ctx.device_info.uri, {}, params);
+              if (!self_ptr->vr)
+                throw std::runtime_error("!self_ptr->vr");
               self_ptr->vr->set(cv::cudacodec::ColorFormat::BGR);
               SPDLOG_INFO("cv::cudacodec::createVideoReader({}) succeeded",
                           ctx.device_info.uri);

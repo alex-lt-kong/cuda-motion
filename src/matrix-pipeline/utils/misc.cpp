@@ -36,7 +36,7 @@ static void signal_handler(int signum) noexcept {
   sh_callback(signum);
 }
 
-void install_signal_handler(signal_handler_callback cb) {
+void install_signal_handler(const signal_handler_callback cb) {
   static_assert(_NSIG < 99,
                 "signal_handler() can't handle more than 99 signals");
 
@@ -55,10 +55,12 @@ void install_signal_handler(signal_handler_callback cb) {
   due to the issue that if a child process is kill, multiple SIGPIPE will
   be invoked consecutively, breaking the program.  */
   // act.sa_flags = SA_RESETHAND;
-  if (sigaction(SIGINT, &act, 0) + sigaction(SIGABRT, &act, 0) +
-          sigaction(SIGQUIT, &act, 0) + sigaction(SIGTERM, &act, 0) +
-          sigaction(SIGPIPE, &act, 0) + sigaction(SIGCHLD, &act, 0) +
-          sigaction(SIGTRAP, &act, 0) <
+  if (sigaction(SIGINT, &act, nullptr) + sigaction(SIGABRT, &act, nullptr) +
+          sigaction(SIGQUIT, &act, nullptr) +
+          sigaction(SIGTERM, &act, nullptr) +
+          sigaction(SIGPIPE, &act, nullptr) +
+          sigaction(SIGCHLD, &act, nullptr) +
+          sigaction(SIGTRAP, &act, nullptr) <
       0) {
     throw runtime_error("sigaction() called failed: " + to_string(errno) + "(" +
                         strerror(errno) + ")");

@@ -47,9 +47,7 @@ public:
 
   bool init(const njson &config) override {
     try {
-      if (!m_gpu_encoder) {
-        m_gpu_encoder = std::make_unique<Utils::NvJpegEncoder>();
-      }
+      m_gpu_encoder = std::make_unique<Utils::NvJpegEncoder>();
 
       m_ip = config.value("bindAddr", "127.0.0.1");
       m_port = config.value("port", 8080);
@@ -317,7 +315,7 @@ private:
   std::shared_ptr<std::string> m_latest_jpeg_ptr;
   PipelineContext m_last_meta;
 
-  std::unique_ptr<Utils::NvJpegEncoder> m_gpu_encoder;
+  std::unique_ptr<Utils::NvJpegEncoder> m_gpu_encoder{nullptr};
 
   // Streaming State (VLC Support)
   std::mutex m_stream_mutex;
