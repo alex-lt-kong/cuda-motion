@@ -1,5 +1,6 @@
 #include "yunet_detect.h"
 
+#include <opencv2/cudawarping.hpp>
 #include <opencv2/objdetect.hpp>
 
 namespace MatrixPipeline::ProcessingUnit {
@@ -38,11 +39,13 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
 
   ctx.yunet_sface.results.clear();
-  ctx.yunet_sface.yunet_input_frame_size = frame.size();
-  if (m_detector->getInputSize() != frame.size()) {
-    m_detector->setInputSize(frame.size());
+  cv::cuda::GpuMat resized_frame;
+  if (frame.cols != 1920 || frame.rows != 1080) {
+    cv::cuda::resize(frame, resized_frame, cv::Size(1920, 1080));
+  } else {
+    resized_frame = frame; // Zero-copy if it's already perfect
   }
-
+  ctx.yunet_sface.yunet_input_frame_size = frame.size();
   frame.download(m_pinned_buffer);
   // point the cv::Mat directly to the pinned memory
   m_frame_cpu = m_pinned_buffer.createMatHeader();
