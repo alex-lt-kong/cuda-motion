@@ -247,6 +247,7 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
   }
 
   for (auto &[detection, recognition] : ctx.yunet_sface.results) {
+    // TODO: potentially problematic if YuNet has fixed input
     m_sface->alignCrop(m_frame_cpu, detection.yunet_output, m_aligned_face);
     if (m_aligned_face.empty())
       continue;
@@ -274,7 +275,9 @@ SynchronousProcessingResult SfaceDetect::process(cv::cuda::GpuMat &frame,
 
     // Match against ALL identities (mixed Authorized and Unauthorized)
     for (size_t i = 0; i < m_gallery.size(); ++i) {
-      auto best_cosine_score_for_this_person = DBL_MIN;
+      auto best_cosine_score_for_this_person =
+          std::numeric_limits<double>::lowest();
+      ;
 
       for (const auto &normalized_gallery_embedding :
            m_gallery[i].normalized_embeddings) {

@@ -23,9 +23,8 @@ bool YuNetDetect::init(const njson &config) {
 
     // Initialize OpenCV YuNet with an initial dummy size (1,1)
     m_detector = cv::FaceDetectorYN::create(
-        model_path, "", cv::Size(1920, 1080), m_face_score_threshold,
-        m_nms_threshold, m_top_k, cv::dnn::DNN_BACKEND_CUDA,
-        cv::dnn::DNN_TARGET_CUDA);
+        model_path, "", cv::Size(1, 1), m_face_score_threshold, m_nms_threshold,
+        m_top_k, cv::dnn::DNN_BACKEND_CUDA, cv::dnn::DNN_TARGET_CUDA);
 
     SPDLOG_INFO("model_path: {}, score_threshold: {}, top_k: {}", model_path,
                 m_face_score_threshold, m_top_k);
@@ -40,19 +39,17 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
                                                  PipelineContext &ctx) {
 
   ctx.yunet_sface.results.clear();
-  cv::cuda::GpuMat resized_frame;
-  if (frame.cols != 1920 || frame.rows != 1080) {
-    cv::cuda::resize(frame, resized_frame, cv::Size(1920, 1080));
-  } else {
-    resized_frame = frame; // Zero-copy if it's already perfect
+  ctx.yunet_sface.yunet_input_frame_size = frame.size();
+  if (m_detector->getInputSize() != frame.size()) {
+    m_detector->setInputSize(frame.size());
   }
   ctx.yunet_sface.yunet_input_frame_size = frame.size();
   frame.download(m_pinned_buffer);
   // point the cv::Mat directly to the pinned memory
-  m_frame_cpu = m_pinned_buffer.createMatHeader();
+  auto frame_cpu = m_pinned_buffer.createMatHeader();
 
   cv::Mat faces;
-  m_detector->detect(m_frame_cpu, faces);
+  m_detector->detect(frame_cpu, faces);
 
   if (!faces.empty()) {
     for (int i = 0; i < faces.rows; ++i) {
@@ -60,7 +57,7 @@ SynchronousProcessingResult YuNetDetect::process(cv::cuda::GpuMat &frame,
       // The raw output, we need this because cv::FaceRecognizerSF::alignCrop()
       // expects it as an input
       // Gemini 3.1 Pro suspects leaks here without clone()
-      detection.yunet_output = faces.row(i).clone();
+      detection.yunet_output = faces.row(i);
       // [0-3]: Bounding Box (x, y, width, height)
       detection.bounding_box =
           cv::Rect2f(faces.at<float>(i, 0), faces.at<float>(i, 1),

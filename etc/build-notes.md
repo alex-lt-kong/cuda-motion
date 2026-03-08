@@ -254,6 +254,7 @@ export OPENCV_FFMPEG_WRITER_OPTIONS="hw_encoders_any;cuda"
     -D WITH_GSTREAMER=ON \
     -D CUDA_ARCH_BIN="${CUDA_ARCH_BIN}" \
     -D OPENCV_TEST_DATA_PATH=/apps/repos/opencv_extra/testdata \
+    -D OPENCV_IPPICV_URL="file:///apps/repos/" # If you need to bypass ippicv download
     ..
 ```
 
